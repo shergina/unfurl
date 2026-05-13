@@ -1,0 +1,337 @@
+//
+//  SRMenuController.swift
+//  Narcissism
+//
+//  Created by Maria Shergina on 21/06/26.
+//  Copyright (c) 2026 Maria Shergina. All rights reserved.
+//
+
+import Cocoa
+import Combine
+
+
+class NSMenuItemWithClosure: NSMenuItem {
+
+	var actionClosure: () -> ()
+	var cancellables = Set<AnyCancellable>()
+
+	init(title: String, keyEquivalent: String, action: @escaping () -> ()) {
+		self.actionClosure = action
+		super.init(title: title, action: #selector(NSMenuItemWithClosure.action(_:)), keyEquivalent: keyEquivalent)
+		self.target = self
+	}
+
+	required init(coder aDecoder: NSCoder) {
+		fatalError("init(coder:) has not been implemented")
+	}
+
+	@objc func action(_ sender: NSMenuItem) {
+		self.actionClosure()
+	}
+
+	override func copy(with zone: NSZone?) -> Any {
+		let menu = NSMenuItemWithClosure(title: self.title, keyEquivalent: self.keyEquivalent, action: self.actionClosure)
+		menu.state = self.state
+		menu.isEnabled = self.isEnabled
+		menu.isHidden = self.isHidden
+		return menu
+	}
+}
+
+
+@MainActor
+class SRMenuController: NSObject {
+
+	static let sharedInstance = SRMenuController()
+
+	fileprivate let preferences = SRSettings.sharedInstance
+	fileprivate var aboutWindowController: SRAboutWindowController? = nil
+
+
+	fileprivate let showQuitMenuItem = CurrentValueSubject<Bool, Never>(false)
+
+	fileprivate var menu: NSMenu?
+	fileprivate var cancellables = Set<AnyCancellable>()
+
+	override init() {
+		super.init()
+
+		self.menu = self.createMenu()
+	}
+
+	typealias BoolPublisher = AnyPublisher<Bool, Never>
+
+	func createMenuItem(
+		_ title: String,
+		keyEquivalent: String = "",
+		keyEquivalentModifierMask: NSEvent.ModifierFlags = [],
+		checked: BoolPublisher? = nil,
+		enabled: BoolPublisher? = nil,
+		visible: BoolPublisher? = nil,
+		action: (() -> ())? = nil
+	) -> NSMenuItem {
+		let menuItem =
+			NSMenuItemWithClosure(
+				title: NSLocalizedString(title, comment: ""),
+				keyEquivalent: keyEquivalent
+			) {
+				if let action = action {
+					action()
+				}
+			}
+
+		// The status/Dock menu is not the main menu, so a key equivalent here is
+		// only matched while the menu is open - it just displays the glyph. The
+		// shortcut actually fires globally through SRHotKeyController.
+		menuItem.keyEquivalentModifierMask = keyEquivalentModifierMask
+
+		if let checked = checked {
+			checked
+				.sink { [unowned menuItem] in
+					menuItem.state = $0 ? .on : .off
+				}
+				.store(in: &menuItem.cancellables)
+		}
+
+		if let enabled = enabled {
+			enabled
+				.sink { [unowned menuItem] in menuItem.isEnabled = $0 }
+				.store(in: &menuItem.cancellables)
+		}
+
+		if let visible = visible {
+			visible
+				.sink { [unowned menuItem] in
+					menuItem.isHidden = !$0
+					menuItem.isEnabled = $0
+				}
+				.store(in: &menuItem.cancellables)
+		}
+
+		return menuItem;
+	}
+
+	func createMenu() -> NSMenu {
+		let menu = NSMenu(title: "")
+		menu.autoenablesItems = false
+
+		let onCaptureDeviceAvailable = SRCameraService.sharedInstance.onCaptureDeviceAvailable.eraseToAnyPublisher()
+
+		func preferenceAndCameraAvailable(_ preference: Preference<Bool>) -> BoolPublisher {
+			return preference.publisher
+				.combineLatest(onCaptureDeviceAvailable)
+				.map { $0 && $1 }
+				.eraseToAnyPublisher()
+		}
+
+		// Take Photo
+		menu.addItem(self.createMenuItem(
+			"menu.take-photo",
+			keyEquivalent: SRHotKeyController.takePhotoKeyEquivalent,
+			keyEquivalentModifierMask: SRHotKeyController.modifiers,
+			enabled: onCaptureDeviceAvailable
+		) {
+			SRPhotoCaptureService.sharedInstance.capture()
+		})
+
+		menu.addItem(NSMenuItem.separator())
+
+		// Show Camera Panel
+		menu.addItem(self.createMenuItem(
+			"menu.show-camera-panel",
+			keyEquivalent: SRHotKeyController.togglePanelKeyEquivalent,
+			keyEquivalentModifierMask: SRHotKeyController.modifiers,
+			checked: preferenceAndCameraAvailable(self.preferences.cameraPanelPinned),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.cameraPanelPinned.toggle()
+		})
+
+		menu.addItem(NSMenuItem.separator())
+
+		// Show Camera in Status Bar
+		menu.addItem(self.createMenuItem(
+			"menu.show-camera-on-status-bar",
+			checked: preferenceAndCameraAvailable(self.preferences.showCameraOnStatusBar),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.showCameraOnStatusBar.toggle()
+		})
+
+		// Show Camera in Dock Tile
+		menu.addItem(self.createMenuItem(
+			"menu.show-camera-on-dock-tile",
+			checked: preferenceAndCameraAvailable(self.preferences.showCameraOnDockTile),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.showCameraOnDockTile.toggle()
+		})
+
+		// Show Camera Panel on Hover
+		menu.addItem(self.createMenuItem(
+			"menu.show-camera-panel-on-hover",
+			checked: preferenceAndCameraAvailable(self.preferences.showCameraPanelOnHover),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.showCameraPanelOnHover.toggle()
+		})
+
+		// Flip Camera Horizontally
+		menu.addItem(self.createMenuItem(
+			"menu.flip-camera-horizontally",
+			keyEquivalent: SRHotKeyController.toggleMirrorKeyEquivalent,
+			keyEquivalentModifierMask: SRHotKeyController.modifiers,
+			checked: self.preferences.flipCameraHorizontally.publisher,
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.flipCameraHorizontally.toggle()
+		})
+
+		// Ghost Mode — also the escape hatch: a ghosted panel is click-through,
+		// so its own toolbar button can't be reached to turn the mode off.
+		menu.addItem(self.createMenuItem(
+			"menu.ghost-mode",
+			checked: self.preferences.cameraPanelGhostMode.publisher,
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.cameraPanelGhostMode.toggle()
+		})
+
+		menu.addItem(NSMenuItem.separator())
+
+		// Camera (source selection)
+		menu.addItem(self.makeCameraSourceItem())
+
+		menu.addItem(NSMenuItem.separator())
+
+		// Launch at Login
+		menu.addItem(self.createMenuItem(
+			"menu.launch-at-login",
+			checked: self.preferences.launchAtLogin.publisher
+		) {
+			self.preferences.launchAtLogin.toggle()
+		})
+
+		menu.addItem(NSMenuItem.separator())
+
+		// About
+		menu.addItem(self.createMenuItem(
+			"menu.about"
+		) {
+			self.showAboutDialog()
+		})
+
+		menu.addItem(NSMenuItem.separator())
+
+		menu.addItem(self.createMenuItem(
+			"menu.quit",
+			visible: self.showQuitMenuItem.eraseToAnyPublisher()
+		) {
+			NSApplication.shared.terminate(self)
+		})
+
+		return menu
+	}
+
+	/// The "Camera" parent item with a submenu that lists the connected
+	/// devices plus an "Automatic" option. The submenu is rebuilt whenever the
+	/// device list or the user's choice changes; the checkmark follows the
+	/// stored preference (the option the user picked), not the live device.
+	fileprivate func makeCameraSourceItem() -> NSMenuItem {
+		let parent = NSMenuItem(
+			title: NSLocalizedString("menu.camera", comment: ""),
+			action: nil,
+			keyEquivalent: ""
+		)
+		let submenu = NSMenu(title: "")
+		submenu.autoenablesItems = false
+		parent.submenu = submenu
+
+		SRCameraService.sharedInstance.onCaptureDeviceAvailable
+			.sink { [unowned parent] in parent.isEnabled = $0 }
+			.store(in: &self.cancellables)
+
+		SRCameraService.sharedInstance.onDevices
+			.combineLatest(self.preferences.selectedCameraDeviceID.publisher)
+			.sink { [weak self] devices, selectedID in
+				self?.rebuildCameraSubmenu(submenu, devices: devices, selectedID: selectedID)
+			}
+			.store(in: &self.cancellables)
+
+		return parent
+	}
+
+	fileprivate func rebuildCameraSubmenu(_ submenu: NSMenu, devices: [CameraDevice], selectedID: String) {
+		submenu.removeAllItems()
+
+		let automatic = NSMenuItemWithClosure(
+			title: NSLocalizedString("menu.camera.automatic", comment: ""),
+			keyEquivalent: ""
+		) {
+			SRSettings.sharedInstance.selectedCameraDeviceID.value = ""
+		}
+		automatic.state = selectedID.isEmpty ? .on : .off
+		submenu.addItem(automatic)
+
+		if !devices.isEmpty {
+			submenu.addItem(NSMenuItem.separator())
+		}
+
+		for device in devices {
+			let item = NSMenuItemWithClosure(title: device.name, keyEquivalent: "") {
+				SRSettings.sharedInstance.selectedCameraDeviceID.value = device.id
+			}
+			item.state = (device.id == selectedID) ? .on : .off
+			submenu.addItem(item)
+		}
+	}
+
+	func showAboutDialog() {
+		DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + Double(Int64(0.1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
+			if self.aboutWindowController == nil {
+				self.aboutWindowController = SRAboutWindowController(windowNibName: "")
+				self.aboutWindowController!.showWindow(self)
+			}
+			else {
+				self.aboutWindowController?.window!.orderBack(self)
+				self.aboutWindowController?.window!.makeKeyAndOrderFront(self)
+			}
+		})
+	}
+
+	func menuForDock() -> NSMenu {
+		self.showQuitMenuItem.send(false)
+
+		var menu = self.menu!
+
+		menu = menu.copy() as! NSMenu
+
+		var previousItemWasSeparator = true
+		for menuItem in menu.items.reversed() {
+			if menuItem.isHidden {
+				menu.removeItem(menuItem)
+				continue
+			}
+
+			let currentItemIsSeparator = menuItem.isSeparatorItem
+
+			if previousItemWasSeparator && currentItemIsSeparator {
+				menu.removeItem(menuItem)
+			}
+
+			previousItemWasSeparator = currentItemIsSeparator
+		}
+
+		return menu
+	}
+
+	func menuForStatusBar() -> NSMenu {
+		self.showQuitMenuItem.send(true)
+		return self.menu!
+	}
+
+	func menuForToolbar() -> NSMenu {
+		self.showQuitMenuItem.send(true)
+		return self.menu!
+	}
+}

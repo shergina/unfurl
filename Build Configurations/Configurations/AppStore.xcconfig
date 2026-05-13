@@ -1,0 +1,19 @@
+//
+//  AppStore.xcconfig
+//  Narcissism
+//
+//  Created by Maria Shergina on 20/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+
+// Code Signing
+CODE_SIGN_IDENTITY = 3rd Party Mac Developer Application: Maria Shergina (HC3925CA22)
+
+// Other
+ENABLE_NS_ASSERTIONS = NO
+MTL_ENABLE_DEBUG_INFO = NO
+
+// Mac App Store
+GCC_PREPROCESSOR_DEFINITIONS = MAC_APP_STORE $(inherited)
+OTHER_SWIFT_FLAGS = $(inherited) "-D" "MAC_APP_STORE"

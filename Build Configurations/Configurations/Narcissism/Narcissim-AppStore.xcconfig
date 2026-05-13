@@ -1,0 +1,14 @@
+//
+//  AppStore.xcconfig
+//  Narcissism
+//
+//  Created by Maria Shergina on 19/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+#include "Narcissim-Shared.xcconfig"
+
+#include "../AppStore.xcconfig"
+
+
+// PROVISIONING_PROFILE = c8412dd8-8070-4ecd-8fdc-12b0d540bc7c

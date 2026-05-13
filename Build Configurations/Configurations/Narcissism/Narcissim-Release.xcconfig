@@ -1,0 +1,14 @@
+//
+//  Release.xcconfig
+//  Narcissism
+//
+//  Created by Maria Shergina on 19/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+#include "Narcissim-Shared.xcconfig"
+
+#include "../Release.xcconfig"
+
+CODE_SIGN_ENTITLEMENTS =
+

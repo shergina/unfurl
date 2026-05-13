@@ -1,0 +1,15 @@
+//
+//  Release.xcconfig
+//  Narcissism
+//
+//  Created by Maria Shergina on 19/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+
+// Code Signing
+CODE_SIGN_IDENTITY = Developer ID Application: Maria Shergina (HC3925CA22)
+
+// Other
+ENABLE_NS_ASSERTIONS = NO
+MTL_ENABLE_DEBUG_INFO = NO

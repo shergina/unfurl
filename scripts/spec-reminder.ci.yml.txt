@@ -1,0 +1,41 @@
+name: spec-reminder
+
+# Non-blocking reminder: if a PR changes code under a subsystem that owns a
+# spec.md without touching that spec, leave a note. This mirrors the local
+# pre-commit reminder for contributors working through GitHub. It never fails
+# the build; the constitution asks for judgment, not a gate.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check specs alongside code
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          changed=$(git diff --name-only "$base" "$head")
+
+          missing=""
+          for spec in $(git ls-files '*/spec.md'); do
+            dir=${spec%/spec.md}
+            code=$(printf '%s\n' "$changed" | grep -E "^$dir/.*\.(swift|m|h)$" || true)
+            [ -z "$code" ] && continue
+            printf '%s\n' "$changed" | grep -qx "$spec" && continue
+            missing="$missing $dir/spec.md"
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::notice::Code changed under a spec-owning subsystem without a spec update. If behavior/contracts/invariants changed, update:$missing (see .spec/constitution.md)"
+          else
+            echo "No spec drift detected."
+          fi

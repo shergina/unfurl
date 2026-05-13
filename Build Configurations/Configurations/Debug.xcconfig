@@ -1,0 +1,23 @@
+//
+//  Debug.xcconfig
+//  Narcissism
+//
+//  Created by Maria Shergina on 19/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+
+// Code Signing — sign locally for development builds (no specific cert required)
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+
+// Other
+ONLY_ACTIVE_ARCH = YES
+DEBUG_INFORMATION_FORMAT = dwarf
+GCC_DYNAMIC_NO_PIC = NO
+GCC_OPTIMIZATION_LEVEL = 0
+GCC_SYMBOLS_PRIVATE_EXTERN = NO
+MTL_ENABLE_DEBUG_INFO = YES
+GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1 $(inherited)
+SWIFT_OPTIMIZATION_LEVEL = -Onone

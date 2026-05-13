@@ -1,0 +1,30 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "DD322F7527773536F3C3E0211403C3CF25F07248",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "0502AAEB7E9A17821F4729BC19EEB86785D42A9A" : 0,
+    "DD322F7527773536F3C3E0211403C3CF25F07248" : 0
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "299C68A7-582F-442B-A97C-6B39C5682EF9",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "0502AAEB7E9A17821F4729BC19EEB86785D42A9A" : "SignalKit\/",
+    "DD322F7527773536F3C3E0211403C3CF25F07248" : "narcissism\/"
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "Narcissism",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "Narcissism.xcworkspace",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/shergin\/SignalKit.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "0502AAEB7E9A17821F4729BC19EEB86785D42A9A"
+    },
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/shergin\/narcissism.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "DD322F7527773536F3C3E0211403C3CF25F07248"
+    }
+  ]
+}

@@ -1,0 +1,457 @@
+//
+//  SRCameraService.swift
+//  Narcissism
+//
+//  Created by Maria Shergina on 8/17/26.
+//  Copyright (c) 2026 Maria Shergina. All rights reserved.
+//
+
+@preconcurrency import AVFoundation
+import Combine
+
+
+/// What the camera pipeline is doing, for surfaces that need to explain
+/// themselves (the panel placeholder) rather than showing a blank frame.
+enum SRCameraState: Equatable {
+	case idle          // nothing is using the camera yet
+	case unauthorized  // camera access denied or restricted in System Settings
+	case unavailable   // authorized, but no usable capture device
+	case running       // session started, delivering frames
+	case failed(String)
+
+	var isRunning: Bool {
+		if case .running = self { return true }
+		return false
+	}
+}
+
+
+/// A selectable camera, identified by its stable `AVCaptureDevice.uniqueID`.
+struct CameraDevice: Equatable, Sendable {
+	let id: String
+	let name: String
+}
+
+
+/// The camera surface that consumers depend on: device availability, the
+/// explainable state, the selectable device list, and attaching/detaching
+/// preview layers and outputs. Injected through `AppServices` so a test can
+/// substitute a fake without a real camera. The concrete `SRCameraService` is
+/// the only production conformer.
+protocol CameraProviding: AnyObject, Sendable {
+	var onCaptureDeviceAvailable: CurrentValueSubject<Bool, Never> { get }
+	var onState: CurrentValueSubject<SRCameraState, Never> { get }
+
+	/// The cameras currently attached to the machine.
+	var onDevices: CurrentValueSubject<[CameraDevice], Never> { get }
+	/// The `uniqueID` of the device actually in use, or "" for none.
+	var onSelectedDeviceID: CurrentValueSubject<String, Never> { get }
+	/// Switch the active device by `uniqueID`; "" means the system default.
+	func selectDevice(id: String)
+
+	@discardableResult func attachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Error>
+	@discardableResult func detachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never>
+	@discardableResult func attachOutput(_ output: AVCaptureOutput) -> Task<Void, Error>
+	@discardableResult func detachOutput(_ output: AVCaptureOutput) -> Task<Void, Never>
+}
+
+
+/// Queue-confined by design: all mutable state (`session`, `captureDevice`,
+/// `attachedObjects`) is only touched on `sessionQueue`; the subjects publish
+/// on the main queue. `@unchecked Sendable` documents that discipline rather
+/// than adding locks.
+final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
+	static let sharedInstance = SRCameraService()
+
+	fileprivate var cancellables = Set<AnyCancellable>()
+	fileprivate var captureDeviceCancellable: AnyCancellable?
+
+    fileprivate var session: AVCaptureSession!
+	fileprivate var captureDeviceInput: AVCaptureDeviceInput?
+
+	// The device the user asked for ("" = system default). Mirrors the
+	// selectedCameraDeviceID preference, wired by the composition root.
+	// Touched only on `sessionQueue`.
+	fileprivate var desiredDeviceID: String = ""
+
+
+    fileprivate let sessionQueue: DispatchQueue = DispatchQueue(label: "narcissism.camera")
+
+	fileprivate let attachedObjects: NSHashTable<AnyObject> = NSHashTable.weakObjects()
+
+	let onCaptureDeviceAvailable = CurrentValueSubject<Bool, Never>(false)
+	let onDevices = CurrentValueSubject<[CameraDevice], Never>([])
+	let onSelectedDeviceID = CurrentValueSubject<String, Never>("")
+
+	/// The observable, human-explainable state of the pipeline. Errors that
+	/// used to be swallowed (setup throws, runtime notifications, denied
+	/// authorization) land here instead.
+	let onState = CurrentValueSubject<SRCameraState, Never>(.idle)
+
+	fileprivate let onCaptureSessionRuntimeError = NotificationCenter.default.publisher(for: AVCaptureSession.runtimeErrorNotification)
+
+	override init() {
+        super.init()
+
+		// Ask for camera access up front. Without this the capture session
+		// runs but never receives frames (authorization stays notDetermined),
+		// so the camera views only ever show the placeholder.
+		self.requestCameraAccessIfNeeded { [weak self] authorized in
+			guard let self else { return }
+			if !authorized {
+				self.setState(.unauthorized)
+			}
+
+			// Resolve the device once access is decided; availability then
+			// reflects real hardware presence and the menu items enable. The
+			// composition root then pushes the persisted selection.
+			self.sessionQueue.async {
+				self.applyDesiredDevice()
+				if authorized && self.captureDevice == nil {
+					self.updateStateIfIdle(.unavailable)
+				}
+			}
+		}
+
+		self.onCaptureSessionRuntimeError
+			.sink { [weak self] notification in
+				let error = notification.userInfo?[AVCaptureSessionErrorKey] as? Error
+				NSLog("SRCameraService runtime error: %@", error?.localizedDescription ?? "unknown")
+				self?.setState(.failed(error?.localizedDescription ?? NSLocalizedString("camera.error.runtime", comment: "")))
+			}
+			.store(in: &self.cancellables)
+
+		// Keep the device list current across hot-plug (external webcams,
+		// Continuity Camera). A (dis)connect may also make the desired device
+		// (re)appear or vanish, so re-resolve the active device on each change.
+		Publishers.Merge(
+			NotificationCenter.default.publisher(for: .AVCaptureDeviceWasConnected),
+			NotificationCenter.default.publisher(for: .AVCaptureDeviceWasDisconnected)
+		)
+		.sink { [weak self] _ in
+			self?.refreshDevices()
+			self?.sessionQueue.async { self?.applyDesiredDevice() }
+		}
+		.store(in: &self.cancellables)
+
+		self.refreshDevices()
+    }
+
+	//: ## Device enumeration and selection
+
+	fileprivate func discoveredDevices() -> [AVCaptureDevice] {
+		return AVCaptureDevice.DiscoverySession(
+			deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera, .deskViewCamera],
+			mediaType: .video,
+			position: .unspecified
+		).devices
+	}
+
+	fileprivate func refreshDevices() {
+		let devices = self.discoveredDevices().map { CameraDevice(id: $0.uniqueID, name: $0.localizedName) }
+		DispatchQueue.main.async { self.onDevices.send(devices) }
+	}
+
+	/// Resolves the desired id to a device: the exact match if present,
+	/// otherwise the system default.
+	fileprivate func resolveDevice(id: String) -> AVCaptureDevice? {
+		if !id.isEmpty, let device = self.discoveredDevices().first(where: { $0.uniqueID == id }) {
+			return device
+		}
+		return AVCaptureDevice.default(for: .video)
+	}
+
+	func selectDevice(id: String) {
+		self.sessionQueue.async {
+			self.desiredDeviceID = id
+			self.applyDesiredDevice()
+		}
+	}
+
+	/// On the session queue: point the capture at whatever `desiredDeviceID`
+	/// now resolves to, swapping the running session's input if needed.
+	fileprivate func applyDesiredDevice() {
+		let device = self.resolveDevice(id: self.desiredDeviceID)
+		if device === self.captureDevice {
+			return
+		}
+
+		self.captureDevice = device
+
+		if let session = self.session, let device = device {
+			session.beginConfiguration()
+			if let oldInput = self.captureDeviceInput {
+				session.removeInput(oldInput)
+				self.captureDeviceInput = nil
+			}
+			if let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) {
+				session.addInput(input)
+				self.captureDeviceInput = input
+				if session.canSetSessionPreset(.hd1920x1080) {
+					session.sessionPreset = .hd1920x1080
+				}
+			}
+			session.commitConfiguration()
+		}
+
+		let activeID = device?.uniqueID ?? ""
+		DispatchQueue.main.async { self.onSelectedDeviceID.send(activeID) }
+	}
+
+	/// `onState` is UI-facing, so it always publishes on the main queue -
+	/// its subscribers touch main-actor state. Senders may be on the session
+	/// queue, the auth callback, or a notification thread.
+	fileprivate func setState(_ newState: SRCameraState) {
+		if Thread.isMainThread {
+			self.onState.send(newState)
+		} else {
+			DispatchQueue.main.async { self.onState.send(newState) }
+		}
+	}
+
+	/// Only overwrites transient/idle states, so a hard `.unauthorized` or
+	/// `.failed` is not clobbered by a later `.unavailable`/`.idle`.
+	fileprivate func updateStateIfIdle(_ newState: SRCameraState) {
+		DispatchQueue.main.async {
+			switch self.onState.value {
+			case .idle, .unavailable, .running:
+				self.onState.send(newState)
+			case .unauthorized, .failed:
+				break
+			}
+		}
+	}
+
+	fileprivate func requestCameraAccessIfNeeded(_ completion: @escaping @Sendable (_ authorized: Bool) -> Void) {
+		switch AVCaptureDevice.authorizationStatus(for: .video) {
+		case .authorized:
+			completion(true)
+		case .notDetermined:
+			AVCaptureDevice.requestAccess(for: .video) { granted in
+				completion(granted)
+			}
+		default:
+			// Denied or restricted.
+			completion(false)
+		}
+	}
+
+    deinit {
+    }
+
+    var captureDevice: AVCaptureDevice? {
+        willSet {
+			self.captureDeviceCancellable?.cancel()
+			self.captureDeviceCancellable = nil
+        }
+
+        didSet {
+            if let captureDevice = self.captureDevice {
+				self.captureDeviceCancellable = captureDevice.publisher(for: \.isSuspended, options: [.initial, .new])
+					.map { !$0 }
+					.removeDuplicates()
+					.receive(on: DispatchQueue.main)  // subscribers drive AppKit
+					.sink { [weak self] in self?.onCaptureDeviceAvailable.send($0) }
+            }
+        }
+    }
+
+    //: ## Session related stuff
+
+	fileprivate func createCaptureSession() async throws {
+		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+			self.sessionQueue.async {
+				if self.session != nil {
+					continuation.resume()
+					return
+				}
+
+				let session = AVCaptureSession()
+				session.beginConfiguration()
+				session.sessionPreset = .high
+
+				do {
+					guard let device = self.captureDevice else {
+						continuation.resume(throwing: SRCameraError.noDevice)
+						return
+					}
+					let captureDeviceInput = try AVCaptureDeviceInput(device: device)
+					guard session.canAddInput(captureDeviceInput) else {
+						continuation.resume(throwing: SRCameraError.cannotAddInput)
+						return
+					}
+					session.addInput(captureDeviceInput)
+					self.captureDeviceInput = captureDeviceInput
+				} catch {
+					continuation.resume(throwing: error)
+					return
+				}
+
+				// Pin 1080p rather than staying on .high: the generic preset
+				// sometimes negotiates the camera's square 1552x1552 format,
+				// which a landscape surface then center-crops and upscales -
+				// visibly soft. 1920x1080 is this hardware's best landscape
+				// format. (Checked after addInput so the device is considered.)
+				if session.canSetSessionPreset(.hd1920x1080) {
+					session.sessionPreset = .hd1920x1080
+				}
+
+				// Note: no outputs are added here. The photo output is attached
+				// lazily by SRPhotoCaptureService (adding an AVCapturePhotoOutput
+				// during initial session configuration blanks the video preview
+				// on current macOS), and the dock tile attaches its own video
+				// data output via attachOutput.
+
+				session.commitConfiguration()
+				session.startRunning()
+
+				self.session = session
+
+				self.updateStateIfIdle(.running)
+
+				continuation.resume()
+			}
+		}
+	}
+
+	fileprivate func createCaptureSessionIfNeeded() async throws {
+		if self.session == nil {
+			try await self.createCaptureSession()
+		}
+	}
+
+	fileprivate func destroyCaptureSession() async {
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			self.sessionQueue.async {
+				if self.session != nil {
+					if self.session.isRunning {
+						self.session.stopRunning()
+					}
+					self.session = nil
+					self.captureDeviceInput = nil
+
+					self.updateStateIfIdle(.idle)
+				}
+
+				continuation.resume()
+			}
+		}
+	}
+
+    //: # Public methods
+
+	fileprivate func attachObject(_ object: UncheckedSendable<AnyObject>) async throws {
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			self.sessionQueue.async {
+				self.attachedObjects.add(object.value)
+				continuation.resume()
+			}
+		}
+		do {
+			try await self.createCaptureSessionIfNeeded()
+		} catch {
+			// Every attach flows through here, so this is the one place setup
+			// failures need to be surfaced - the callers discard the Task.
+			let message = (error as? SRCameraError)?.localizedDescription ?? error.localizedDescription
+			self.updateStateIfIdle(.failed(message))
+			NSLog("SRCameraService setup error: %@", message)
+			throw error
+		}
+	}
+
+	fileprivate func detachObject(_ object: UncheckedSendable<AnyObject>) async {
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			self.sessionQueue.async {
+				self.attachedObjects.remove(object.value)
+				continuation.resume()
+			}
+		}
+		if self.attachedObjects.count == 0 {
+			await self.destroyCaptureSession()
+		}
+	}
+
+	// Attaching PreviewLayer's
+    @discardableResult
+    func attachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Error> {
+		let layer = UncheckedSendable(value: layer)
+		return Task { [weak self] in
+			guard let self else { return }
+			try await self.attachObject(UncheckedSendable(value: layer.value))
+			self.sessionQueue.sync {
+				layer.value.session = self.session
+			}
+		}
+    }
+
+    @discardableResult
+    func detachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never> {
+		let layer = UncheckedSendable(value: layer)
+		return Task { [weak self] in
+			guard let self else { return }
+			await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+				self.sessionQueue.async {
+					layer.value.session = nil
+					c.resume()
+				}
+			}
+			await self.detachObject(UncheckedSendable(value: layer.value))
+		}
+	}
+
+	// Attaching AVCaptureOutput's
+	@discardableResult
+	func attachOutput(_ output: AVCaptureOutput) -> Task<Void, Error> {
+		let output = UncheckedSendable(value: output)
+		return Task { [weak self] in
+			guard let self else { return }
+			try await self.attachObject(UncheckedSendable(value: output.value))
+			self.sessionQueue.sync {
+				self.session.beginConfiguration()
+				self.session.addOutput(output.value)
+				self.session.commitConfiguration()
+			}
+		}
+	}
+
+	@discardableResult
+	func detachOutput(_ output: AVCaptureOutput) -> Task<Void, Never> {
+		let output = UncheckedSendable(value: output)
+		return Task { [weak self] in
+			guard let self else { return }
+			await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+				self.sessionQueue.async {
+					self.session.beginConfiguration()
+					self.session.removeOutput(output.value)
+					self.session.commitConfiguration()
+					c.resume()
+				}
+			}
+			await self.detachObject(UncheckedSendable(value: output.value))
+		}
+	}
+
+}
+
+
+/// Moves a value the compiler can't prove Sendable across the session-queue
+/// boundary; safety comes from the queue discipline documented on
+/// SRCameraService, not from this wrapper.
+struct UncheckedSendable<T>: @unchecked Sendable {
+	let value: T
+}
+
+
+enum SRCameraError: LocalizedError {
+	case noDevice
+	case cannotAddInput
+
+	var errorDescription: String? {
+		switch self {
+		case .noDevice:
+			return NSLocalizedString("camera.error.no-device", comment: "")
+		case .cannotAddInput:
+			return NSLocalizedString("camera.error.cannot-add-input", comment: "")
+		}
+	}
+}

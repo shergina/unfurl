@@ -1,0 +1,504 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		590696171BD893B30080CEFA /* SRCameraPlaceholerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590696161BD893B30080CEFA /* SRCameraPlaceholerView.swift */; };
+		590A79361B2D592A00269B45 /* SRSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590A79351B2D592A00269B45 /* SRSettings.swift */; };
+		590A79381B2D964500269B45 /* SRPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590A79371B2D964500269B45 /* SRPanel.swift */; };
+		590E350B1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590E350A1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift */; };
+		59133E901B2E21C8004480EA /* SRPanelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */; };
+		592CDBC31BDD908900FFB843 /* SRPhotoCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */; };
+		59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */; };
+		59BC00459BC00459BC004504 /* SRHotKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC00359BC00359BC003503 /* SRHotKeyController.swift */; };
+		592F534B1B37064D00F879FD /* SRMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534A1B37064D00F879FD /* SRMenuController.swift */; };
+		592F534F1B37349600F879FD /* SRDockTileCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534E1B37349600F879FD /* SRDockTileCameraView.swift */; };
+		592F53511B373B9100F879FD /* SRDockTileController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F53501B373B9100F879FD /* SRDockTileController.swift */; };
+		593766D31B3F22C900E52DD2 /* SRCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 593766D21B3F22C900E52DD2 /* SRCameraView.swift */; };
+		593766D51B3F2E7B00E52DD2 /* SRScrollCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 593766D41B3F2E7B00E52DD2 /* SRScrollCameraView.swift */; };
+		594DB64E1B2DEA5300F4708A /* SRPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594DB64D1B2DEA5300F4708A /* SRPanelController.swift */; };
+		594DB6501B2E037F00F4708A /* SRPanelContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594DB64F1B2E037F00F4708A /* SRPanelContentView.swift */; };
+		597793251B859E2E00D89AD0 /* SRStatusItemContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597793241B859E2E00D89AD0 /* SRStatusItemContentView.swift */; };
+		597793271B88E24500D89AD0 /* SRStatusItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597793261B88E24500D89AD0 /* SRStatusItemView.swift */; };
+		598BA23B2FC34A2400DE37EF /* CombineHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598BA23A2FC34A2400DE37EF /* CombineHelpers.swift */; };
+		598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59EF39F31B01EF31008FA796 /* Images.xcassets */; };
+		598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5941BB181B07956200B49D52 /* Localizable.strings */; };
+		598BA2402FC3530100DE37EF /* Grab.aif in Resources */ = {isa = PBXBuildFile; fileRef = 5906A9A81B13B39A0061B33D /* Grab.aif */; };
+		59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */; };
+		59B3BD2E1BD334330031AEEA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B3BD2D1BD334330031AEEA /* main.swift */; };
+		59CF35201B2DD488003418BA /* SRStatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CF351F1B2DD488003418BA /* SRStatusItemController.swift */; };
+		59EAF4E91B7080610024F7A2 /* SRStatusItemIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59EAF4E81B7080610024F7A2 /* SRStatusItemIconView.swift */; };
+		59EAF4EB1B858DA80024F7A2 /* SRStatusItemCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59EAF4EA1B858DA80024F7A2 /* SRStatusItemCameraView.swift */; };
+		A70E8A281BCC6B9C00B517A9 /* SRCameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70E8A271BCC6B9C00B517A9 /* SRCameraService.swift */; };
+		A70E8A321BCEBA1500B517A9 /* SRAboutWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70E8A311BCEBA1500B517A9 /* SRAboutWindowController.swift */; };
+		A70E8A351BCECA4300B517A9 /* SRAboutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */; };
+		A74880381B827375008E21FF /* SRStatusBarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74880371B827375008E21FF /* SRStatusBarButton.swift */; };
+		A7FF0FA11BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */; };
+		59AA0001AA0001AA0001AA01 /* SRMouseWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */; };
+		59AB0001AB0001AB0001AB01 /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AB0001AB0001AB0001AB02 /* AppServices.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		590696161BD893B30080CEFA /* SRCameraPlaceholerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRCameraPlaceholerView.swift; sourceTree = "<group>"; };
+		5906A9A81B13B39A0061B33D /* Grab.aif */ = {isa = PBXFileReference; lastKnownFileType = file; path = Grab.aif; sourceTree = "<group>"; };
+		590A79351B2D592A00269B45 /* SRSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettings.swift; sourceTree = "<group>"; };
+		590A79371B2D964500269B45 /* SRPanel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanel.swift; sourceTree = "<group>"; };
+		590E350A1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRNarcissismApplicationDelegate.swift; sourceTree = "<group>"; };
+		59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelViewController.swift; sourceTree = "<group>"; };
+		592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRPhotoCaptureService.swift; path = Tools/SRPhotoCaptureService.swift; sourceTree = "<group>"; };
+		59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRBackgroundCursor.swift; path = Tools/SRBackgroundCursor.swift; sourceTree = "<group>"; };
+		59BC00359BC00359BC003503 /* SRHotKeyController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRHotKeyController.swift; path = Tools/SRHotKeyController.swift; sourceTree = "<group>"; };
+		592F534A1B37064D00F879FD /* SRMenuController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMenuController.swift; sourceTree = "<group>"; };
+		592F534E1B37349600F879FD /* SRDockTileCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRDockTileCameraView.swift; sourceTree = "<group>"; };
+		592F53501B373B9100F879FD /* SRDockTileController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRDockTileController.swift; sourceTree = "<group>"; };
+		593766D21B3F22C900E52DD2 /* SRCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRCameraView.swift; sourceTree = "<group>"; };
+		593766D41B3F2E7B00E52DD2 /* SRScrollCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRScrollCameraView.swift; sourceTree = "<group>"; };
+		5941BB181B07956200B49D52 /* Localizable.strings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; path = Localizable.strings; sourceTree = "<group>"; };
+		594DB64D1B2DEA5300F4708A /* SRPanelController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelController.swift; sourceTree = "<group>"; };
+		594DB64F1B2E037F00F4708A /* SRPanelContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelContentView.swift; sourceTree = "<group>"; };
+		5951A6B81B1A42AD00C2EFC7 /* Narcissism.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Narcissism.entitlements; sourceTree = "<group>"; };
+		59671AF41BD76A390015E77E /* AppStore.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = AppStore.xcconfig; sourceTree = "<group>"; };
+		597793241B859E2E00D89AD0 /* SRStatusItemContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemContentView.swift; sourceTree = "<group>"; };
+		597793261B88E24500D89AD0 /* SRStatusItemView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemView.swift; sourceTree = "<group>"; };
+		598BA23A2FC34A2400DE37EF /* CombineHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineHelpers.swift; sourceTree = "<group>"; };
+		59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelToolbarView.swift; sourceTree = "<group>"; };
+		59B3BD2D1BD334330031AEEA /* main.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		59CF351F1B2DD488003418BA /* SRStatusItemController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemController.swift; sourceTree = "<group>"; };
+		59E0B4FE1AEE9BA30053075E /* Narcissism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Narcissism.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		59EAF4E81B7080610024F7A2 /* SRStatusItemIconView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemIconView.swift; sourceTree = "<group>"; };
+		59EAF4EA1B858DA80024F7A2 /* SRStatusItemCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemCameraView.swift; sourceTree = "<group>"; };
+		59EDE4741BD61F4600F082B1 /* Project.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Project.xcconfig; sourceTree = "<group>"; };
+		59EDE4771BD61F4600F082B1 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		59EDE4791BD61F4600F082B1 /* Narcissim-AppStore.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = "Narcissim-AppStore.xcconfig"; sourceTree = "<group>"; };
+		59EDE47A1BD61F4600F082B1 /* Narcissim-Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = "Narcissim-Debug.xcconfig"; sourceTree = "<group>"; };
+		59EDE47B1BD61F4600F082B1 /* Narcissim-Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = "Narcissim-Release.xcconfig"; sourceTree = "<group>"; };
+		59EDE47C1BD61F4600F082B1 /* Narcissim-Shared.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = "Narcissim-Shared.xcconfig"; sourceTree = "<group>"; };
+		59EDE4821BD61F4600F082B1 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		59EDE4831BD61F4600F082B1 /* Shared.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		59EF39F31B01EF31008FA796 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		59EF39F41B01EF31008FA796 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A70E8A271BCC6B9C00B517A9 /* SRCameraService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRCameraService.swift; path = Tools/SRCameraService.swift; sourceTree = "<group>"; };
+		A70E8A311BCEBA1500B517A9 /* SRAboutWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRAboutWindowController.swift; path = About/SRAboutWindowController.swift; sourceTree = "<group>"; };
+		A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRAboutViewController.swift; path = About/SRAboutViewController.swift; sourceTree = "<group>"; };
+		A74880371B827375008E21FF /* SRStatusBarButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusBarButton.swift; sourceTree = "<group>"; };
+		A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRLaunchApplicationAtLoginController.swift; path = Tools/SRLaunchApplicationAtLoginController.swift; sourceTree = "<group>"; };
+		59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMouseWatcher.swift; sourceTree = "<group>"; };
+		59AB0001AB0001AB0001AB02 /* AppServices.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppServices.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		59E0B4FB1AEE9BA30053075E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5906A9A71B13B39A0061B33D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5906A9A81B13B39A0061B33D /* Grab.aif */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		5906A9AD1B1443DC0061B33D /* Dock */ = {
+			isa = PBXGroup;
+			children = (
+				592F534E1B37349600F879FD /* SRDockTileCameraView.swift */,
+				592F53501B373B9100F879FD /* SRDockTileController.swift */,
+			);
+			path = Dock;
+			sourceTree = "<group>";
+		};
+		59210C7E1BD8D0970016880F /* Camera */ = {
+			isa = PBXGroup;
+			children = (
+				593766D21B3F22C900E52DD2 /* SRCameraView.swift */,
+				593766D41B3F2E7B00E52DD2 /* SRScrollCameraView.swift */,
+			);
+			name = Camera;
+			sourceTree = "<group>";
+		};
+		593766DF1B3FFE0D00E52DD2 /* Mouse Watcher */ = {
+			isa = PBXGroup;
+			children = (
+				59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */,
+			);
+			path = "Mouse Watcher";
+			sourceTree = "<group>";
+		};
+		5941BB111B0752E500B49D52 /* Menu */ = {
+			isa = PBXGroup;
+			children = (
+				592F534A1B37064D00F879FD /* SRMenuController.swift */,
+			);
+			path = Menu;
+			sourceTree = "<group>";
+		};
+		59BD5CE81BBA7246004215EE /* Content */ = {
+			isa = PBXGroup;
+			children = (
+				590696161BD893B30080CEFA /* SRCameraPlaceholerView.swift */,
+				594DB64F1B2E037F00F4708A /* SRPanelContentView.swift */,
+				59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */,
+			);
+			name = Content;
+			sourceTree = "<group>";
+		};
+		59BD5CE91BBA7327004215EE /* Panel */ = {
+			isa = PBXGroup;
+			children = (
+				594DB64D1B2DEA5300F4708A /* SRPanelController.swift */,
+				590A79371B2D964500269B45 /* SRPanel.swift */,
+				59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */,
+			);
+			name = Panel;
+			sourceTree = "<group>";
+		};
+		59E0B4F51AEE9BA30053075E = {
+			isa = PBXGroup;
+			children = (
+				59EEC2A41BD60BD800C0B15A /* Build Configurations */,
+				59EF39F01B01EF31008FA796 /* Narcissism */,
+				59E0B4FF1AEE9BA30053075E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		59E0B4FF1AEE9BA30053075E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				59E0B4FE1AEE9BA30053075E /* Narcissism.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		59EDE4751BD61F4600F082B1 /* Configurations */ = {
+			isa = PBXGroup;
+			children = (
+				59EDE4781BD61F4600F082B1 /* Narcissism */,
+				59EDE4771BD61F4600F082B1 /* Debug.xcconfig */,
+				59EDE4821BD61F4600F082B1 /* Release.xcconfig */,
+				59EDE4831BD61F4600F082B1 /* Shared.xcconfig */,
+				59671AF41BD76A390015E77E /* AppStore.xcconfig */,
+			);
+			path = Configurations;
+			sourceTree = "<group>";
+		};
+		59EDE4781BD61F4600F082B1 /* Narcissism */ = {
+			isa = PBXGroup;
+			children = (
+				59EDE4791BD61F4600F082B1 /* Narcissim-AppStore.xcconfig */,
+				59EDE47A1BD61F4600F082B1 /* Narcissim-Debug.xcconfig */,
+				59EDE47B1BD61F4600F082B1 /* Narcissim-Release.xcconfig */,
+				59EDE47C1BD61F4600F082B1 /* Narcissim-Shared.xcconfig */,
+			);
+			path = Narcissism;
+			sourceTree = "<group>";
+		};
+		59EEC2A41BD60BD800C0B15A /* Build Configurations */ = {
+			isa = PBXGroup;
+			children = (
+				59EDE4741BD61F4600F082B1 /* Project.xcconfig */,
+				59EDE4751BD61F4600F082B1 /* Configurations */,
+			);
+			path = "Build Configurations";
+			sourceTree = "<group>";
+		};
+		59EF39F01B01EF31008FA796 /* Narcissism */ = {
+			isa = PBXGroup;
+			children = (
+				59EF39F31B01EF31008FA796 /* Images.xcassets */,
+				59EF39F41B01EF31008FA796 /* Info.plist */,
+				5941BB181B07956200B49D52 /* Localizable.strings */,
+				59B3BD2D1BD334330031AEEA /* main.swift */,
+				5951A6B81B1A42AD00C2EFC7 /* Narcissism.entitlements */,
+				5906A9A71B13B39A0061B33D /* Resources */,
+				590E350A1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift */,
+				590A79351B2D592A00269B45 /* SRSettings.swift */,
+				59AB0001AB0001AB0001AB02 /* AppServices.swift */,
+				A74880341B825AC7008E21FF /* Tools */,
+				59EF39F81B01EF31008FA796 /* UI */,
+			);
+			path = Narcissism;
+			sourceTree = "<group>";
+		};
+		59EF39F81B01EF31008FA796 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				A75736BE1BCEDF8D00A72CF5 /* Common */,
+				A70E8A331BCEBA2400B517A9 /* About */,
+				593766DF1B3FFE0D00E52DD2 /* Mouse Watcher */,
+				5906A9AD1B1443DC0061B33D /* Dock */,
+				5941BB111B0752E500B49D52 /* Menu */,
+				59EF39FF1B01EF31008FA796 /* Panel */,
+				59210C7E1BD8D0970016880F /* Camera */,
+				59EF3A171B01EF31008FA796 /* Status Item */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		59EF39FF1B01EF31008FA796 /* Panel */ = {
+			isa = PBXGroup;
+			children = (
+				59BD5CE91BBA7327004215EE /* Panel */,
+				59BD5CE81BBA7246004215EE /* Content */,
+				A70E8A0F1BC438D000B517A9 /* Frame View */,
+			);
+			path = Panel;
+			sourceTree = "<group>";
+		};
+		59EF3A171B01EF31008FA796 /* Status Item */ = {
+			isa = PBXGroup;
+			children = (
+				A74880371B827375008E21FF /* SRStatusBarButton.swift */,
+				59EAF4EA1B858DA80024F7A2 /* SRStatusItemCameraView.swift */,
+				597793241B859E2E00D89AD0 /* SRStatusItemContentView.swift */,
+				59CF351F1B2DD488003418BA /* SRStatusItemController.swift */,
+				59EAF4E81B7080610024F7A2 /* SRStatusItemIconView.swift */,
+				597793261B88E24500D89AD0 /* SRStatusItemView.swift */,
+			);
+			path = "Status Item";
+			sourceTree = "<group>";
+		};
+		A70E8A0F1BC438D000B517A9 /* Frame View */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = "Frame View";
+			sourceTree = "<group>";
+		};
+		A70E8A331BCEBA2400B517A9 /* About */ = {
+			isa = PBXGroup;
+			children = (
+				A70E8A311BCEBA1500B517A9 /* SRAboutWindowController.swift */,
+				A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */,
+			);
+			name = About;
+			sourceTree = "<group>";
+		};
+		A74880341B825AC7008E21FF /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */,
+				A70E8A271BCC6B9C00B517A9 /* SRCameraService.swift */,
+				592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */,
+				598BA23A2FC34A2400DE37EF /* CombineHelpers.swift */,
+				59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */,
+				59BC00359BC00359BC003503 /* SRHotKeyController.swift */,
+			);
+			name = Tools;
+			sourceTree = "<group>";
+		};
+		A75736BE1BCEDF8D00A72CF5 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Common;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		59E0B4FD1AEE9BA30053075E /* Narcissism */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 59E0B51B1AEE9BA30053075E /* Build configuration list for PBXNativeTarget "Narcissism" */;
+			buildPhases = (
+				59E0B4FA1AEE9BA30053075E /* Sources */,
+				59E0B4FB1AEE9BA30053075E /* Frameworks */,
+				598BA23D2FC352DE00DE37EF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Narcissism;
+			productName = Paranoid;
+			productReference = 59E0B4FE1AEE9BA30053075E /* Narcissism.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		59E0B4F61AEE9BA30053075E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftMigration = 0700;
+				LastSwiftUpdateCheck = 0700;
+				LastUpgradeCheck = 1700;
+				ORGANIZATIONNAME = "Maria Shergina";
+				TargetAttributes = {
+					59E0B4FD1AEE9BA30053075E = {
+						CreatedOnToolsVersion = 6.3;
+						DevelopmentTeam = HC3925CA22;
+						LastSwiftMigration = 0830;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.Sandbox = {
+								enabled = 1;
+							};
+						};
+					};
+				};
+			};
+			buildConfigurationList = 59E0B4F91AEE9BA30053075E /* Build configuration list for PBXProject "Narcissism" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				en,
+				Base,
+			);
+			mainGroup = 59E0B4F51AEE9BA30053075E;
+			productRefGroup = 59E0B4FF1AEE9BA30053075E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				59E0B4FD1AEE9BA30053075E /* Narcissism */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		598BA23D2FC352DE00DE37EF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */,
+				598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */,
+				598BA2402FC3530100DE37EF /* Grab.aif in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		59E0B4FA1AEE9BA30053075E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				598BA23B2FC34A2400DE37EF /* CombineHelpers.swift in Sources */,
+				597793271B88E24500D89AD0 /* SRStatusItemView.swift in Sources */,
+				59EAF4E91B7080610024F7A2 /* SRStatusItemIconView.swift in Sources */,
+				590A79381B2D964500269B45 /* SRPanel.swift in Sources */,
+				A74880381B827375008E21FF /* SRStatusBarButton.swift in Sources */,
+				59CF35201B2DD488003418BA /* SRStatusItemController.swift in Sources */,
+				592F53511B373B9100F879FD /* SRDockTileController.swift in Sources */,
+				59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */,
+				592CDBC31BDD908900FFB843 /* SRPhotoCaptureService.swift in Sources */,
+				59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */,
+				59BC00459BC00459BC004504 /* SRHotKeyController.swift in Sources */,
+				A70E8A351BCECA4300B517A9 /* SRAboutViewController.swift in Sources */,
+				590696171BD893B30080CEFA /* SRCameraPlaceholerView.swift in Sources */,
+				590E350B1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift in Sources */,
+				A7FF0FA11BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift in Sources */,
+				A70E8A321BCEBA1500B517A9 /* SRAboutWindowController.swift in Sources */,
+				592F534F1B37349600F879FD /* SRDockTileCameraView.swift in Sources */,
+				593766D51B3F2E7B00E52DD2 /* SRScrollCameraView.swift in Sources */,
+				59AA0001AA0001AA0001AA01 /* SRMouseWatcher.swift in Sources */,
+				594DB64E1B2DEA5300F4708A /* SRPanelController.swift in Sources */,
+				597793251B859E2E00D89AD0 /* SRStatusItemContentView.swift in Sources */,
+				594DB6501B2E037F00F4708A /* SRPanelContentView.swift in Sources */,
+				A70E8A281BCC6B9C00B517A9 /* SRCameraService.swift in Sources */,
+				59EAF4EB1B858DA80024F7A2 /* SRStatusItemCameraView.swift in Sources */,
+				590A79361B2D592A00269B45 /* SRSettings.swift in Sources */,
+				59AB0001AB0001AB0001AB01 /* AppServices.swift in Sources */,
+				59B3BD2E1BD334330031AEEA /* main.swift in Sources */,
+				593766D31B3F22C900E52DD2 /* SRCameraView.swift in Sources */,
+				592F534B1B37064D00F879FD /* SRMenuController.swift in Sources */,
+				59133E901B2E21C8004480EA /* SRPanelViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		59E0B5191AEE9BA30053075E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 59EDE4741BD61F4600F082B1 /* Project.xcconfig */;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		59E0B51A1AEE9BA30053075E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 59EDE4741BD61F4600F082B1 /* Project.xcconfig */;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		59E0B51C1AEE9BA30053075E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 59EDE47A1BD61F4600F082B1 /* Narcissim-Debug.xcconfig */;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		59E0B51D1AEE9BA30053075E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 59EDE47B1BD61F4600F082B1 /* Narcissim-Release.xcconfig */;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		59EEC2AC1BD60C7300C0B15A /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 59EDE4741BD61F4600F082B1 /* Project.xcconfig */;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = AppStore;
+		};
+		59EEC2AD1BD60C7300C0B15A /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 59EDE4791BD61F4600F082B1 /* Narcissim-AppStore.xcconfig */;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				SWIFT_VERSION = 6.0;
+			};
+			name = AppStore;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		59E0B4F91AEE9BA30053075E /* Build configuration list for PBXProject "Narcissism" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59E0B5191AEE9BA30053075E /* Debug */,
+				59E0B51A1AEE9BA30053075E /* Release */,
+				59EEC2AC1BD60C7300C0B15A /* AppStore */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		59E0B51B1AEE9BA30053075E /* Build configuration list for PBXNativeTarget "Narcissism" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59E0B51C1AEE9BA30053075E /* Debug */,
+				59E0B51D1AEE9BA30053075E /* Release */,
+				59EEC2AD1BD60C7300C0B15A /* AppStore */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 59E0B4F61AEE9BA30053075E /* Project object */;
+}

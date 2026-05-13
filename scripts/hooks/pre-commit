@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# Spec reminder: when staged code changes fall under a subsystem that owns a
+# spec.md, and that spec.md is not also staged, remind the author to update it.
+#
+# This is a reminder, not a gate. The constitution asks for a spec update when
+# behavior, contracts, or invariants change - not for every keystroke. It exits
+# 0 so a genuine no-behavior refactor commits cleanly; the judgment is yours.
+#
+# Set SPEC_SKIP=1 to silence it entirely.
+
+[ "$SPEC_SKIP" = "1" ] && exit 0
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+# Every directory that owns a spec.md.
+spec_dirs=$(git ls-files '*/spec.md' | sed 's#/spec.md$##')
+
+missing=""
+for dir in $spec_dirs; do
+	# Code staged under this subsystem?
+	code=$(printf '%s\n' "$staged" | grep -E "^$dir/.*\.(swift|m|h)$" || true)
+	[ -z "$code" ] && continue
+	# Its spec staged too?
+	if printf '%s\n' "$staged" | grep -qx "$dir/spec.md"; then
+		continue
+	fi
+	missing="$missing $dir"
+done
+
+# App-wide spec: any Swift change but .spec/app.spec.md untouched is worth a nudge only
+# when the app spec is clearly relevant (services or the delegate).
+app_touch=$(printf '%s\n' "$staged" | grep -E '^Narcissism/(SR(Settings|Narcissism)|Tools/)' || true)
+if [ -n "$app_touch" ] && ! printf '%s\n' "$staged" | grep -qx ".spec/app.spec.md"; then
+	missing="$missing .spec/app.spec.md(?)"
+fi
+
+[ -z "$missing" ] && exit 0
+
+echo ""
+echo "  spec reminder ------------------------------------------------------"
+echo "  You staged code under a subsystem that owns a spec, but did not stage"
+echo "  the spec. If this change alters behavior, a contract, an invariant, or"
+echo "  a recorded design decision, update the spec in this commit:"
+echo ""
+for dir in $missing; do
+	case "$dir" in
+		*"(?)") echo "    - ${dir%"(?)"}   (review if the app-wide model changed)";;
+		*)      echo "    - $dir/spec.md";;
+	esac
+done
+echo ""
+echo "  Pure no-behavior refactor? Nothing to do. See .spec/constitution.md."
+echo "  Silence: SPEC_SKIP=1 git commit ..."
+echo "  --------------------------------------------------------------------"
+echo ""
+
+exit 0

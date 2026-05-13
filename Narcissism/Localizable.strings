@@ -1,0 +1,49 @@
+/* 
+  Localizable.strings
+  Narcissism
+
+  Created by Maria Shergina on 16/05/26.
+  Copyright (c) 2026 Maria Shergina. All rights reserved.
+*/
+
+// Menu
+"menu.about" = "About Narcissism";
+"menu.take-photo" = "Take Photo";
+"menu.launch-at-login" = "Open at Login";
+"menu.flip-camera-horizontally" = "Mirror mode (Flip Camera Horizontally)";
+"menu.show-camera-panel" = "Show Camera Panel";
+"menu.show-camera-on-status-bar" = "Show Camera in Menu Bar";
+"menu.show-camera-on-dock-tile" = "Show Camera in Dock";
+"menu.show-camera-panel-on-hover" = "Show Camera Panel on Hover";
+"menu.ghost-mode" = "Ghost Mode (Click-Through Panel)";
+"menu.camera" = "Camera";
+"menu.camera.automatic" = "Automatic";
+"menu.check-for-update" = "Check for update...";
+"menu.quit" = "Quit Narcissism";
+
+
+"about.title" = "About Narcissism";
+"about.application.title" = "Narcissism";
+"about.application.subtitle" = "Ultimate Selfie App";
+"about.application.version" = "version: %@, build: %@";
+"about.application.copyright" = "© Maria Shergina, All Right Reserved.";
+
+"notification.photo-was-saved.title" = "You Look Great!";
+"notification.photo-was-saved.subtitle" = "As Always";
+"notification.photo-was-saved.message" = "Photo was saved in Photos folder.";
+"notification.photo-was-saved.button.show" = "Show me";
+"notification.photo-was-saved.button.close" = "I know it";
+
+// Camera state
+"camera.placeholder.unauthorized" = "Narcissism needs access to your camera.";
+"camera.placeholder.open-settings" = "Open System Settings";
+"camera.placeholder.unavailable" = "No camera available.";
+"camera.error.no-device" = "No camera available.";
+"camera.error.cannot-add-input" = "This camera can’t be used right now.";
+"camera.error.runtime" = "The camera stopped unexpectedly.";
+
+// Accessibility
+"accessibility.status-item.label" = "Narcissism";
+"accessibility.status-item.help" = "Shows the camera menu.";
+"accessibility.panel.title" = "Narcissism Camera";
+"accessibility.camera-preview.label" = "Live camera preview";
