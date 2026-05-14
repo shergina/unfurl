@@ -42,7 +42,7 @@
 
 ### Workflow 2: hover reveals the chip
 
-1. `SRPanelContentView` tracks hover with a monitor-based publisher and combines it with `SRCameraService.onState`.
+1. `SRPanelContentView` tracks hover with a tracking-area-backed publisher (`mouseHoverPublisher`) and combines it with `SRCameraService.onState`.
 2. The chip fades in only when hovering over a running feed; otherwise it stays hidden.
 
 ### Workflow 3: camera denied
@@ -98,6 +98,9 @@
 - **Decision**: `.activeAlways` tracking areas.
   - Context: with `.activeInActiveApp`, hover only worked while the app was frontmost, so the chip usually never appeared (the app is an inactive agent and the panel is non-activating).
   - Chosen: `.activeAlways`.
+- **Decision**: install both of `SRPanelContentView`'s tracking areas once, never bulk-remove.
+  - Context: the content view carries two tracking areas over the same rect: the hover area (owned by `mouseHoverPublisher`'s watcher, drives the chip) and the resize-cursor area (owned by the view). Both use `.inVisibleRect`, so AppKit keeps them matched to the view size automatically and neither needs rebuilding on resize. An earlier `updateTrackingAreas()` override rebuilt the resize area with the boilerplate "remove every area, then re-add" recipe, which also tore down the hover area it did not own; the chip then never appeared after the first layout pass.
+  - Chosen: add both areas once in `init` and do not override `updateTrackingAreas()`. A view must remove only tracking areas it owns.
 - **Decision**: hint resizability with a cursor the app sets itself.
   - Context: `.resizable` performs the resize, but a non-key background panel gets no automatic resize cursor, so the affordance was invisible. macOS ignores a background agent's cursor changes unless `SetsCursorInBackground` is enabled (the same private CoreGraphics call the status item uses, factored into `SRBackgroundCursor`, gated on `USE_UNDOCUMENTED_API`).
   - Chosen: an `.activeAlways` tracking area sets the matching edge/corner resize cursor near the border (the content view fills the panel, so its outer points overlap the resize border); diagonal cursors come from the private `NSCursor` selectors with an arrow fallback. With the flag off, the resize still works, just without the cursor hint.

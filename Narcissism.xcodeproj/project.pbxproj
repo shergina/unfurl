@@ -13,8 +13,6 @@
 		590E350B1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590E350A1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift */; };
 		59133E901B2E21C8004480EA /* SRPanelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */; };
 		592CDBC31BDD908900FFB843 /* SRPhotoCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */; };
-		59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */; };
-		59BC00459BC00459BC004504 /* SRHotKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC00359BC00359BC003503 /* SRHotKeyController.swift */; };
 		592F534B1B37064D00F879FD /* SRMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534A1B37064D00F879FD /* SRMenuController.swift */; };
 		592F534F1B37349600F879FD /* SRDockTileCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534E1B37349600F879FD /* SRDockTileCameraView.swift */; };
 		592F53511B373B9100F879FD /* SRDockTileController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F53501B373B9100F879FD /* SRDockTileController.swift */; };
@@ -29,7 +27,11 @@
 		598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5941BB181B07956200B49D52 /* Localizable.strings */; };
 		598BA2402FC3530100DE37EF /* Grab.aif in Resources */ = {isa = PBXBuildFile; fileRef = 5906A9A81B13B39A0061B33D /* Grab.aif */; };
 		59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */; };
+		59AA0001AA0001AA0001AA01 /* SRMouseWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */; };
+		59AB0001AB0001AB0001AB01 /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AB0001AB0001AB0001AB02 /* AppServices.swift */; };
 		59B3BD2E1BD334330031AEEA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B3BD2D1BD334330031AEEA /* main.swift */; };
+		59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */; };
+		59BC00459BC00459BC004504 /* SRHotKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC00359BC00359BC003503 /* SRHotKeyController.swift */; };
 		59CF35201B2DD488003418BA /* SRStatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CF351F1B2DD488003418BA /* SRStatusItemController.swift */; };
 		59EAF4E91B7080610024F7A2 /* SRStatusItemIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59EAF4E81B7080610024F7A2 /* SRStatusItemIconView.swift */; };
 		59EAF4EB1B858DA80024F7A2 /* SRStatusItemCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59EAF4EA1B858DA80024F7A2 /* SRStatusItemCameraView.swift */; };
@@ -38,8 +40,6 @@
 		A70E8A351BCECA4300B517A9 /* SRAboutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */; };
 		A74880381B827375008E21FF /* SRStatusBarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74880371B827375008E21FF /* SRStatusBarButton.swift */; };
 		A7FF0FA11BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */; };
-		59AA0001AA0001AA0001AA01 /* SRMouseWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */; };
-		59AB0001AB0001AB0001AB01 /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AB0001AB0001AB0001AB02 /* AppServices.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,8 +50,6 @@
 		590E350A1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRNarcissismApplicationDelegate.swift; sourceTree = "<group>"; };
 		59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelViewController.swift; sourceTree = "<group>"; };
 		592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRPhotoCaptureService.swift; path = Tools/SRPhotoCaptureService.swift; sourceTree = "<group>"; };
-		59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRBackgroundCursor.swift; path = Tools/SRBackgroundCursor.swift; sourceTree = "<group>"; };
-		59BC00359BC00359BC003503 /* SRHotKeyController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRHotKeyController.swift; path = Tools/SRHotKeyController.swift; sourceTree = "<group>"; };
 		592F534A1B37064D00F879FD /* SRMenuController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMenuController.swift; sourceTree = "<group>"; };
 		592F534E1B37349600F879FD /* SRDockTileCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRDockTileCameraView.swift; sourceTree = "<group>"; };
 		592F53501B373B9100F879FD /* SRDockTileController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRDockTileController.swift; sourceTree = "<group>"; };
@@ -66,7 +64,11 @@
 		597793261B88E24500D89AD0 /* SRStatusItemView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemView.swift; sourceTree = "<group>"; };
 		598BA23A2FC34A2400DE37EF /* CombineHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineHelpers.swift; sourceTree = "<group>"; };
 		59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelToolbarView.swift; sourceTree = "<group>"; };
+		59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMouseWatcher.swift; sourceTree = "<group>"; };
+		59AB0001AB0001AB0001AB02 /* AppServices.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppServices.swift; sourceTree = "<group>"; };
 		59B3BD2D1BD334330031AEEA /* main.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		59BC00159BC00159BC001501 /* SRBackgroundCursor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRBackgroundCursor.swift; path = Tools/SRBackgroundCursor.swift; sourceTree = "<group>"; };
+		59BC00359BC00359BC003503 /* SRHotKeyController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRHotKeyController.swift; path = Tools/SRHotKeyController.swift; sourceTree = "<group>"; };
 		59CF351F1B2DD488003418BA /* SRStatusItemController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemController.swift; sourceTree = "<group>"; };
 		59E0B4FE1AEE9BA30053075E /* Narcissism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Narcissism.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		59EAF4E81B7080610024F7A2 /* SRStatusItemIconView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusItemIconView.swift; sourceTree = "<group>"; };
@@ -86,8 +88,6 @@
 		A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRAboutViewController.swift; path = About/SRAboutViewController.swift; sourceTree = "<group>"; };
 		A74880371B827375008E21FF /* SRStatusBarButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusBarButton.swift; sourceTree = "<group>"; };
 		A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRLaunchApplicationAtLoginController.swift; path = Tools/SRLaunchApplicationAtLoginController.swift; sourceTree = "<group>"; };
-		59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMouseWatcher.swift; sourceTree = "<group>"; };
-		59AB0001AB0001AB0001AB02 /* AppServices.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppServices.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -420,9 +420,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
 		59E0B5191AEE9BA30053075E /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -453,6 +450,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 59EDE47B1BD61F4600F082B1 /* Narcissim-Release.xcconfig */;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				SWIFT_VERSION = 6.0;
 			};

@@ -82,12 +82,12 @@ final class SRSettings {
 	// The selected camera's AVCaptureDevice.uniqueID; "" means system default.
 	let selectedCameraDeviceID: Preference<String>
 
-	static let statusItemWidthRange: ClosedRange<CGFloat> = 32.0...256.0
+    static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 40.0...256.0
 
 	/// `defaults` is injectable so tests can use a scratch suite instead of
 	/// the real domain.
 	init(defaults: UserDefaults = .standard) {
-		self.statusItemWithCameraWidth = Preference("StatusItemWithCameraWidth", default: CGFloat(64.0), defaults: defaults)
+		self.statusItemWithCameraWidth = Preference("StatusItemWithCameraWidth", default: CGFloat(48.0), defaults: defaults)
 		self.flipCameraHorizontally = Preference("FlipCameraHorizontally", default: false, defaults: defaults)
 		self.showCameraOnStatusBar = Preference("ShowCameraOnStatusBar", default: true, defaults: defaults)
 		self.showCameraOnDockTile = Preference("ShowCameraOnDockTile", default: false, defaults: defaults)

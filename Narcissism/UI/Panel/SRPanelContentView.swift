@@ -95,6 +95,20 @@ class SRPanelContentView: NSView {
 			}
 			.store(in: &self.cancellables)
 
+		// Resize-cursor hinting area. `.inVisibleRect` makes AppKit keep this
+		// matched to the view's size automatically, so - like the hover area
+		// installed by `mouseHoverPublisher()` above - it is created once and
+		// never needs rebuilding on resize. We deliberately do not override
+		// `updateTrackingAreas()`: the usual "remove all, re-add" recipe there
+		// would also tear down the hover area (we do not own it), which is what
+		// kept the control chip from ever appearing.
+		self.addTrackingArea(NSTrackingArea(
+			rect: .zero,
+			options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+			owner: self,
+			userInfo: nil
+		))
+
 		// The camera view sits above the placeholder; hide it when there's no
 		// feed so it stops covering the placeholder's message and swallowing
 		// clicks meant for its "Open System Settings" button.
@@ -140,26 +154,12 @@ class SRPanelContentView: NSView {
 	// Resize-cursor hinting.
 	//
 	// The content view fills the panel (fullSizeContentView), so its outermost
-	// points overlap the window's resize border. We track the mouse across the
-	// whole view and, near an edge, set the matching resize cursor. `.set()` on
-	// every move is deliberate: any event can reset the cursor, and continuously
-	// asserting it is the robust way to keep the hint stable for a background,
-	// non-key window. The system still performs the actual resize.
-
-	override func updateTrackingAreas() {
-		super.updateTrackingAreas()
-
-		for trackingArea in self.trackingAreas {
-			self.removeTrackingArea(trackingArea)
-		}
-
-		self.addTrackingArea(NSTrackingArea(
-			rect: self.bounds,
-			options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-			owner: self,
-			userInfo: nil
-		))
-	}
+	// points overlap the window's resize border. The tracking area installed in
+	// init reports movement across the whole view; near an edge we set the
+	// matching resize cursor. `.set()` on every move is deliberate: any event
+	// can reset the cursor, and continuously asserting it is the robust way to
+	// keep the hint stable for a background, non-key window. The system still
+	// performs the actual resize.
 
 	fileprivate func resizeEdge(at point: CGPoint) -> SRPanelResizeEdge {
 		let thickness = self.resizeEdgeThickness

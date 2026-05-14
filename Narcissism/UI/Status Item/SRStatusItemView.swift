@@ -28,6 +28,21 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 	fileprivate let cursor = NSCursor.resizeLeftRight
 	fileprivate var cancellables = Set<AnyCancellable>()
 
+	// The camera width is session-only (starts at the default each launch, never
+	// persisted). It is not clamped at launch; instead, over-widening is bounded
+	// only while dragging (see `maximumCameraWidth`, used by the pan handler), so
+	// the preview layer is never resized post-creation from here.
+	fileprivate var cameraAvailable = false
+	fileprivate var showCamera = false
+
+	// The maximum draggable camera width scales with the usable display width:
+	//   maxWidth = (screen width - notch width) / maxCameraWidthScreenDivisor
+	// A larger divisor yields a smaller cap. Notch width is 0 on non-notched
+	// displays, so the same formula covers both. Clamped to the absolute range.
+	private static let maxCameraWidthScreenDivisor: CGFloat = 20.0
+
+	private static let diagnosticLoggingEnabled = true
+
 	override init(frame: NSRect) {
 		self.lighted = false
 
@@ -43,8 +58,9 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 			.combineLatest(self.preferences.showCameraOnStatusBar.publisher)
 			.debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
 			.sink { [unowned self] (cameraAvailable, showCameraOnStatusBar) in
-				let Class: NSView.Type = showCameraOnStatusBar ? (cameraAvailable ? SRStatusItemCameraView.self as NSView.Type : SRStatusItemIconUnavailableView.self as NSView.Type) : SRStatusItemIconView.self
-				self.setContentView(self.createContentViewWithClass(Class), animated: true)
+				self.cameraAvailable = cameraAvailable
+				self.showCamera = showCameraOnStatusBar
+				self.refreshContent(animated: true)
 			}
 			.store(in: &self.cancellables)
 
@@ -116,6 +132,86 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		let view = Class.init(frame: self.bounds) as! SRStatusItemContentView
 		view.autoresizingMask = [.width, .height]
 		return view
+	}
+
+	/// Selects the content class from the current inputs (`showCamera`,
+	/// `cameraAvailable`, and the geometric room available) and swaps to it only
+	/// when it actually changes, so the live camera view is not needlessly torn
+	/// down and rebuilt. Whenever the camera is shown, its effective width is
+	/// clamped to what currently fits.
+	fileprivate func refreshContent(animated: Bool) {
+		self.logGeometry("refresh")
+		self.logFitStateIfNeeded()
+
+		// Content is chosen by availability only. The camera view is created once
+		// at its (session-only) default width and never resized post-creation from
+		// here - re-setting the width after the preview layer attaches is what
+		// blanked it. Over-widening is prevented at drag time instead.
+		let Class: SRStatusItemContentView.Type
+		if self.showCamera {
+			Class = self.cameraAvailable ? SRStatusItemCameraView.self : SRStatusItemIconUnavailableView.self
+		} else {
+			Class = SRStatusItemIconView.self
+		}
+
+		if let current = self.contentView, type(of: current) == Class { return }
+		self.setContentView(self.createContentViewWithClass(Class), animated: animated)
+	}
+
+
+	/// The widest the camera may be right now, from public screen geometry only:
+	/// our window's right edge minus the notch's right edge minus a cosmetic
+	/// margin, clamped to the allowed range. This is an upper bound - other apps'
+	/// items may sit between us and the notch (unmeasurable), so growing to it can
+	/// still push a neighbor out, which we accept. Falls back to the full allowed
+	/// width when there is no notch (e.g. an external display); the screen-change
+	/// re-clamp for that case is deferred to Phase 2.
+	/// The largest width the camera may be dragged to, scaled to the usable
+	/// display: `(screen width - notch width) / maxCameraWidthScreenDivisor`,
+	/// clamped to the absolute allowed range. Notch width is 0 on displays
+	/// without a notch, so the same formula covers notched and non-notched alike.
+	func maximumCameraWidth() -> CGFloat {
+		let range = SRSettings.allowedStatusItemCameraWidthRange
+
+		guard let screen = self.window?.screen else {
+			return self.preferences.statusItemWithCameraWidth.defaultValue
+		}
+
+		let notchWidth: CGFloat
+		if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
+			// The gap between the two usable menu-bar areas is the notch.
+			notchWidth = max(0, right.minX - left.maxX)
+		} else {
+			notchWidth = 0
+		}
+
+		let usableWidth = screen.frame.width - notchWidth
+		let maxWidth = usableWidth / SRStatusItemView.maxCameraWidthScreenDivisor
+		return min(range.upperBound, max(range.lowerBound, maxWidth))
+	}
+
+	/// Logs the geometry inputs behind `maximumCameraWidth` at decision points
+	/// (content refresh, drag end). TEMPORARY, alongside the hidden-state probe.
+	func logGeometry(_ context: String) {
+		guard SRStatusItemView.diagnosticLoggingEnabled else { return }
+		let notch = self.window?.screen?.auxiliaryTopRightArea?.minX
+		let rightEdge = self.window?.frame.maxX
+		NSLog("NARC-GEO[\(context)]: notchRightEdge=\(notch.map { String(Int($0)) } ?? "nil") ourRightEdge=\(rightEdge.map { String(Int($0)) } ?? "nil") maxWidth=\(Int(self.maximumCameraWidth())) desired=\(Int(self.preferences.statusItemWithCameraWidth.value))")
+	}
+
+	/// TEMPORARY. Logs every candidate hidden-state signal so we can identify
+	/// which one macOS actually toggles when the item disappears. View with:
+	///   log stream --predicate 'eventMessage CONTAINS "NARC-FIT"'
+	/// or run the app from a terminal and watch stderr. Delete once resolved.
+	fileprivate func logFitStateIfNeeded() {
+		guard SRStatusItemView.diagnosticLoggingEnabled else { return }
+		let statusItem = self.statusItem
+		let button = statusItem?.button
+		let window = button?.window
+		let frame = window?.frame ?? .zero
+		let onScreen = NSScreen.screens.contains { $0.frame.intersects(frame) }
+		let cameraWidth = (self.contentView as? SRStatusItemCameraView)?.width ?? -1
+		NSLog("NARC-FIT: cameraState=\(String(describing: SRCameraService.sharedInstance.onState.value)) available=\(self.cameraAvailable) show=\(self.showCamera) statusItem.isVisible=\(statusItem?.isVisible ?? false) window=\(window != nil) window.isVisible=\(window?.isVisible ?? false) occlusionVisible=\(window?.occlusionState.contains(.visible) ?? false) frame=\(NSStringFromRect(frame)) onScreen=\(onScreen) content=\(self.contentView.map { String(describing: type(of: $0)) } ?? "nil") width=\(Int(cameraWidth))")
 	}
 
 	override func viewWillMove(toWindow newWindow: NSWindow?) {
