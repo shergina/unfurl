@@ -63,5 +63,8 @@ class SRScrollCameraView: SRCameraView, SRMouseWatcherListener {
 		CATransaction.setValue(kCFBooleanTrue, forKey: kCATransactionDisableActions)
 		self.cameraLayer.frame = frame
 		CATransaction.commit()
+
+		// TEMPORARY scroll diagnostic.
+		NSLog("NARC-CAM[scroll]: pointY=\(point.y) layerH=\(self.layerSize?.height ?? -1) camH=\(self.cameraLayerSize?.height ?? -1) yOffset=\(yOffset) camFrame=\(NSStringFromRect(self.cameraLayer.frame))")
 	}
 }

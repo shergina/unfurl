@@ -134,11 +134,10 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		return view
 	}
 
-	/// Selects the content class from the current inputs (`showCamera`,
-	/// `cameraAvailable`, and the geometric room available) and swaps to it only
-	/// when it actually changes, so the live camera view is not needlessly torn
-	/// down and rebuilt. Whenever the camera is shown, its effective width is
-	/// clamped to what currently fits.
+	/// Selects the content class from `showCamera` and `cameraAvailable` and swaps
+	/// to it only when it actually changes, so the live camera view is not
+	/// needlessly torn down and rebuilt. Width is not touched here - the camera
+	/// keeps its birth width (see the note in the body).
 	fileprivate func refreshContent(animated: Bool) {
 		self.logGeometry("refresh")
 		self.logFitStateIfNeeded()
@@ -159,13 +158,6 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 	}
 
 
-	/// The widest the camera may be right now, from public screen geometry only:
-	/// our window's right edge minus the notch's right edge minus a cosmetic
-	/// margin, clamped to the allowed range. This is an upper bound - other apps'
-	/// items may sit between us and the notch (unmeasurable), so growing to it can
-	/// still push a neighbor out, which we accept. Falls back to the full allowed
-	/// width when there is no notch (e.g. an external display); the screen-change
-	/// re-clamp for that case is deferred to Phase 2.
 	/// The largest width the camera may be dragged to, scaled to the usable
 	/// display: `(screen width - notch width) / maxCameraWidthScreenDivisor`,
 	/// clamped to the absolute allowed range. Notch width is 0 on displays
@@ -174,7 +166,7 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		let range = SRSettings.allowedStatusItemCameraWidthRange
 
 		guard let screen = self.window?.screen else {
-			return self.preferences.statusItemWithCameraWidth.defaultValue
+			return SRSettings.defaultStatusItemCameraWidth
 		}
 
 		let notchWidth: CGFloat
@@ -196,7 +188,7 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		guard SRStatusItemView.diagnosticLoggingEnabled else { return }
 		let notch = self.window?.screen?.auxiliaryTopRightArea?.minX
 		let rightEdge = self.window?.frame.maxX
-		NSLog("NARC-GEO[\(context)]: notchRightEdge=\(notch.map { String(Int($0)) } ?? "nil") ourRightEdge=\(rightEdge.map { String(Int($0)) } ?? "nil") maxWidth=\(Int(self.maximumCameraWidth())) desired=\(Int(self.preferences.statusItemWithCameraWidth.value))")
+		NSLog("NARC-GEO[\(context)]: notchRightEdge=\(notch.map { String(Int($0)) } ?? "nil") ourRightEdge=\(rightEdge.map { String(Int($0)) } ?? "nil") maxWidth=\(Int(self.maximumCameraWidth())) default=\(Int(SRSettings.defaultStatusItemCameraWidth))")
 	}
 
 	/// TEMPORARY. Logs every candidate hidden-state signal so we can identify

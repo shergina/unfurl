@@ -15,7 +15,6 @@ import Combine
 class SRStatusItemController: NSObject, NSMenuDelegate, SRStatusItemViewDelegate {
 
 	fileprivate let services: AppServices
-	let preferences: SRSettings
 
 	var statusItem: NSStatusItem
 	var statusItemView: SRStatusItemView
@@ -26,13 +25,12 @@ class SRStatusItemController: NSObject, NSMenuDelegate, SRStatusItemViewDelegate
 
 	init(services: AppServices) {
 		self.services = services
-		self.preferences = services.settings
 
 		let systemStatusBar = NSStatusBar.system
 
 		let statusItem = systemStatusBar.statusItem(withLength: NSStatusItem.variableLength)
 
-		let width = self.preferences.statusItemWithCameraWidth.defaultValue
+		let width = SRSettings.defaultStatusItemCameraWidth
 		let statusItemView = SRStatusItemView(frame: CGRect(x: 0, y: 0, width: width, height: systemStatusBar.thickness))
 		statusItemView.statusItem = statusItem
 

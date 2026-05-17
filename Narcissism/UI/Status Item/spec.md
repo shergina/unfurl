@@ -5,7 +5,7 @@
 - **Title**: The menu-bar camera item and its click-to-menu behavior.
 - **Surface**: status item (menu bar).
 - **Actor isolation**: main-actor.
-- **Related code**: `.spec/app.spec.md`; `Narcissism/Tools/spec.md` (`SRCameraService`); `Narcissism/UI/Menu/` (the menu opened on click); `Narcissism/SRSettings.swift` (`showCameraOnStatusBar`, `statusItemWithCameraWidth`).
+- **Related code**: `.spec/app.spec.md`; `Narcissism/Tools/spec.md` (`SRCameraService`); `Narcissism/UI/Menu/` (the menu opened on click); `Narcissism/SRSettings.swift` (`showCameraOnStatusBar`; `defaultStatusItemCameraWidth`, `allowedStatusItemCameraWidthRange`).
 
 ## Summary
 
@@ -31,7 +31,7 @@
 - **Owned invariants** (must always hold):
   - Width flows through `statusItem.length`; the hosted view has an explicit height constraint (menu-bar thickness) so the button never collapses when a zero-intrinsic-height camera view is installed.
   - Content class is: camera when show-in-menu-bar is on and the device is available; unavailable-icon when on but device is not available; plain icon when off.
-  - The camera width is session-only: the camera view is created at `statusItemWithCameraWidth.defaultValue` on every launch and the width is never persisted, so a previous run's resize has no effect on relaunch. `statusItemWithCameraWidth.value` is not read or written.
+  - The camera width is session-only: the camera view is created at the `SRSettings.defaultStatusItemCameraWidth` constant (not a persisted preference) on every launch and the width is never saved, so a previous run's resize has no effect on relaunch.
   - The camera view's width is set once at creation and never re-set from the content path afterward; re-setting the width after the preview layer attaches blanks the feed. Over-widening is bounded only during a drag.
   - Drag resize is bounded below by `allowedStatusItemCameraWidthRange.lowerBound` and above by `maximumCameraWidth()` (a screen-scaled cap, see Workflow 4). The resulting width is not persisted.
 
@@ -83,14 +83,14 @@
 ### High-level architecture
 
 - **Components**: `SRStatusItemController` owns the `NSStatusItem` and hosts `SRStatusItemView`, which swaps `SRStatusItemContentView` subclasses (`SRStatusItemCameraView` with `SRScrollCameraView`, `SRStatusItemIconView` / `...Unavailable`).
-- **Data flow**: driven by `SRCameraService.onCaptureDeviceAvailable` and `showCameraOnStatusBar`; writes `statusItemWithCameraWidth`.
+- **Data flow**: driven by `SRCameraService.onCaptureDeviceAvailable` and `showCameraOnStatusBar`; the camera width is a session-only constant and is not persisted.
 - **Control flow**: created by the app delegate; removes its status item on `willTerminate`.
 
 ### Interfaces and contracts
 
 - **Public API surface**: `SRStatusItemController` and its `onMouseHover` (consumed by the panel to decide hover-show).
 - **Inputs**: camera availability, the two status-item preferences, mouse position (`SRMouseWatcher`).
-- **Outputs**: `statusItemWithCameraWidth`; `onMouseHover`; opens the shared menu.
+- **Outputs**: `onMouseHover`; opens the shared menu.
 
 ## Key design decisions (recorded)
 
@@ -108,7 +108,7 @@
 
 - **Decision**: the camera width is session-only and clamped only during a drag, not at launch.
   - Context: width was a persisted preference re-applied at birth, so a previous run's over-stretch (which tucks the item under the notch and hides it) was remembered and the item stayed blank on relaunch. Separately, clamping the width at launch meant the camera view was created at the saved (possibly too-wide) width and then resized; re-setting the width after the preview layer attaches blanks the feed - the view renders only when created once at its birth width and left alone.
-  - Chosen: create the camera view at `statusItemWithCameraWidth.defaultValue` every launch and never persist or re-clamp it from the content path. Bound over-widening purely in the drag handler, which clamps to `maximumCameraWidth()` - a screen-scaled cap `(screen width - notch width) / maxCameraWidthScreenDivisor` (Workflow 4). This keeps the render path (create-once, never-resize) that actually works, and makes relaunch deterministic. Earlier attempts were removed: a polling feedback loop that stepped the width (laggy, depended on an unconfirmed hidden-state signal); a launch-time geometric clamp (blanked the feed by resizing post-creation); and a notch-position/chrome-based drag cap (the real obstacle is the green camera-in-use indicator and other items between us and the notch, which are unmeasurable, so a simple screen-fraction cap is used instead).
+  - Chosen: create the camera view at the `SRSettings.defaultStatusItemCameraWidth` constant every launch and never persist or re-clamp it from the content path. Bound over-widening purely in the drag handler, which clamps to `maximumCameraWidth()` - a screen-scaled cap `(screen width - notch width) / maxCameraWidthScreenDivisor` (Workflow 4). This keeps the render path (create-once, never-resize) that actually works, and makes relaunch deterministic. Earlier attempts were removed: a polling feedback loop that stepped the width (laggy, depended on an unconfirmed hidden-state signal); a launch-time geometric clamp (blanked the feed by resizing post-creation); and a notch-position/chrome-based drag cap (the real obstacle is the green camera-in-use indicator and other items between us and the notch, which are unmeasurable, so a simple screen-fraction cap is used instead).
 
 - **Decision (tried, reverted)**: do NOT force right-end placement via private `NSStatusBar` ordering.
   - Context: shrinking still hides *our* icon first under pressure, because macOS hides the leftmost status items first. There is no public API to order a status item (only `autosaveName` persists a user's manual Cmd-drag), so a Swift port of the 2015 `NSStatusBar+MISSINGOrder` category was attempted (private `_statusItemWithLength:systemInsertOrder:`, gated on `USE_UNDOCUMENTED_API`).

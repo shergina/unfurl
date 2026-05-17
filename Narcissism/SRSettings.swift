@@ -69,7 +69,6 @@ final class SRSettings {
 
 	// Keys are unchanged from the original PreferenceKey raw values, so
 	// existing user defaults carry over.
-	let statusItemWithCameraWidth: Preference<CGFloat>
 	let flipCameraHorizontally: Preference<Bool>
 	let showCameraOnStatusBar: Preference<Bool>
 	let showCameraOnDockTile: Preference<Bool>
@@ -82,12 +81,14 @@ final class SRSettings {
 	// The selected camera's AVCaptureDevice.uniqueID; "" means system default.
 	let selectedCameraDeviceID: Preference<String>
 
-    static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 40.0...256.0
+    static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
+    // The camera's menu-bar width is session-only (never persisted): it always
+    // starts here and is only adjusted by dragging within the current session.
+    static let defaultStatusItemCameraWidth: CGFloat = 30.0
 
 	/// `defaults` is injectable so tests can use a scratch suite instead of
 	/// the real domain.
 	init(defaults: UserDefaults = .standard) {
-		self.statusItemWithCameraWidth = Preference("StatusItemWithCameraWidth", default: CGFloat(48.0), defaults: defaults)
 		self.flipCameraHorizontally = Preference("FlipCameraHorizontally", default: false, defaults: defaults)
 		self.showCameraOnStatusBar = Preference("ShowCameraOnStatusBar", default: true, defaults: defaults)
 		self.showCameraOnDockTile = Preference("ShowCameraOnDockTile", default: false, defaults: defaults)

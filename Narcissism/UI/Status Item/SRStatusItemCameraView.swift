@@ -33,12 +33,6 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 	fileprivate var startViewWidth: CGFloat
 	fileprivate var startMouseX: CGFloat
 
-	/// True while the user is actively drag-resizing the item. The space-fitting
-	/// loop in SRStatusItemView checks this so it never fights an in-progress drag.
-	private(set) var isResizing = false
-
-	fileprivate var preferences = SRSettings.sharedInstance
-
 	#if USE_UNDOCUMENTED_API
 	fileprivate lazy var cursor = NSCursor.resizeLeftRight
 	#endif
@@ -49,7 +43,7 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 		self.startMouseX = 0
 		// Session-only width: always start from the default, never the last run's
 		// value, so a previous session's resize has no effect on relaunch.
-		self.width = self.preferences.statusItemWithCameraWidth.defaultValue
+		self.width = SRSettings.defaultStatusItemCameraWidth
 
 		super.init(frame: frame)
 
@@ -137,7 +131,6 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 				break
 
 			case .began:
-				self.isResizing = true
 				self.startViewWidth = self.bounds.size.width
 				self.startMouseX = mouseLocationX
 
@@ -150,7 +143,6 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 				self.width = min(maxWidth, max(range.lowerBound, proposed))
 
 			case .ended, .cancelled, .failed:
-				self.isResizing = false
 				// Session-only: the resized width is deliberately NOT persisted, so
 				// relaunching always starts fresh at the default. Dragging still
 				// resizes the item live during the current session.
