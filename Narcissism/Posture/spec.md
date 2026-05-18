@@ -56,6 +56,12 @@ No UI, no settings, no calibration, no nudges yet.
   scale-invariant (moving the chair or laptop changes it too), which is why
   the eventual slouch metric divides the eye-to-shoulder drop by shoulder
   width instead of using this value directly.
+- Every measurement also reports the shoulder tilt angle: the angle of the
+  line between the two shoulder joints off horizontal, computed aspect
+  correct in frame pixels (atan2 of the vertical over the horizontal
+  separation). Signed degrees: positive means the subject's anatomical
+  left shoulder is higher, 0 is level. Being an angle it is inherently
+  scale-invariant. This is the tier-1 shoulder tilt metric from VISION.md.
 - Whenever the eye heights are available, the line also reports the slouch
   ratio exactly as VISION.md defines it: (average eye height - average
   shoulder height) / shoulder distance, all in frame pixels. Vertical
@@ -65,15 +71,25 @@ No UI, no settings, no calibration, no nudges yet.
   on.
 - Slouch alert (experimental, log-only): each window's best available
   slouch ratio (padded pipeline preferred, plain as fallback) is compared
-  against a hardcoded baseline of 0.616, the user's own good-posture ratio
-  measured sitting straight on 2026-07-21. A window more than 10 percent
-  below baseline logs a warning-level "Slouching:" line naming the ratio
+  against a hardcoded baseline of 0.692, the user's own ratio measured
+  sitting with deliberately perfect posture on 2026-07-22 (replacing the
+  0.616 relaxed-straight value from the day before). A window more than 5
+  percent below baseline logs a warning-level "Slouching:" line naming the
+  ratio
   and the deviation; ratios above baseline mean sitting tall and never
   alert. The baseline is per-user, per-camera-placement state that belongs
   to the future calibration flow; hardcoding it is a stopgap for the
   experiment. Deliberately no debounce or hysteresis yet: per-window
   feedback is what the experiment needs. The eventual nudge feature adds
   the ~10 s debounce per VISION.md.
+- Shoulder alignment alert (experimental, log-only): same cadence and
+  pipeline preference as the slouch alert. A window whose tilt magnitude
+  exceeds 2 degrees off level logs a warning-level "Shoulders misaligned:"
+  line with the signed tilt and which shoulder to lower (positive tilt =
+  the subject's anatomical left shoulder is higher, so lower the left).
+  Unlike the slouch alert this needs no per-user baseline - level is level
+  - though the 2 degree band is a tuning choice, tightened from 5 then 3
+  on 2026-07-22.
 - Output goes to the unified log: subsystem com.shergin.narcissism, category
   Posture. Watch it with:
       log stream --predicate 'subsystem == "com.shergin.narcissism"'
@@ -86,6 +102,20 @@ No UI, no settings, no calibration, no nudges yet.
   body". Every line includes the window's frame count. Vision request
   errors, a failed output attach, and a failed canvas allocation are logged
   as they happen.
+
+- Dots overlay (temporary accuracy test): the service publishes the latest
+  analyzed frame's joint positions (frame-normalized, padded pipeline
+  preferred) on the main actor via onJoints, and the floating panel's
+  camera view is temporarily SRPostureDebugCameraView, which draws them as
+  dots over the live image: shoulders red, eyes yellow, hidden when
+  detection drops. Dots are sublayers of the preview layer positioned via
+  layerPointConverted, so aspect-fill cropping and mirroring apply to them
+  exactly as to the video. Currently dormant: a master switch in the view
+  (dotsVisible, default false) keeps the dots invisible while all the
+  plumbing stays wired, per the user's request on 2026-07-22; flip it to
+  true to show them again. Still explicitly a test aid: delete the view,
+  the panel hookup, and onJoints together when the accuracy question is
+  fully closed.
 
 ## Invariants
 
