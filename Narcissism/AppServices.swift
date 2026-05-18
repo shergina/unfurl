@@ -20,6 +20,7 @@ final class AppServices {
 	let settings: SRSettings
 	let camera: CameraProviding
 	let photo: SRPhotoCaptureService
+	let posture: SRPostureAnalysisService
 	let launch: SRLaunchApplicationAtLoginController
 	let menu: SRMenuController
 
@@ -27,12 +28,14 @@ final class AppServices {
 		settings: SRSettings,
 		camera: CameraProviding,
 		photo: SRPhotoCaptureService,
+		posture: SRPostureAnalysisService,
 		launch: SRLaunchApplicationAtLoginController,
 		menu: SRMenuController
 	) {
 		self.settings = settings
 		self.camera = camera
 		self.photo = photo
+		self.posture = posture
 		self.launch = launch
 		self.menu = menu
 	}
@@ -42,6 +45,7 @@ final class AppServices {
 			settings: .sharedInstance,
 			camera: SRCameraService.sharedInstance,
 			photo: .sharedInstance,
+			posture: .sharedInstance,
 			launch: .sharedInstance,
 			menu: .sharedInstance
 		)

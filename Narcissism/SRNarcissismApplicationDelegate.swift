@@ -44,6 +44,11 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		self.statusItemController = statusItem
 		self.panelController = SRPanelController(services: self.services, statusItemController: statusItem)
 		self.dockTileController = SRDockTileController(services: self.services)
+
+		// The posture probe (Posture/spec.md) logs the shoulder distance once
+		// per second; while attached it keeps the shared camera session
+		// running for the whole app lifetime.
+		self.services.posture.start()
 	}
 
 	/// Advance the selected camera one step through Automatic then each
