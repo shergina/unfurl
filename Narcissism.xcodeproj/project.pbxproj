@@ -14,6 +14,7 @@
 		59133E901B2E21C8004480EA /* SRPanelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */; };
 		592CDBC31BDD908900FFB843 /* SRPhotoCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */; };
 		59D0C002D0C002D0C002D002 /* SRPostureAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C001D0C001D0C001D001 /* SRPostureAnalysisService.swift */; };
+		59D0C006D0C006D0C006D006 /* SRPostureDebugCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C007D0C007D0C007D007 /* SRPostureDebugCameraView.swift */; };
 		592F534B1B37064D00F879FD /* SRMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534A1B37064D00F879FD /* SRMenuController.swift */; };
 		592F534F1B37349600F879FD /* SRDockTileCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534E1B37349600F879FD /* SRDockTileCameraView.swift */; };
 		592F53511B373B9100F879FD /* SRDockTileController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F53501B373B9100F879FD /* SRDockTileController.swift */; };
@@ -52,6 +53,7 @@
 		59133E8F1B2E21C8004480EA /* SRPanelViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelViewController.swift; sourceTree = "<group>"; };
 		592CDBC21BDD908900FFB843 /* SRPhotoCaptureService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRPhotoCaptureService.swift; path = Tools/SRPhotoCaptureService.swift; sourceTree = "<group>"; };
 		59D0C001D0C001D0C001D001 /* SRPostureAnalysisService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPostureAnalysisService.swift; sourceTree = "<group>"; };
+		59D0C007D0C007D0C007D007 /* SRPostureDebugCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPostureDebugCameraView.swift; sourceTree = "<group>"; };
 		59D0C004D0C004D0C004D004 /* VISION.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = VISION.md; sourceTree = "<group>"; };
 		59D0C005D0C005D0C005D005 /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
 		592F534A1B37064D00F879FD /* SRMenuController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMenuController.swift; sourceTree = "<group>"; };
@@ -240,6 +242,7 @@
 			children = (
 				59D0C005D0C005D0C005D005 /* spec.md */,
 				59D0C001D0C001D0C001D001 /* SRPostureAnalysisService.swift */,
+				59D0C007D0C007D0C007D007 /* SRPostureDebugCameraView.swift */,
 				59D0C004D0C004D0C004D004 /* VISION.md */,
 			);
 			path = Posture;
@@ -410,6 +413,7 @@
 				59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */,
 				592CDBC31BDD908900FFB843 /* SRPhotoCaptureService.swift in Sources */,
 				59D0C002D0C002D0C002D002 /* SRPostureAnalysisService.swift in Sources */,
+				59D0C006D0C006D0C006D006 /* SRPostureDebugCameraView.swift in Sources */,
 				59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */,
 				59BC00459BC00459BC004504 /* SRHotKeyController.swift in Sources */,
 				A70E8A351BCECA4300B517A9 /* SRAboutViewController.swift in Sources */,

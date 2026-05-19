@@ -11,6 +11,7 @@
 
 - **What this subsystem is**: a non-activating utility panel that shows the live camera edge to edge with system window chrome, plus a hover-revealed control chip and an explanatory placeholder when there is no feed.
 - **One-sentence contract**: the panel is visible exactly when the user wants it (pinned or hovering the status item) and the camera has something to show (a live feed or an error to explain), and it never steals focus.
+- **Temporary**: while the posture accuracy test runs, the camera view is `SRPostureDebugCameraView` (from `Narcissism/Posture/`), which overlays joint dots on the feed; see `Narcissism/Posture/spec.md`. Reverts to `SRCameraView` when the test ends.
 
 ## Scope
 

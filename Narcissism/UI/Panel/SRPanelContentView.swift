@@ -63,7 +63,10 @@ class SRPanelContentView: NSView {
 	fileprivate var cameraPlaceholderView: SRCameraPlaceholerView
 
 	override init(frame rect: NSRect) {
-		self.cameraView = SRCameraView()
+		// TEMPORARY (posture accuracy test): the debug subclass overlays
+		// dots at the joints the posture probe reports. Revert to
+		// SRCameraView() when the test is done.
+		self.cameraView = SRPostureDebugCameraView()
 		self.toolbarView = SRPanelToolbarView()
 		self.toolbarView.setCompactMode(true, animated: false)
 		self.cameraPlaceholderView = SRCameraPlaceholerView()
