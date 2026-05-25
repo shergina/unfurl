@@ -203,11 +203,22 @@ current patterns:
 
 ## Open questions (decide before or during build, do not guess)
 
-- Nudge delivery: beep vs notification vs status-item change vs user choice.
-  Default? Which are offered?
+- Nudge delivery (direction decided 2026-07-22, details in spec.md): a
+  click-through, semi-transparent corner note excluded from screen capture
+  is the primary channel; a status-item tint is planned as best-effort
+  ambient state (never load-bearing - the item can be hidden by the notch
+  or the user); the status menu will carry the status line plus snooze and
+  recalibrate; system notifications are held in reserve as a possible
+  later user-selectable option. The note deliberately ignores Focus modes.
+  Still open: debounce and cooldown tuning, and whether fullscreen
+  suppresses the note.
 - Tolerance: is a single global 10 percent right, or should the band be
   per-metric (tier-1 tighter, tier-2 looser)? To be tuned later.
-- Debounce: fixed 10 seconds, or user-tunable?
+- Debounce (decided 2026-07-22, details in spec.md): per-issue, not
+  global. An issue is voiced after ~4 s of sustained activity; an episode
+  ends after ~2 s clean or instantly on recovery past half the tolerance
+  band (one-sided per issue). Constants are code-level; tuning remains
+  open.
 - Recalibration UX: automatic prompt on detected movement, manual only, or
   both?
 - Storage of the baseline: one profile, or multiple (desk vs couch)?

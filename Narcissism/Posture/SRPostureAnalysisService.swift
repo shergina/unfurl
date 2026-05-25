@@ -42,6 +42,12 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// (SRPostureDebugCameraView); delete both together.
 	let onJoints = CurrentValueSubject<SRPostureJoints?, Never>(nil)
 
+	/// The per-window posture status for the corner note (and any future
+	/// nudge surface): good, the single correction to make, or not visible.
+	/// Published on the main actor once per logging window; nil until the
+	/// first window completes.
+	let onPostureStatus = CurrentValueSubject<SRPostureStatus?, Never>(nil)
+
 	fileprivate var output: AVCaptureVideoDataOutput?
 
 	/// The serial queue the sample-buffer delegate and Vision work run on;
@@ -112,7 +118,18 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 	/// Tilt magnitudes beyond this many degrees off level are called out as
 	/// misaligned shoulders, naming the higher shoulder for correction.
-	fileprivate nonisolated static let maximumLevelShoulderTiltDegrees: CGFloat = 2.0
+	fileprivate nonisolated static let maximumLevelShoulderTiltDegrees: CGFloat = 3.0
+
+	// Debounce for the corner note, counted in logging windows (~1/s).
+	// An issue is voiced only after being active this many windows...
+	nonisolated static let issueReportWindows = 4
+	// ...and an active episode ends only after this many consecutive clean
+	// windows (or instantly on a strong recovery past half the tolerance
+	// band). Brief dips at the threshold neither report nor reset.
+	nonisolated static let issueClearWindows = 2
+	// After this many consecutive can't-see-you windows every episode
+	// resets: whoever returns to the desk starts from a clean slate.
+	fileprivate nonisolated static let notVisibleResetWindows = 5
 
 	// The current logging window. Touched only on the (serial) analysis queue.
 	fileprivate nonisolated(unsafe) var lastAnalysisTime = CMTime.invalid
@@ -121,13 +138,21 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var plainWindow = WindowAccumulator()
 	fileprivate nonisolated(unsafe) var paddedWindow = WindowAccumulator()
 
+	// Issue debounce state. Touched only on the (serial) analysis queue.
+	fileprivate nonisolated(unsafe) var issueTrackers: [SRPostureIssue: SRIssueTracker] = [:]
+	fileprivate nonisolated(unsafe) var notVisibleWindows = 0
+	fileprivate nonisolated(unsafe) var lastLoggedStatus: SRPostureStatus?
+
 	nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
 		let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
 		if self.lastAnalysisTime.isValid {
 			let elapsed = timestamp - self.lastAnalysisTime
 			if elapsed < .zero {
-				// The timeline restarted; drop the partial window.
+				// The timeline restarted (camera switch); drop the partial
+				// window and every issue episode with it.
 				self.resetWindow()
+				self.issueTrackers = [:]
+				self.notVisibleWindows = 0
 			} else if elapsed < Self.minimumAnalysisInterval {
 				return
 			}
@@ -198,6 +223,60 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			let higherShoulder = tilt > 0 ? "left" : "right"
 			Self.logger.warning("Shoulders misaligned: tilt \(String(format: "%+.1f", tilt), privacy: .public) deg - lower your \(higherShoulder, privacy: .public) shoulder")
 		}
+
+		// Debounced issue tracking for the corner note (see spec.md). Each
+		// issue is observed independently per window and fed through its
+		// own tracker: active ~issueReportWindows before it is voiced;
+		// cleared only by ~issueClearWindows consecutive clean windows or
+		// an instant strong recovery past half the tolerance band. Strong
+		// recovery is one-sided per issue, so overcorrecting a left-high
+		// tilt into a right-high one clears the left issue immediately.
+		let status: SRPostureStatus
+		if let measurement = self.paddedWindow.bestMeasurement ?? self.plainWindow.bestMeasurement {
+			self.notVisibleWindows = 0
+
+			let slouchObservation: SRIssueObservation
+			if let ratio = measurement.slouchRatio {
+				let breachFloor = Self.baselineSlouchRatio * (1 - Self.slouchTolerance)
+				let strongFloor = Self.baselineSlouchRatio * (1 - Self.slouchTolerance / 2)
+				slouchObservation = ratio < breachFloor ? .breaching : (ratio >= strongFloor ? .stronglyRecovered : .clean)
+			} else {
+				// Eyes not measurable this window: freeze the tracker
+				// rather than guessing either way.
+				slouchObservation = .unknown
+			}
+
+			let tilt = measurement.shoulderTiltDegrees
+			let limit = Self.maximumLevelShoulderTiltDegrees
+			let leftObservation: SRIssueObservation = tilt > limit ? .breaching : (tilt <= limit / 2 ? .stronglyRecovered : .clean)
+			let rightObservation: SRIssueObservation = -tilt > limit ? .breaching : (-tilt <= limit / 2 ? .stronglyRecovered : .clean)
+
+			self.updateTracker(for: .slouching, with: slouchObservation)
+			self.updateTracker(for: .leftShoulderHigh, with: leftObservation)
+			self.updateTracker(for: .rightShoulderHigh, with: rightObservation)
+
+			// Stable declaration order, so the note's lines never reshuffle.
+			let reported = SRPostureIssue.allCases.filter { self.issueTrackers[$0]?.isReported ?? false }
+			status = .evaluated(issues: reported)
+		} else {
+			self.notVisibleWindows += 1
+			if self.notVisibleWindows >= Self.notVisibleResetWindows {
+				self.issueTrackers = [:]
+			}
+			status = .notVisible
+		}
+
+		if status != self.lastLoggedStatus {
+			self.lastLoggedStatus = status
+			Self.logger.log("Posture status: \(status.logDescription, privacy: .public)")
+		}
+		Task { @MainActor [status] in self.onPostureStatus.send(status) }
+	}
+
+	fileprivate nonisolated func updateTracker(for issue: SRPostureIssue, with observation: SRIssueObservation) {
+		var tracker = self.issueTrackers[issue] ?? SRIssueTracker()
+		tracker.update(with: observation)
+		self.issueTrackers[issue] = tracker
 	}
 
 	fileprivate nonisolated func resetWindow() {
@@ -424,6 +503,77 @@ fileprivate enum ShoulderAnalysis {
 	case lowConfidence(left: Float, right: Float)
 	case noBody
 	case failed
+}
+
+
+/// One independently tracked posture problem. Issues are a set, not a
+/// choice: slouching and a tilted shoulder line can hold at once, and each
+/// runs its own debounce. Left and right are the subject's anatomical
+/// sides. Declaration order is the note's stable presentation order.
+enum SRPostureIssue: CaseIterable, Hashable, Sendable {
+	case slouching
+	case leftShoulderHigh
+	case rightShoulderHigh
+}
+
+
+/// One window's posture verdict for the nudge surfaces: the debounced set
+/// of currently reported issues (empty = posture is good), or an honest
+/// "cannot see you" that suppresses evaluation entirely.
+enum SRPostureStatus: Equatable, Sendable {
+	case notVisible
+	case evaluated(issues: [SRPostureIssue])
+
+	var logDescription: String {
+		switch self {
+		case .notVisible:
+			return "not visible"
+		case .evaluated(let issues):
+			return issues.isEmpty ? "good" : issues.map { "\($0)" }.joined(separator: "+")
+		}
+	}
+}
+
+
+/// What one logging window said about one issue.
+fileprivate enum SRIssueObservation {
+	case breaching           // past the issue's threshold
+	case clean               // inside the threshold, but not by much
+	case stronglyRecovered   // past half the tolerance band, issue-side
+	case unknown             // not measurable this window; freeze
+}
+
+
+/// One issue's debounce state, advanced once per logging window (~1/s).
+/// An episode starts on a breach, ages through breaching and clean-dip
+/// windows alike (hovering at the threshold is still having the issue),
+/// is voiced once old enough, and ends only via the dual-path clear:
+/// enough consecutive clean windows, or one strongly recovered window.
+fileprivate struct SRIssueTracker {
+	var activeWindows = 0
+	var cleanWindows = 0
+
+	var isActive: Bool { self.activeWindows > 0 }
+	var isReported: Bool { self.activeWindows >= SRPostureAnalysisService.issueReportWindows }
+
+	mutating func update(with observation: SRIssueObservation) {
+		switch observation {
+		case .breaching:
+			self.activeWindows += 1
+			self.cleanWindows = 0
+		case .clean:
+			guard self.isActive else { return }
+			self.activeWindows += 1
+			self.cleanWindows += 1
+			if self.cleanWindows >= SRPostureAnalysisService.issueClearWindows {
+				self = SRIssueTracker()
+			}
+		case .stronglyRecovered:
+			self = SRIssueTracker()
+		case .unknown:
+			break
+		}
+	}
 }
 
 

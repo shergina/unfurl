@@ -23,6 +23,7 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 	fileprivate var panelController: SRPanelController!
 	fileprivate var dockTileController: SRDockTileController!
 	fileprivate var hotKeyController: SRHotKeyController!
+	fileprivate var postureNoteController: SRPostureNoteController!
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		// The selected-camera preference is the source of truth; translate it
@@ -49,6 +50,10 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		// per second; while attached it keeps the shared camera session
 		// running for the whole app lifetime.
 		self.services.posture.start()
+
+		// The corner posture note observes the probe's status and shows the
+		// current verdict as a ghost panel in the top-right corner.
+		self.postureNoteController = SRPostureNoteController(services: self.services)
 	}
 
 	/// Advance the selected camera one step through Automatic then each

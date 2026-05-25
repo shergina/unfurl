@@ -47,3 +47,9 @@
 "accessibility.status-item.help" = "Shows the camera menu.";
 "accessibility.panel.title" = "Narcissism Camera";
 "accessibility.camera-preview.label" = "Live camera preview";
+
+// Posture corner note
+"posture.note.slouching" = "Sit up straight";
+"posture.note.lower-left-shoulder" = "Lower your left shoulder";
+"posture.note.lower-right-shoulder" = "Lower your right shoulder";
+"posture.note.not-visible" = "Posture: can't see you clearly";

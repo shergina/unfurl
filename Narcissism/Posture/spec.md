@@ -84,12 +84,12 @@ No UI, no settings, no calibration, no nudges yet.
   the ~10 s debounce per VISION.md.
 - Shoulder alignment alert (experimental, log-only): same cadence and
   pipeline preference as the slouch alert. A window whose tilt magnitude
-  exceeds 2 degrees off level logs a warning-level "Shoulders misaligned:"
+  exceeds 3 degrees off level logs a warning-level "Shoulders misaligned:"
   line with the signed tilt and which shoulder to lower (positive tilt =
   the subject's anatomical left shoulder is higher, so lower the left).
   Unlike the slouch alert this needs no per-user baseline - level is level
-  - though the 2 degree band is a tuning choice, tightened from 5 then 3
-  on 2026-07-22.
+  - though the 3 degree band is a tuning choice (tried 5 and 2 before
+  settling here on 2026-07-22).
 - Output goes to the unified log: subsystem com.shergin.narcissism, category
   Posture. Watch it with:
       log stream --predicate 'subsystem == "com.shergin.narcissism"'
@@ -103,6 +103,38 @@ No UI, no settings, no calibration, no nudges yet.
   errors, a failed output attach, and a failed canvas allocation are logged
   as they happen.
 
+- Issue tracking (feeds the corner note): posture problems are a set of
+  independent issues, each with its own debounce - slouching, left
+  shoulder high, right shoulder high (the two tilt directions are
+  distinct issues, so an overcorrection flip clears one and starts the
+  other from zero). Per logging window each issue observes its metric
+  one-sidedly as breaching, clean, strongly recovered (past half the
+  tolerance band on its own side), or unknown (not measurable; the
+  tracker freezes - eyes hidden freezes only slouching). An issue is
+  voiced after being active ~4 windows (~4 s); an active episode ages
+  through clean dips (hovering at the threshold is still the issue) and
+  ends only via the dual-path clear: ~2 consecutive clean windows, or
+  instantly on one strongly recovered window - so a decisive correction
+  is rewarded immediately while a marginal one must hold. Five
+  consecutive not-visible windows, or a capture timeline restart, reset
+  every episode. The per-window warning lines in the log stay raw and
+  undebounced on purpose: they are tuning telemetry; the note is the
+  coached surface. Status transitions are logged ("Posture status: ...").
+- Corner posture note (experimental prototype of the ghost-toast
+  notification design): a small borderless non-activating panel pinned to
+  the top-right corner of the main screen, visible only while there is
+  something to say: one line per reported issue in stable declaration
+  order ("Sit up straight", "Lower your left/right shoulder"), or
+  "Posture: can't see you clearly". Good posture shows nothing - the note
+  disappearing is the reward (decided 2026-07-22, replacing the earlier
+  always-visible "Posture: good" state). Ghost properties per the
+  notifications design (decided 2026-07-22):
+  click-through (ignoresMouseEvents), semi-transparent HUD material,
+  excluded from screen capture (sharingType none) so shared screens and
+  recordings never show it while the user still sees it, present on all
+  Spaces including fullscreen, and deliberately indifferent to Focus
+  modes. Fade animations and an escalation cooldown from the agreed
+  design are not built yet.
 - Dots overlay (temporary accuracy test): the service publishes the latest
   analyzed frame's joint positions (frame-normalized, padded pipeline
   preferred) on the main actor via onJoints, and the floating panel's
