@@ -33,6 +33,11 @@ These distill `.spec/constitution.md`; the constitution wins if they ever confli
 - **Camera data stays on device.** No network transmission of frames or photos.
 - **Delete rather than defer.** Dead code and half-finished features are liabilities.
 
+## Commit messages
+
+- Write them like a human dashing off a note: short, on point, a bit sloppy is fine. One plain subject line; add a body only when the subject cannot carry it.
+- No AI attribution of any kind: no Co-Authored-By trailers, no "Generated with" lines, no tool names. This applies to every commit; history has already been scrubbed once and should stay clean.
+
 ## Building and verifying
 
 - Build: `xcodebuild -workspace Narcissism.xcworkspace -scheme Narcissism -configuration Debug -destination 'platform=macOS' build`
