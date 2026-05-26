@@ -80,6 +80,13 @@ final class SRSettings {
 	let launchAtLogin: Preference<Bool>
 	// The selected camera's AVCaptureDevice.uniqueID; "" means system default.
 	let selectedCameraDeviceID: Preference<String>
+	// While on, the posture probe runs (holding the camera) and the corner
+	// note can appear; off detaches the probe entirely. Opt-in by default.
+	let postureTracking: Preference<Bool>
+	// The posture snooze deadline: tracking pauses (probe detached) until
+	// this moment, then resumes on its own. distantPast means not snoozed.
+	// Persisted, so a relaunch mid-snooze honors the remaining time.
+	let postureSnoozeUntil: Preference<Date>
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
     // The camera's menu-bar width is session-only (never persisted): it always
@@ -99,6 +106,8 @@ final class SRSettings {
 		self.cameraPanelGhostMode = Preference("CameraPanelGhostMode", default: false, defaults: defaults)
 		self.launchAtLogin = Preference("LaunchAtLogin", default: false, defaults: defaults)
 		self.selectedCameraDeviceID = Preference("SelectedCameraDeviceID", default: "", defaults: defaults)
+		self.postureTracking = Preference("PostureTracking", default: false, defaults: defaults)
+		self.postureSnoozeUntil = Preference("PostureSnoozeUntil", default: .distantPast, defaults: defaults)
 	}
 }
 
@@ -145,6 +154,17 @@ extension CGSize: PreferenceValue {
 
 	func write(to defaults: UserDefaults, key: String) {
 		defaults.set(NSStringFromSize(self), forKey: key)
+	}
+}
+
+extension Date: PreferenceValue {
+	static func read(from defaults: UserDefaults, key: String) -> Date? {
+		guard defaults.object(forKey: key) != nil else { return nil }
+		return Date(timeIntervalSince1970: defaults.double(forKey: key))
+	}
+
+	func write(to defaults: UserDefaults, key: String) {
+		defaults.set(self.timeIntervalSince1970, forKey: key)
 	}
 }
 

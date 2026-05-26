@@ -9,6 +9,17 @@
 // Menu
 "menu.about" = "About Narcissism";
 "menu.take-photo" = "Take Photo";
+"menu.track-posture" = "Track Posture";
+"menu.posture-snooze" = "Snooze";
+"menu.posture-snooze.snoozed-until" = "Snoozed Until %@";
+"menu.posture-snooze.5-minutes" = "5 Minutes";
+"menu.posture-snooze.10-minutes" = "10 Minutes";
+"menu.posture-snooze.15-minutes" = "15 Minutes";
+"menu.posture-snooze.30-minutes" = "30 Minutes";
+"menu.posture-snooze.1-hour" = "1 Hour";
+"menu.posture-snooze.2-hours" = "2 Hours";
+"menu.posture-snooze.5-hours" = "5 Hours";
+"menu.posture-snooze.resume" = "Resume Now";
 "menu.launch-at-login" = "Open at Login";
 "menu.flip-camera-horizontally" = "Mirror mode (Flip Camera Horizontally)";
 "menu.show-camera-panel" = "Show Camera Panel";

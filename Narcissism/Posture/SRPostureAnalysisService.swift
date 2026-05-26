@@ -18,7 +18,9 @@ import os
 /// average eye height, slouch ratio, and shoulder tilt angle once per
 /// second, plus warning lines whenever the slouch ratio breaches the
 /// hardcoded good-posture baseline or the shoulder tilt exceeds the level
-/// band. No UI, settings, or nudges yet; see spec.md.
+/// band. Runs only while the Track Posture preference is on; the
+/// composition root calls start/stop as the preference changes. See
+/// spec.md.
 ///
 /// Currently running the synthetic zoom-out experiment: the body-pose model
 /// is trained on full-body imagery and mostly fails on laptop framing where
@@ -50,14 +52,18 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 	fileprivate var output: AVCaptureVideoDataOutput?
 
+	/// The in-flight attach from start(), kept so stop() can wait for it to
+	/// settle before detaching (a quick on-off flip must not interleave).
+	fileprivate var attachTask: Task<Void, Error>?
+
 	/// The serial queue the sample-buffer delegate and Vision work run on;
 	/// every nonisolated(unsafe) property below is touched only here.
 	fileprivate let analysisQueue = DispatchQueue(label: "narcissism.posture-analysis")
 
 	/// Attaches a video data output to the shared session and begins the
 	/// once-per-second shoulder-distance log. The attached output holds the
-	/// session up for as long as the app runs, independent of any preview.
-	/// Idempotent.
+	/// session up for as long as tracking stays on, independent of any
+	/// preview. Idempotent.
 	func start() {
 		guard self.output == nil else { return }
 
@@ -71,7 +77,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		output.setSampleBufferDelegate(self, queue: self.analysisQueue)
 		self.output = output
 
-		Task {
+		self.attachTask = Task {
 			do {
 				try await self.cameraService.attachOutput(output).value
 			} catch {
@@ -79,8 +85,62 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				// note it here too so the absent measurements are explained
 				// in the same log the reader is watching.
 				Self.logger.error("Posture probe could not attach to the camera: \(error.localizedDescription, privacy: .public)")
-				self.output = nil
+				// Only clear if a stop/start pair has not already replaced
+				// the output this task was attaching.
+				if self.output === output {
+					self.output = nil
+				}
+				throw error
 			}
+		}
+	}
+
+	/// Detaches the probe and clears its published state, hiding the corner
+	/// note. The camera service ref-counts its consumers, so this never stops
+	/// a session another surface (preview, photo capture, Dock tile) is still
+	/// using; the session goes down only when the probe was its last
+	/// consumer. Idempotent.
+	func stop() {
+		guard let output = self.output else { return }
+		self.output = nil
+
+		let attachTask = self.attachTask
+		self.attachTask = nil
+
+		// Hide the note and dots right away rather than after the detach's
+		// session-queue round trip.
+		self.onJoints.send(nil)
+		self.onPostureStatus.send(nil)
+
+		Task {
+			do {
+				try await attachTask?.value
+			} catch {
+				// The attach never went through; there is nothing to detach.
+				return
+			}
+			await self.cameraService.detachOutput(output).value
+
+			// No new frames arrive after the detach; once the analysis queue
+			// drains, the window and episode state can be reset so a later
+			// start() begins from a clean slate.
+			await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+				self.analysisQueue.async {
+					self.lastAnalysisTime = .invalid
+					self.resetWindow()
+					self.issueTrackers = [:]
+					self.notVisibleWindows = 0
+					self.lastLoggedStatus = nil
+					continuation.resume()
+				}
+			}
+
+			// Squash anything a last in-flight frame published between the
+			// sends above and the detach completing.
+			self.onJoints.send(nil)
+			self.onPostureStatus.send(nil)
+
+			Self.logger.log("Posture probe detached (tracking off)")
 		}
 	}
 
@@ -101,7 +161,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 	/// Joints at or below this Vision confidence (0...1) are treated as not
 	/// seen; a "not visible" line is logged instead of a noise measurement.
-	fileprivate nonisolated static let minimumJointConfidence: Float = 0.3
+	/// Lowered from 0.3 on 2026-07-23 to see whether the marginal frames it
+	/// admits are usable or noise; revisit with the accuracy question.
+	fileprivate nonisolated static let minimumJointConfidence: Float = 0.2
 
 	/// The user's own good-posture slouch ratio, measured sitting with
 	/// deliberately perfect posture on 2026-07-22. Hardcoded until the

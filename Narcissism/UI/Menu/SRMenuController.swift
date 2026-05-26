@@ -124,6 +124,20 @@ class SRMenuController: NSObject {
 				.eraseToAnyPublisher()
 		}
 
+		// Track Posture
+		menu.addItem(self.createMenuItem(
+			"menu.track-posture",
+			checked: preferenceAndCameraAvailable(self.preferences.postureTracking),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.postureTracking.toggle()
+		})
+
+		// Snooze (posture): the hover submenu with the pause durations.
+		menu.addItem(self.makePostureSnoozeItem())
+
+		menu.addItem(NSMenuItem.separator())
+
 		// Take Photo
 		menu.addItem(self.createMenuItem(
 			"menu.take-photo",
@@ -232,6 +246,83 @@ class SRMenuController: NSObject {
 
 		return menu
 	}
+
+	/// The posture "Snooze" parent item with the duration submenu, visible
+	/// only while posture tracking is on (and a camera exists, matching the
+	/// toggle's checked state). Choosing a duration writes the snooze
+	/// deadline preference; the composition root turns that into a paused
+	/// probe and a resume timer. While snoozed the title names the deadline
+	/// and a "Resume Now" item appears as the whole-snooze off switch; both
+	/// follow the preference, which the resume timer clears, so the menu
+	/// never shows a stale snooze.
+	fileprivate func makePostureSnoozeItem() -> NSMenuItem {
+		let parent = NSMenuItem(
+			title: NSLocalizedString("menu.posture-snooze", comment: ""),
+			action: nil,
+			keyEquivalent: ""
+		)
+		let submenu = NSMenu(title: "")
+		submenu.autoenablesItems = false
+		parent.submenu = submenu
+
+		let durations: [(title: String, interval: TimeInterval)] = [
+			("menu.posture-snooze.5-minutes", 5 * 60),
+			("menu.posture-snooze.10-minutes", 10 * 60),
+			("menu.posture-snooze.15-minutes", 15 * 60),
+			("menu.posture-snooze.30-minutes", 30 * 60),
+			("menu.posture-snooze.1-hour", 60 * 60),
+			("menu.posture-snooze.2-hours", 2 * 60 * 60),
+			("menu.posture-snooze.5-hours", 5 * 60 * 60),
+		]
+		for duration in durations {
+			submenu.addItem(NSMenuItemWithClosure(
+				title: NSLocalizedString(duration.title, comment: ""),
+				keyEquivalent: ""
+			) {
+				SRSettings.sharedInstance.postureSnoozeUntil.value = Date.now.addingTimeInterval(duration.interval)
+			})
+		}
+
+		let separator = NSMenuItem.separator()
+		submenu.addItem(separator)
+
+		let resume = NSMenuItemWithClosure(
+			title: NSLocalizedString("menu.posture-snooze.resume", comment: ""),
+			keyEquivalent: ""
+		) {
+			SRSettings.sharedInstance.postureSnoozeUntil.value = .distantPast
+		}
+		submenu.addItem(resume)
+
+		self.preferences.postureTracking.publisher
+			.combineLatest(SRCameraService.sharedInstance.onCaptureDeviceAvailable)
+			.map { $0 && $1 }
+			.sink { [unowned parent] in parent.isHidden = !$0 }
+			.store(in: &self.cancellables)
+
+		self.preferences.postureSnoozeUntil.publisher
+			.sink { [unowned parent, unowned resume, unowned separator] deadline in
+				let snoozed = deadline > Date.now
+				resume.isHidden = !snoozed
+				separator.isHidden = !snoozed
+				parent.title = snoozed
+					? String(
+						format: NSLocalizedString("menu.posture-snooze.snoozed-until", comment: ""),
+						Self.snoozeTimeFormatter.string(from: deadline)
+					)
+					: NSLocalizedString("menu.posture-snooze", comment: "")
+			}
+			.store(in: &self.cancellables)
+
+		return parent
+	}
+
+	fileprivate static let snoozeTimeFormatter: DateFormatter = {
+		let formatter = DateFormatter()
+		formatter.timeStyle = .short
+		formatter.dateStyle = .none
+		return formatter
+	}()
 
 	/// The "Camera" parent item with a submenu that lists the connected
 	/// devices plus an "Automatic" option. The submenu is rebuilt whenever the

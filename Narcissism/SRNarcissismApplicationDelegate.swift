@@ -24,6 +24,7 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 	fileprivate var dockTileController: SRDockTileController!
 	fileprivate var hotKeyController: SRHotKeyController!
 	fileprivate var postureNoteController: SRPostureNoteController!
+	fileprivate var postureSnoozeTimer: Timer?
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		// The selected-camera preference is the source of truth; translate it
@@ -46,14 +47,56 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		self.panelController = SRPanelController(services: self.services, statusItemController: statusItem)
 		self.dockTileController = SRDockTileController(services: self.services)
 
-		// The posture probe (Posture/spec.md) logs the shoulder distance once
-		// per second; while attached it keeps the shared camera session
-		// running for the whole app lifetime.
-		self.services.posture.start()
+		// The posture probe (Posture/spec.md) runs while Track Posture is on
+		// and any snooze deadline has passed; both preferences replay their
+		// persisted values, so a relaunch resumes the stored choice and a
+		// relaunch mid-snooze honors the remaining time.
+		self.services.settings.postureTracking.publisher
+			.combineLatest(self.services.settings.postureSnoozeUntil.publisher)
+			.sink { [weak self] tracking, snoozeUntil in
+				self?.applyPostureTracking(tracking, snoozeUntil: snoozeUntil)
+			}
+			.store(in: &self.cancellables)
 
 		// The corner posture note observes the probe's status and shows the
 		// current verdict as a ghost panel in the top-right corner.
 		self.postureNoteController = SRPostureNoteController(services: self.services)
+	}
+
+	/// Turns the two posture preferences into probe state: run while tracking
+	/// is on and not snoozed. While snoozed the probe stops exactly as the
+	/// toggle stops it, and a one-shot timer clears the deadline at its
+	/// moment, so tracking resumes on its own and the menu's "Snoozed Until"
+	/// state resets with the preference. Unchecking Track Posture discards
+	/// any pending snooze: the master toggle always means a clean slate.
+	/// Timers do not fire during system sleep; a deadline slept through
+	/// fires on wake, which is when resuming makes sense anyway.
+	fileprivate func applyPostureTracking(_ tracking: Bool, snoozeUntil: Date) {
+		self.postureSnoozeTimer?.invalidate()
+		self.postureSnoozeTimer = nil
+
+		if !tracking {
+			if snoozeUntil > Date.now {
+				// Re-emits into this sink; the second pass sees the cleared
+				// deadline and just stops again (idempotent).
+				self.services.settings.postureSnoozeUntil.value = .distantPast
+			}
+			self.services.posture.stop()
+			return
+		}
+
+		if snoozeUntil > Date.now {
+			self.services.posture.stop()
+			let timer = Timer(fire: snoozeUntil, interval: 0, repeats: false) { [weak self] _ in
+				Task { @MainActor [weak self] in
+					self?.services.settings.postureSnoozeUntil.value = .distantPast
+				}
+			}
+			RunLoop.main.add(timer, forMode: .common)
+			self.postureSnoozeTimer = timer
+		} else {
+			self.services.posture.start()
+		}
 	}
 
 	/// Advance the selected camera one step through Automatic then each

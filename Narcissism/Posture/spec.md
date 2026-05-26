@@ -1,21 +1,49 @@
 # Posture Subsystem
 
-Scope: the first buildable increment of the posture-tracking effort. VISION.md
+Scope: the early increments of the posture-tracking effort. VISION.md
 next to this file remains the long-term goal document; this spec covers only
-what is built. What exists today is a measurement probe: it measures the
-image-plane distance between the user's shoulders once per second and logs it.
-No UI, no settings, no calibration, no nudges yet.
+what is built: the measurement probe (per-second metrics logging), the
+debounced corner posture note, and the Track Posture menu toggle that turns
+the whole subsystem on and off. No calibration yet; the slouch baseline is
+hardcoded.
 
 ## Behavior
 
 - SRPostureAnalysisService attaches one AVCaptureVideoDataOutput to the
-  shared SRCameraService session. The composition root starts it at launch.
-- While the output is attached, the shared capture session is held running
-  for the whole app lifetime, independent of any visible preview (the
-  relationship decided in VISION.md). macOS shows its camera-in-use
-  indicator the whole time. A user-facing toggle is deliberately not built
-  yet; it is the expected next increment, and until then the probe is
-  effectively always on.
+  shared SRCameraService session. The composition root starts and stops it
+  as the tracking and snooze preferences direct.
+- The probe runs only while Track Posture is on: the first item in the
+  shared status/Dock menu, bound to the PostureTracking preference
+  (default off, so tracking is opt-in). The composition root observes the
+  preference and calls the service's start/stop; the preference publisher
+  replays the persisted value, so quitting with tracking on resumes it at
+  the next launch.
+- While on, the attached output holds the shared capture session running,
+  independent of any visible preview (the relationship decided in
+  VISION.md), and macOS shows its camera-in-use indicator the whole time.
+  Turning the toggle off detaches the output (no Vision work at all),
+  resets the window and episode state, and clears the published status and
+  joints so the corner note hides immediately. The camera service
+  ref-counts its consumers, so the toggle never stops a session another
+  surface (preview, photo capture, Dock tile) is still using; the session
+  goes down only when the probe was its last consumer. A quick on-off
+  flip is safe: stop waits for an in-flight attach to settle before
+  detaching.
+- Snooze: the menu's Snooze submenu (visible only while tracking is on)
+  writes a deadline to the PostureSnoozeUntil preference - 5/10/15/30
+  minutes or 1/2/5 hours from now; Resume Now, shown only while snoozed,
+  is the whole-snooze off switch and clears the deadline immediately.
+  While the deadline is in the future the probe is stopped exactly as the
+  toggle stops it (output detached, note hidden, camera released to its
+  ref-count), and the composition root schedules a one-shot timer that
+  clears the deadline, so tracking resumes by itself and the menu's
+  "Snoozed Until ..." title resets with the preference. Choosing a new
+  duration mid-snooze replaces the deadline from now. Unchecking Track
+  Posture discards any pending snooze: the master toggle always means a
+  clean slate. The deadline is persisted, so a relaunch mid-snooze honors
+  the remaining time (or resumes at launch if it passed while the app was
+  closed). Timers do not fire during system sleep; a deadline slept
+  through fires on wake.
 - Frames are paced on the sample-buffer queue to four analyses per second;
   frames in between are dropped before any Vision work happens. Analysis is
   faster than logging on purpose: single frames flicker (motion blur,
@@ -98,8 +126,9 @@ No UI, no settings, no calibration, no nudges yet.
   surface, so "never blank-frame a failure" applies to it). A pipeline with
   no usable measurement in a window reports its most informative failure:
   the best sub-threshold confidences if some frame saw a body but the
-  shoulders stayed at or below the 0.3 confidence floor, otherwise "no
-  body". Every line includes the window's frame count. Vision request
+  shoulders stayed at or below the confidence floor, otherwise "no
+  body". The floor is 0.2 (0.3 until 2026-07-23; lowered to see whether
+  the marginal frames it admits are usable or noise). Every line includes the window's frame count. Vision request
   errors, a failed output attach, and a failed canvas allocation are logged
   as they happen.
 
@@ -142,10 +171,10 @@ No UI, no settings, no calibration, no nudges yet.
   dots over the live image: shoulders red, eyes yellow, hidden when
   detection drops. Dots are sublayers of the preview layer positioned via
   layerPointConverted, so aspect-fill cropping and mirroring apply to them
-  exactly as to the video. Currently dormant: a master switch in the view
-  (dotsVisible, default false) keeps the dots invisible while all the
-  plumbing stays wired, per the user's request on 2026-07-22; flip it to
-  true to show them again. Still explicitly a test aid: delete the view,
+  exactly as to the video. A master switch in the view (dotsVisible)
+  toggles visibility while all the plumbing stays wired; currently true
+  (dots shown, re-enabled 2026-07-23 after a dormant spell). Still
+  explicitly a test aid: delete the view,
   the panel hookup, and onJoints together when the accuracy question is
   fully closed.
 
@@ -163,7 +192,5 @@ No UI, no settings, no calibration, no nudges yet.
 
 ## Open questions
 
-- The settings toggle (in scope per VISION.md) and whether the probe should
-  instead piggyback on an already-running session until the toggle exists.
 - Whether the per-second measurement log survives once real metrics land,
   and at what log level it should ship.
