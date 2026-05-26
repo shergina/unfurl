@@ -87,6 +87,11 @@ final class SRSettings {
 	// this moment, then resumes on its own. distantPast means not snoozed.
 	// Persisted, so a relaunch mid-snooze honors the remaining time.
 	let postureSnoozeUntil: Preference<Date>
+	// The calibration output: the good-posture slouch ratio and when it
+	// was measured. <= 0 / distantPast = not calibrated. Only these two
+	// values persist, never imagery.
+	let postureBaselineSlouchRatio: Preference<CGFloat>
+	let postureBaselineDate: Preference<Date>
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
     // The camera's menu-bar width is session-only (never persisted): it always
@@ -108,6 +113,8 @@ final class SRSettings {
 		self.selectedCameraDeviceID = Preference("SelectedCameraDeviceID", default: "", defaults: defaults)
 		self.postureTracking = Preference("PostureTracking", default: false, defaults: defaults)
 		self.postureSnoozeUntil = Preference("PostureSnoozeUntil", default: .distantPast, defaults: defaults)
+		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
+		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 	}
 }
 

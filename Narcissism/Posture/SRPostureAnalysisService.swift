@@ -17,8 +17,8 @@ import os
 /// Vision body-pose detection off-main, and logs the shoulder distance,
 /// average eye height, slouch ratio, and shoulder tilt angle once per
 /// second, plus warning lines whenever the slouch ratio breaches the
-/// hardcoded good-posture baseline or the shoulder tilt exceeds the level
-/// band. Runs only while the Track Posture preference is on; the
+/// user's calibrated good-posture baseline or the shoulder tilt exceeds
+/// the level band. Runs only while the Track Posture preference is on; the
 /// composition root calls start/stop as the preference changes. See
 /// spec.md.
 ///
@@ -37,12 +37,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 	let cameraService = SRCameraService.sharedInstance
 
-	/// TEMPORARY (accuracy test): the latest analyzed frame's joint
-	/// positions, frame-normalized Vision coordinates (origin bottom-left),
-	/// nil when that frame had no usable body. Published on the main actor
-	/// at the analysis rate for the panel's dots overlay
-	/// (SRPostureDebugCameraView); delete both together.
-	let onJoints = CurrentValueSubject<SRPostureJoints?, Never>(nil)
+	/// Per-frame feed for the calibration window and the dots overlay,
+	/// published on the main actor at the analysis rate. Nil fields = no
+	/// usable body that frame; nil sample = probe detached.
+	let onFrameSample = CurrentValueSubject<SRPostureFrameSample?, Never>(nil)
 
 	/// The per-window posture status for the corner note (and any future
 	/// nudge surface): good, the single correction to make, or not visible.
@@ -59,6 +57,22 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// The serial queue the sample-buffer delegate and Vision work run on;
 	/// every nonisolated(unsafe) property below is touched only here.
 	fileprivate let analysisQueue = DispatchQueue(label: "narcissism.posture-analysis")
+
+	fileprivate var cancellables = Set<AnyCancellable>()
+
+	override init() {
+		super.init()
+
+		// Mirror the baseline preference onto the analysis queue, where it
+		// is consumed. Worst case a frame races the initial push, sees nil,
+		// and one window goes unevaluated.
+		SRSettings.sharedInstance.postureBaselineSlouchRatio.publisher
+			.sink { [unowned self] value in
+				let baseline: CGFloat? = value > 0 ? value : nil
+				self.analysisQueue.async { self.baselineSlouchRatio = baseline }
+			}
+			.store(in: &self.cancellables)
+	}
 
 	/// Attaches a video data output to the shared session and begins the
 	/// once-per-second shoulder-distance log. The attached output holds the
@@ -109,7 +123,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 		// Hide the note and dots right away rather than after the detach's
 		// session-queue round trip.
-		self.onJoints.send(nil)
+		self.onFrameSample.send(nil)
 		self.onPostureStatus.send(nil)
 
 		Task {
@@ -137,7 +151,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 			// Squash anything a last in-flight frame published between the
 			// sends above and the detach completing.
-			self.onJoints.send(nil)
+			self.onFrameSample.send(nil)
 			self.onPostureStatus.send(nil)
 
 			Self.logger.log("Posture probe detached (tracking off)")
@@ -165,13 +179,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// admits are usable or noise; revisit with the accuracy question.
 	fileprivate nonisolated static let minimumJointConfidence: Float = 0.2
 
-	/// The user's own good-posture slouch ratio, measured sitting with
-	/// deliberately perfect posture on 2026-07-22. Hardcoded until the
-	/// calibration flow in VISION.md exists; only valid for the same user,
-	/// camera, and rough distance.
-    /// Masha's slouch ratio, CHANGE LATER tO ADJUST FOR USER:
-	fileprivate nonisolated static let baselineSlouchRatio: CGFloat = 0.692
-
 	/// Windows whose slouch ratio drops more than this fraction below the
 	/// baseline log a slouching warning (tightened from the ~10 percent
 	/// starting band in VISION.md). Ratios above baseline are sitting tall,
@@ -192,6 +199,11 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	// After this many consecutive can't-see-you windows every episode
 	// resets: whoever returns to the desk starts from a clean slate.
 	fileprivate nonisolated static let notVisibleResetWindows = 5
+
+	/// The calibrated good-posture slouch ratio (see init); nil until
+	/// calibrated, which suppresses the whole per-window evaluation.
+	/// Touched only on the (serial) analysis queue.
+	fileprivate nonisolated(unsafe) var baselineSlouchRatio: CGFloat?
 
 	// The current logging window. Touched only on the (serial) analysis queue.
 	fileprivate nonisolated(unsafe) var lastAnalysisTime = CMTime.invalid
@@ -237,15 +249,21 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			paddedResult = result
 		}
 
-		// TEMPORARY (accuracy test): hand this frame's joints to the panel's
-		// dots overlay, padded pipeline preferred (it is the one that works).
-		var joints: SRPostureJoints?
+		// Per-frame feed, padded pipeline preferred (the one that works).
+		// Sent for every analyzed frame, usable or not: calibration counts
+		// frame events.
+		var best: ShoulderMeasurement?
 		if case .measured(let measurement)? = paddedResult {
-			joints = measurement.joints
+			best = measurement
 		} else if case .measured(let measurement) = plainResult {
-			joints = measurement.joints
+			best = measurement
 		}
-		Task { @MainActor [joints] in self.onJoints.send(joints) }
+		let sample = SRPostureFrameSample(
+			shoulderWidthFraction: best?.fractionOfWidth,
+			slouchRatio: best?.slouchRatio,
+			joints: best?.joints
+		)
+		Task { @MainActor [sample] in self.onFrameSample.send(sample) }
 
 		if timestamp - self.windowStartTime >= Self.logInterval {
 			self.logWindow()
@@ -263,16 +281,27 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated func logWindow() {
 		Self.logger.log("Shoulder distance: plain [\(self.plainWindow.summary, privacy: .public)] padded [\(self.paddedWindow.summary, privacy: .public)] (\(self.windowFrameCount, privacy: .public) frames)")
 
+		// Uncalibrated: nothing to judge against, and the note must not pop
+		// over the calibration window, so everything (tilt included) stays
+		// suppressed. Trackers reset for a clean start.
+		guard let baseline = self.baselineSlouchRatio else {
+			self.issueTrackers = [:]
+			self.notVisibleWindows = 0
+			self.lastLoggedStatus = nil
+			Task { @MainActor in self.onPostureStatus.send(nil) }
+			return
+		}
+
 		// Slouch alert, evaluated on whichever pipeline measured (padded is
 		// the one that works at laptop framing; plain is the fallback). One
 		// evaluation per window, no debounce yet: immediate per-second
 		// feedback is the point of the current experiment.
 		if
 			let ratio = self.paddedWindow.bestMeasurement?.slouchRatio ?? self.plainWindow.bestMeasurement?.slouchRatio,
-			ratio < Self.baselineSlouchRatio * (1 - Self.slouchTolerance)
+			ratio < baseline * (1 - Self.slouchTolerance)
 		{
-			let percentBelow = Int(((Self.baselineSlouchRatio - ratio) / Self.baselineSlouchRatio * 100).rounded())
-			Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", Self.baselineSlouchRatio), privacy: .public) baseline")
+			let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
+			Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
 		}
 
 		// Shoulder alignment alert, same cadence and pipeline preference.
@@ -299,8 +328,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 			let slouchObservation: SRIssueObservation
 			if let ratio = measurement.slouchRatio {
-				let breachFloor = Self.baselineSlouchRatio * (1 - Self.slouchTolerance)
-				let strongFloor = Self.baselineSlouchRatio * (1 - Self.slouchTolerance / 2)
+				let breachFloor = baseline * (1 - Self.slouchTolerance)
+				let strongFloor = baseline * (1 - Self.slouchTolerance / 2)
 				slouchObservation = ratio < breachFloor ? .breaching : (ratio >= strongFloor ? .stronglyRecovered : .clean)
 			} else {
 				// Eyes not measurable this window: freeze the tracker
@@ -551,8 +580,7 @@ fileprivate struct ShoulderMeasurement {
 	/// means the subject's anatomical left shoulder is higher; 0 is level.
 	let shoulderTiltDegrees: CGFloat
 
-	/// TEMPORARY (accuracy test): the joint positions behind this
-	/// measurement, for the panel's dots overlay.
+	/// The joint positions behind this measurement, for the dots overlay.
 	let joints: SRPostureJoints
 
 	/// The weaker of the two joints; the per-window winner maximizes this.
@@ -639,15 +667,23 @@ fileprivate struct SRIssueTracker {
 }
 
 
-/// TEMPORARY (accuracy test): one frame's joint positions in
-/// frame-normalized Vision coordinates (origin bottom-left). Eyes are nil
-/// when they did not clear the confidence floor. Internal (not fileprivate)
-/// because SRPostureDebugCameraView consumes it; both go away with the test.
+/// One frame's joint positions, frame-normalized Vision coordinates
+/// (origin bottom-left). Eyes are nil below the confidence floor.
 struct SRPostureJoints: Sendable {
 	let leftShoulder: CGPoint
 	let rightShoulder: CGPoint
 	let leftEye: CGPoint?
 	let rightEye: CGPoint?
+}
+
+
+/// One analyzed frame's readings, padded pipeline preferred: shoulder
+/// width as a fraction of the frame, the slouch ratio (nil without eyes),
+/// and the joints. All nil when nothing measured.
+struct SRPostureFrameSample: Sendable {
+	let shoulderWidthFraction: CGFloat?
+	let slouchRatio: CGFloat?
+	let joints: SRPostureJoints?
 }
 
 

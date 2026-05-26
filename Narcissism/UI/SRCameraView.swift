@@ -109,7 +109,9 @@ class SRCameraView: NSView {
 		}
 	}
 
-	fileprivate func applyCameraFlip() {
+	// Internal (not fileprivate) so SRPostureCalibrationCameraView can
+	// override it to mirror unconditionally.
+	func applyCameraFlip() {
 		self.previewLayer.transform =
 			self.preferences.flipCameraHorizontally.value ?
 				CATransform3DMakeRotation(.pi, 0.0, 1.0, 0.0) :

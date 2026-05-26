@@ -1,5 +1,5 @@
 //
-//  SRPostureDebugCameraView.swift
+//  SRPostureCalibrationCameraView.swift
 //  Narcissism
 //
 //  Copyright (c) 2026 Maria Shergina. All rights reserved.
@@ -10,28 +10,17 @@ import AVFoundation
 import Combine
 
 
-/// TEMPORARY (accuracy test): the panel's camera view plus dots where the
-/// posture probe last saw the shoulders (red) and eyes (yellow), so Vision's
-/// accuracy can be judged against the live image. The dots are sublayers of
-/// the preview layer and are positioned through the preview layer's own
-/// coordinate converter, so the aspect-fill crop and the mirror flip apply
-/// to them exactly as to the video.
-///
-/// Delete together with the test: this file and the one line in
-/// SRPanelContentView that instantiates it. The onFrameSample feed it
-/// consumes is permanent (the calibration window depends on it).
-class SRPostureDebugCameraView: SRCameraView {
-
-	/// Master switch for the overlay. All the plumbing (joint publishing,
-	/// subscription, coordinate conversion) stays wired; while false the
-	/// dots are simply never shown. Flip to true to see them again.
-	fileprivate static let dotsVisible = false
+/// The calibration preview: live camera plus dots on the detected
+/// shoulders (red) and eyes (yellow), so the user sees what the tracker
+/// sees. Dots are sublayers of the preview layer, so the aspect-fill crop
+/// and the mirror apply to them like to the video.
+class SRPostureCalibrationCameraView: SRCameraView {
 
 	fileprivate var leftShoulderDot: CALayer!
 	fileprivate var rightShoulderDot: CALayer!
 	fileprivate var leftEyeDot: CALayer!
 	fileprivate var rightEyeDot: CALayer!
-	fileprivate var jointsCancellable: AnyCancellable?
+	fileprivate var sampleCancellable: AnyCancellable?
 
 	override init(frame: NSRect) {
 		super.init(frame: frame)
@@ -54,7 +43,7 @@ class SRPostureDebugCameraView: SRCameraView {
 		self.rightEyeDot = makeDot(.systemYellow, diameter: 10)
 
 		// Published on the main actor at the analysis rate (4/s).
-		self.jointsCancellable = SRPostureAnalysisService.sharedInstance.onFrameSample
+		self.sampleCancellable = SRPostureAnalysisService.sharedInstance.onFrameSample
 			.sink { [weak self] sample in self?.updateDots(sample?.joints) }
 	}
 
@@ -62,13 +51,13 @@ class SRPostureDebugCameraView: SRCameraView {
 		fatalError("init(coder:) has not been implemented")
 	}
 
+	/// Always mirror: a calibration preview is a mirror, whatever the flip
+	/// preference says.
+	override func applyCameraFlip() {
+		self.cameraLayer.transform = CATransform3DMakeRotation(.pi, 0.0, 1.0, 0.0)
+	}
+
 	fileprivate func updateDots(_ joints: SRPostureJoints?) {
-		guard Self.dotsVisible else {
-			for dot in [self.leftShoulderDot, self.rightShoulderDot, self.leftEyeDot, self.rightEyeDot] {
-				dot?.isHidden = true
-			}
-			return
-		}
 		guard let previewLayer = self.cameraLayer as? AVCaptureVideoPreviewLayer else { return }
 
 		CATransaction.begin()

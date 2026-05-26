@@ -96,6 +96,13 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 			self.postureSnoozeTimer = timer
 		} else {
 			self.services.posture.start()
+
+			// No baseline yet -> open calibration instead of tracking
+			// blind. Covers toggle-on, launch replay, and snooze expiry;
+			// re-emissions land on idempotent calls.
+			if self.services.settings.postureBaselineSlouchRatio.value <= 0 {
+				self.services.menu.showPostureCalibration()
+			}
 		}
 	}
 

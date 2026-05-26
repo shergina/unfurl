@@ -46,6 +46,7 @@ class SRMenuController: NSObject {
 
 	fileprivate let preferences = SRSettings.sharedInstance
 	fileprivate var aboutWindowController: SRAboutWindowController? = nil
+	fileprivate var postureCalibrationWindowController: SRPostureCalibrationWindowController? = nil
 
 
 	fileprivate let showQuitMenuItem = CurrentValueSubject<Bool, Never>(false)
@@ -135,6 +136,16 @@ class SRMenuController: NSObject {
 
 		// Snooze (posture): the hover submenu with the pause durations.
 		menu.addItem(self.makePostureSnoozeItem())
+
+		// Calibrate Posture: same visibility rule as Snooze. Calibrating
+		// while snoozed clears the snooze.
+		menu.addItem(self.createMenuItem(
+			"menu.calibrate-posture",
+			visible: preferenceAndCameraAvailable(self.preferences.postureTracking)
+		) {
+			SRSettings.sharedInstance.postureSnoozeUntil.value = .distantPast
+			self.showPostureCalibration()
+		})
 
 		menu.addItem(NSMenuItem.separator())
 
@@ -375,6 +386,20 @@ class SRMenuController: NSObject {
 			item.state = (device.id == selectedID) ? .on : .off
 			submenu.addItem(item)
 		}
+	}
+
+	/// Presents the calibration window; re-fronts if already open. Both
+	/// entry points (menu item, no-baseline auto-open) funnel through here,
+	/// so there is never a second window.
+	func showPostureCalibration() {
+		if let existing = self.postureCalibrationWindowController {
+			existing.showWindow(self)
+			return
+		}
+		let controller = SRPostureCalibrationWindowController(windowNibName: "")
+		controller.onClose = { [weak self] in self?.postureCalibrationWindowController = nil }
+		self.postureCalibrationWindowController = controller
+		controller.showWindow(self)
 	}
 
 	func showAboutDialog() {

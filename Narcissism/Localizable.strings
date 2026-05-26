@@ -20,6 +20,7 @@
 "menu.posture-snooze.2-hours" = "2 Hours";
 "menu.posture-snooze.5-hours" = "5 Hours";
 "menu.posture-snooze.resume" = "Resume Now";
+"menu.calibrate-posture" = "Calibrate Posture...";
 "menu.launch-at-login" = "Open at Login";
 "menu.flip-camera-horizontally" = "Mirror mode (Flip Camera Horizontally)";
 "menu.show-camera-panel" = "Show Camera Panel";
@@ -64,3 +65,16 @@
 "posture.note.lower-left-shoulder" = "Lower your left shoulder";
 "posture.note.lower-right-shoulder" = "Lower your right shoulder";
 "posture.note.not-visible" = "Posture: can't see you clearly";
+
+// Posture calibration window
+"posture.calibration.title" = "Posture Calibration";
+"posture.calibration.guidance.not-visible" = "Can't see you - make sure you are in front of the camera.";
+"posture.calibration.guidance.face-not-visible" = "Can't see your face clearly - face the camera.";
+"posture.calibration.guidance.too-far" = "Move a little closer to the camera.";
+"posture.calibration.guidance.good" = "Sit up straight with your best posture, then press Begin.";
+"posture.calibration.begin" = "Begin";
+"posture.calibration.capturing" = "Measuring your posture - hold still.";
+"posture.calibration.paused" = "Can't see you - measurement paused.";
+"posture.calibration.failed.timeout" = "Couldn't get a steady reading. Adjust your position and try again.";
+"posture.calibration.failed.unstable" = "The readings varied too much. Sit still and try again.";
+"posture.calibration.done" = "Calibrated. Tracking your posture now.";

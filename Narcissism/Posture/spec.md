@@ -3,9 +3,9 @@
 Scope: the early increments of the posture-tracking effort. VISION.md
 next to this file remains the long-term goal document; this spec covers only
 what is built: the measurement probe (per-second metrics logging), the
-debounced corner posture note, and the Track Posture menu toggle that turns
-the whole subsystem on and off. No calibration yet; the slouch baseline is
-hardcoded.
+debounced corner posture note, the Track Posture menu toggle with its
+snooze, and the calibration window that measures the user's own
+good-posture slouch baseline.
 
 ## Behavior
 
@@ -99,17 +99,20 @@ hardcoded.
   on.
 - Slouch alert (experimental, log-only): each window's best available
   slouch ratio (padded pipeline preferred, plain as fallback) is compared
-  against a hardcoded baseline of 0.692, the user's own ratio measured
-  sitting with deliberately perfect posture on 2026-07-22 (replacing the
-  0.616 relaxed-straight value from the day before). A window more than 5
-  percent below baseline logs a warning-level "Slouching:" line naming the
-  ratio
-  and the deviation; ratios above baseline mean sitting tall and never
-  alert. The baseline is per-user, per-camera-placement state that belongs
-  to the future calibration flow; hardcoding it is a stopgap for the
-  experiment. Deliberately no debounce or hysteresis yet: per-window
-  feedback is what the experiment needs. The eventual nudge feature adds
-  the ~10 s debounce per VISION.md.
+  against the user's calibrated baseline: the PostureBaselineSlouchRatio
+  preference, mirrored onto the analysis queue, written by the
+  calibration window (see Calibration below). A window more than 5
+  percent below baseline logs a warning-level "Slouching:" line naming
+  the ratio and the deviation; ratios above baseline mean sitting tall
+  and never alert. While no baseline is stored (<= 0 sentinel) the
+  slouch alert, the issue tracking, and the corner note are all
+  suppressed - nil status, trackers cleared - because there is nothing
+  to judge against and nothing may pop over the calibration window.
+  Decision (2026-07-24): the hardcoded 0.692 baseline of 2026-07-22 is
+  retired; the preference is the only source. Deliberately no debounce
+  or hysteresis yet on the log line: per-window feedback is what the
+  experiment needs. The eventual nudge feature adds the ~10 s debounce
+  per VISION.md.
 - Shoulder alignment alert (experimental, log-only): same cadence and
   pipeline preference as the slouch alert. A window whose tilt magnitude
   exceeds 3 degrees off level logs a warning-level "Shoulders misaligned:"
@@ -164,19 +167,57 @@ hardcoded.
   Spaces including fullscreen, and deliberately indifferent to Focus
   modes. Fade animations and an escalation cooldown from the agreed
   design are not built yet.
-- Dots overlay (temporary accuracy test): the service publishes the latest
-  analyzed frame's joint positions (frame-normalized, padded pipeline
-  preferred) on the main actor via onJoints, and the floating panel's
-  camera view is temporarily SRPostureDebugCameraView, which draws them as
-  dots over the live image: shoulders red, eyes yellow, hidden when
-  detection drops. Dots are sublayers of the preview layer positioned via
-  layerPointConverted, so aspect-fill cropping and mirroring apply to them
-  exactly as to the video. A master switch in the view (dotsVisible)
-  toggles visibility while all the plumbing stays wired; currently true
-  (dots shown, re-enabled 2026-07-23 after a dormant spell). Still
-  explicitly a test aid: delete the view,
-  the panel hookup, and onJoints together when the accuracy question is
-  fully closed.
+- Calibration window: opens whenever the probe would start (tracking on,
+  not snoozed) and no baseline is stored - covering the fresh toggle-on
+  and the launch replay of an install that predates calibration - and on
+  demand from the menu's "Calibrate Posture..." item (visible exactly
+  when Snooze is; choosing it clears any snooze, a deliberate resume).
+  Both entry points funnel through SRMenuController, which owns the one
+  window, so a second can never appear. The window floats above normal
+  windows (level .floating: a brief, focused task must not get lost
+  behind other work) and moves to the active Space when re-fronted
+  rather than switching Spaces. Content: a live always-mirrored
+  preview with the joint dots (the user positions themselves by seeing
+  exactly what the tracker sees), the panel's placeholder behind it so
+  camera failures and permission denials explain themselves in-window, a
+  guidance line (can't see you / face the camera / move closer / sit up
+  straight), and a Begin button enabled only while framing is good:
+  confident shoulders, measurable eyes, shoulder width at least 0.15 of
+  the frame width (below that reads as sitting too far away).
+- Calibration capture: Begin starts a 3-2-1 countdown (which ignores
+  detection loss), then collects the per-frame slouch ratio until 5
+  seconds of sampling at the 4/s analysis rate (~20 samples). One
+  unusable frame contributes nothing but does not pause; ~1 s of
+  consecutive loss pauses the clock with "can't see you" (the lead-in
+  frames are refunded), and resuming costs ~1 s of continuous detection,
+  deliberately unsampled - whoever comes back is still settling in. A
+  10 s wall-clock cap from capture start aborts back to positioning
+  (also the guaranteed exit if frames stop arriving entirely).
+  Completion gates: at least 12 usable samples, sample standard
+  deviation at most 0.04, median inside 0.2...1.5; a failed gate returns
+  to positioning with an explanation. The stored baseline is the median
+  of the samples (robust to Vision's outlier frames), written to
+  PostureBaselineSlouchRatio with the moment in PostureBaselineDate;
+  nothing else is ever persisted - no frames, no files. The done state
+  shows briefly, the window closes itself, and tracking continues
+  against the new baseline.
+- Calibration cancel: closing the window while no baseline is stored
+  reverts Track Posture to off (no baseline, no tracking); with a
+  previous baseline on file (the recalibrate path) closing just closes
+  and tracking continues on the old value. Unchecking Track Posture
+  while the window is open closes it.
+- Dots overlay: the service publishes each analyzed frame's readings
+  (shoulder width fraction, slouch ratio, joints; padded pipeline
+  preferred, frame-normalized) on the main actor via onFrameSample. The
+  calibration window renders the joints permanently as dots over its
+  preview (shoulders red, eyes yellow, hidden when detection drops),
+  positioned via layerPointConverted so aspect-fill cropping and
+  mirroring apply to them exactly as to the video. The floating panel's
+  camera view is still temporarily SRPostureDebugCameraView (accuracy
+  aid), drawing the same dots behind a dotsVisible master switch - false
+  in code as of 2026-07-24 (the earlier "currently true" note here did
+  not match the code). Delete that view and its panel hookup when the
+  accuracy question is fully closed; onFrameSample itself is permanent.
 
 ## Invariants
 
@@ -186,11 +227,16 @@ hardcoded.
   every preview (same constraint the Dock output documents).
 - All analysis is on-device (Apple Vision). No frame, landmark, or derived
   value leaves the machine.
-- Analysis stays off the main thread. Only finished Sendable values may hop
-  to the main actor; today nothing does, the log line is written on the
-  analysis queue.
+- Analysis stays off the main thread. Only finished Sendable values hop to
+  the main actor: the per-frame sample and the per-window status. The log
+  line is written on the analysis queue.
 
 ## Open questions
 
 - Whether the per-second measurement log survives once real metrics land,
   and at what log level it should ship.
+- Baseline staleness: the baseline is per-user and per-camera-placement,
+  and moving the laptop or switching cameras silently invalidates it.
+  Recalibrating by hand is the only remedy today; PostureBaselineDate is
+  the hook for a future staleness heuristic (prompt on camera change?
+  shoulder-width drift?).
