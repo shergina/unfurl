@@ -85,6 +85,13 @@ final class SRPostureCalibrationSession {
 		self.startCountdown()
 	}
 
+	/// Back to positioning for another pass; only honored in done.
+	func redo() {
+		guard case .done = self.onPhase.value else { return }
+		self.samples = []
+		self.onPhase.send(.positioning(guidance: .notVisible, failure: nil))
+	}
+
 	/// Stops the timers; called on window close.
 	func invalidate() {
 		self.countdownTimer?.invalidate()
@@ -171,10 +178,11 @@ final class SRPostureCalibrationSession {
 			self.samples.append(ratio)
 		}
 
+		// Publish the final value too, so the bar gets its "full" target
+		// before the done phase lands.
+		self.onPhase.send(.capturing(sampledSeconds: self.sampledSeconds, paused: false))
 		if self.sampledSeconds >= Self.requiredSampledSeconds {
 			self.finishCapture()
-		} else {
-			self.onPhase.send(.capturing(sampledSeconds: self.sampledSeconds, paused: false))
 		}
 	}
 

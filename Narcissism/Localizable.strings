@@ -77,4 +77,6 @@
 "posture.calibration.paused" = "Can't see you - measurement paused.";
 "posture.calibration.failed.timeout" = "Couldn't get a steady reading. Adjust your position and try again.";
 "posture.calibration.failed.unstable" = "The readings varied too much. Sit still and try again.";
-"posture.calibration.done" = "Calibrated. Tracking your posture now.";
+"posture.calibration.finished" = "Calibration finished.";
+"posture.calibration.accept" = "Looks Good";
+"posture.calibration.redo" = "Try Again";

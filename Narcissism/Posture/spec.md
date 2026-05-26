@@ -198,9 +198,12 @@ good-posture slouch baseline.
   to positioning with an explanation. The stored baseline is the median
   of the samples (robust to Vision's outlier frames), written to
   PostureBaselineSlouchRatio with the moment in PostureBaselineDate;
-  nothing else is ever persisted - no frames, no files. The done state
-  shows briefly, the window closes itself, and tracking continues
-  against the new baseline.
+  nothing else is ever persisted - no frames, no files. The baseline is
+  saved the moment the capture passes the gates; the finished screen
+  ("Calibration finished.") then offers Looks Good, which closes the
+  window, and Try Again, which returns to positioning for another pass
+  whose result overwrites. Closing the window in the finished state is
+  the same as Looks Good - the result is already saved.
 - Calibration cancel: closing the window while no baseline is stored
   reverts Track Posture to off (no baseline, no tracking); with a
   previous baseline on file (the recalibrate path) closing just closes

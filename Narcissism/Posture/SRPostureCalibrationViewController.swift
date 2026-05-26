@@ -22,7 +22,8 @@ final class SRPostureCalibrationViewController: NSViewController {
 	/// tell completion from cancellation.
 	private(set) var completed = false
 
-	/// Fires shortly after a save; the window controller closes on it.
+	/// Fires when the user accepts the result; the window controller
+	/// closes on it.
 	var onFinished: (() -> Void)?
 
 	fileprivate var didInstallConstraints = false
@@ -32,16 +33,9 @@ final class SRPostureCalibrationViewController: NSViewController {
 	fileprivate var guidanceLabel: NSTextField!
 	fileprivate var progressIndicator: NSProgressIndicator!
 	fileprivate var beginButton: NSButton!
-	fileprivate var closeTimer: Timer?
+	fileprivate var doneButton: NSButton!
+	fileprivate var redoButton: NSButton!
 	fileprivate var cancellables = Set<AnyCancellable>()
-
-	deinit {
-		// Deallocation happens on main; deinit just isn't statically
-		// isolated (same as SRCameraView).
-		MainActor.assumeIsolated {
-			self.closeTimer?.invalidate()
-		}
-	}
 
 	override func loadView() {
 		self.view = NSView(frame: CGRect(origin: .zero, size: CGSize(width: 480.0, height: 500.0)))
@@ -88,6 +82,28 @@ final class SRPostureCalibrationViewController: NSViewController {
 		self.beginButton.bezelStyle = .rounded
 		self.beginButton.keyEquivalent = "\r"
 		self.view.addSubview(self.beginButton)
+
+		// The finished-state pair, hidden until a capture passes the gates.
+		self.doneButton = NSButton(
+			title: NSLocalizedString("posture.calibration.accept", comment: ""),
+			target: self,
+			action: #selector(SRPostureCalibrationViewController.handleDone)
+		)
+		self.doneButton.translatesAutoresizingMaskIntoConstraints = false
+		self.doneButton.bezelStyle = .rounded
+		self.doneButton.keyEquivalent = "\r"
+		self.doneButton.isHidden = true
+		self.view.addSubview(self.doneButton)
+
+		self.redoButton = NSButton(
+			title: NSLocalizedString("posture.calibration.redo", comment: ""),
+			target: self,
+			action: #selector(SRPostureCalibrationViewController.handleRedo)
+		)
+		self.redoButton.translatesAutoresizingMaskIntoConstraints = false
+		self.redoButton.bezelStyle = .rounded
+		self.redoButton.isHidden = true
+		self.view.addSubview(self.redoButton)
 
 		SRPostureAnalysisService.sharedInstance.onFrameSample
 			.sink { [weak self] sample in self?.session.ingest(sample) }
@@ -137,6 +153,12 @@ final class SRPostureCalibrationViewController: NSViewController {
 
 				self.beginButton.topAnchor.constraint(equalTo: self.progressIndicator.bottomAnchor, constant: 12.0),
 				self.beginButton.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
+
+				// Looks Good / Try Again sit side by side where Begin is.
+				self.doneButton.topAnchor.constraint(equalTo: self.beginButton.topAnchor),
+				self.doneButton.trailingAnchor.constraint(equalTo: self.view.centerXAnchor, constant: -4.0),
+				self.redoButton.topAnchor.constraint(equalTo: self.beginButton.topAnchor),
+				self.redoButton.leadingAnchor.constraint(equalTo: self.view.centerXAnchor, constant: 4.0),
 			])
 			self.didInstallConstraints = true
 		}
@@ -148,11 +170,27 @@ final class SRPostureCalibrationViewController: NSViewController {
 		self.session.begin()
 	}
 
+	@objc fileprivate func handleDone() {
+		self.onFinished?()
+	}
+
+	@objc fileprivate func handleRedo() {
+		self.session.redo()
+	}
+
 	fileprivate func apply(_ phase: SRPostureCalibrationSession.Phase) {
+		if case .done = phase {} else {
+			self.doneButton.isHidden = true
+			self.redoButton.isHidden = true
+		}
+
 		switch phase {
 		case .positioning(let guidance, let failure):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = true
+			// Zero the bar while hidden, so a redo never shows it sliding
+			// back down from full.
+			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = false
 			self.beginButton.isEnabled = (guidance == .good)
 			self.guidanceLabel.stringValue = Self.text(for: guidance, failure: failure)
@@ -161,6 +199,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.countdownLabel.isHidden = false
 			self.countdownLabel.stringValue = "\(remaining)"
 			self.progressIndicator.isHidden = true
+			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = true
 			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.capturing", comment: "")
 
@@ -179,8 +218,16 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = self.progressIndicator.maxValue
 			self.beginButton.isHidden = true
-			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.done", comment: "")
-			self.saveIfNeeded(baseline)
+			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.finished", comment: "")
+			self.save(baseline)
+
+			// The bar animates its fill at its own (undocumented) pace;
+			// give it a generous beat to land before the buttons show up.
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { [weak self] in
+				guard let self, case .done = self.session.onPhase.value else { return }
+				self.doneButton.isHidden = false
+				self.redoButton.isHidden = false
+			}
 		}
 	}
 
@@ -208,20 +255,12 @@ final class SRPostureCalibrationViewController: NSViewController {
 		return lines.joined(separator: "\n")
 	}
 
-	fileprivate func saveIfNeeded(_ baseline: CGFloat) {
-		guard !self.completed else { return }
+	/// Saved the moment a capture passes the gates; a Try Again result
+	/// overwrites. All calibration ever persists: the ratio and its date.
+	fileprivate func save(_ baseline: CGFloat) {
 		self.completed = true
-
-		// All calibration ever persists: the ratio and its date.
 		SRSettings.sharedInstance.postureBaselineSlouchRatio.value = baseline
 		SRSettings.sharedInstance.postureBaselineDate.value = Date.now
-
-		// Let "done" be readable for a beat, then close.
-		let timer = Timer(timeInterval: 1.5, repeats: false) { [weak self] _ in
-			Task { @MainActor [weak self] in self?.onFinished?() }
-		}
-		RunLoop.main.add(timer, forMode: .common)
-		self.closeTimer = timer
 	}
 
 }
