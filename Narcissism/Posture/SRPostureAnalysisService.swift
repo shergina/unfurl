@@ -205,6 +205,23 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// Touched only on the (serial) analysis queue.
 	fileprivate nonisolated(unsafe) var baselineSlouchRatio: CGFloat?
 
+	/// Mirror of calibrationWindowOpen. Touched only on the analysis queue.
+	fileprivate nonisolated(unsafe) var suppressedForCalibration = false
+
+	fileprivate var calibrationWindowOpen = false
+
+	/// Mutes the evaluation while the calibration window is open - the note
+	/// must not nag mid-calibration. Set by the window controller.
+	func setCalibrationWindowOpen(_ open: Bool) {
+		guard open != self.calibrationWindowOpen else { return }
+		self.calibrationWindowOpen = open
+		if open {
+			// Hide an already-visible note right away, not at the next window.
+			self.onPostureStatus.send(nil)
+		}
+		self.analysisQueue.async { self.suppressedForCalibration = open }
+	}
+
 	// The current logging window. Touched only on the (serial) analysis queue.
 	fileprivate nonisolated(unsafe) var lastAnalysisTime = CMTime.invalid
 	fileprivate nonisolated(unsafe) var windowStartTime = CMTime.invalid
@@ -281,10 +298,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated func logWindow() {
 		Self.logger.log("Shoulder distance: plain [\(self.plainWindow.summary, privacy: .public)] padded [\(self.paddedWindow.summary, privacy: .public)] (\(self.windowFrameCount, privacy: .public) frames)")
 
-		// Uncalibrated: nothing to judge against, and the note must not pop
-		// over the calibration window, so everything (tilt included) stays
-		// suppressed. Trackers reset for a clean start.
-		guard let baseline = self.baselineSlouchRatio else {
+		// Muted while uncalibrated (nothing to judge against) or while the
+		// calibration window is open (no nagging mid-calibration). Trackers
+		// reset for a clean start.
+		guard let baseline = self.baselineSlouchRatio, !self.suppressedForCalibration else {
 			self.issueTrackers = [:]
 			self.notVisibleWindows = 0
 			self.lastLoggedStatus = nil

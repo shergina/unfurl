@@ -183,7 +183,10 @@ good-posture slouch baseline.
   guidance line (can't see you / face the camera / move closer / sit up
   straight), and a Begin button enabled only while framing is good:
   confident shoulders, measurable eyes, shoulder width at least 0.15 of
-  the frame width (below that reads as sitting too far away).
+  the frame width (below that reads as sitting too far away). While the
+  window is open the per-window evaluation is muted exactly as when
+  uncalibrated, so the corner note never nags mid-calibration; trackers
+  restart clean after it closes.
 - Calibration capture: Begin starts a 3-2-1 countdown (which ignores
   detection loss), then collects the per-frame slouch ratio until 5
   seconds of sampling at the 4/s analysis rate (~20 samples). One

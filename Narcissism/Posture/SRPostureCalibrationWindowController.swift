@@ -55,6 +55,9 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 			window.setFrame(CGRect(x: x, y: y, width: window.frame.width, height: window.frame.height), display: true)
 		}
 
+		// No posture notes while calibrating.
+		SRPostureAnalysisService.sharedInstance.setCalibrationWindowOpen(true)
+
 		// Unchecking Track Posture closes the window; dropFirst skips the
 		// replayed current value.
 		SRSettings.sharedInstance.postureTracking.publisher
@@ -78,6 +81,7 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		self.isClosing = true
 
 		self.calibrationViewController.session.invalidate()
+		SRPostureAnalysisService.sharedInstance.setCalibrationWindowOpen(false)
 
 		// Closing while uncalibrated is a cancel: revert the toggle (the
 		// composition root then stops the probe). isClosing keeps the
