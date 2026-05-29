@@ -52,6 +52,13 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		clickGestureRecognizer.delegate = self
 		self.addGestureRecognizer(clickGestureRecognizer)
 
+		// Right click opens the same menu as a left click, whatever content
+		// (icon or camera) is showing.
+		let rightClickGestureRecognizer = NSClickGestureRecognizer(target: self, action: #selector(SRStatusItemView.handleClickGesture(_:)))
+		rightClickGestureRecognizer.buttonMask = 0x2
+		rightClickGestureRecognizer.delegate = self
+		self.addGestureRecognizer(rightClickGestureRecognizer)
+
 		self.setContentView(self.createContentViewWithClass(SRStatusItemIconUnavailableView.self), animated: false)
 
 		SRCameraService.sharedInstance.onCaptureDeviceAvailable

@@ -45,7 +45,7 @@
 
 ### Workflow 2: click opens the menu
 
-1. A click gesture (or the button action) calls the controller.
+1. A click gesture - left or right button, two recognizers sharing one handler - (or the button action) calls the controller.
 2. The controller asks the menu subsystem for the status menu, sets it on the status item, performs the click to pop it, then clears it; the item is lit while open.
 
 ### Workflow 3: drag to resize the camera (session-only)
@@ -64,7 +64,7 @@
 ### Functional requirements
 
 - The item is present for the process lifetime and removed on termination.
-- Clicking opens the menu in every content mode; the item lights while the menu is open.
+- Clicking opens the menu in every content mode, with either mouse button; the item lights while the menu is open.
 - The camera view scrolls with mouse position and can be resized by dragging.
 
 ### Non-functional requirements
