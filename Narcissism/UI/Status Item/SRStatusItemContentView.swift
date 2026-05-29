@@ -11,8 +11,13 @@ import Cocoa
 class SRStatusItemContentView: NSView {
 	var lighted: Bool
 
+	// The posture tint channel: subclasses show it their own way (icon
+	// tint, camera border). Best-effort ambient state, never load-bearing.
+	var postureAlert: Bool
+
 	override init(frame: NSRect) {
 		self.lighted = false
+		self.postureAlert = false
 
 		super.init(frame: frame)
 	}

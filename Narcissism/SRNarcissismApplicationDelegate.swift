@@ -24,6 +24,7 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 	fileprivate var dockTileController: SRDockTileController!
 	fileprivate var hotKeyController: SRHotKeyController!
 	fileprivate var postureNoteController: SRPostureNoteController!
+	fileprivate var postureSoundController: SRPostureSoundController!
 	fileprivate var postureSnoozeTimer: Timer?
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
@@ -59,8 +60,10 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 			.store(in: &self.cancellables)
 
 		// The corner posture note observes the probe's status and shows the
-		// current verdict as a ghost panel in the top-right corner.
+		// current verdict as a ghost panel in the top-right corner; the sound
+		// controller is the beep channel next to it.
 		self.postureNoteController = SRPostureNoteController(services: self.services)
+		self.postureSoundController = SRPostureSoundController(services: self.services)
 	}
 
 	/// Turns the two posture preferences into probe state: run while tracking

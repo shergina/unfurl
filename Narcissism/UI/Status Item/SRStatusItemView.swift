@@ -78,6 +78,14 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		}
 	}
 
+	/// The posture tint channel (best-effort ambient state); forwarded to
+	/// the current content view and re-applied on every content swap.
+	var postureAlert = false {
+		didSet {
+			self.contentView.postureAlert = self.postureAlert
+		}
+	}
+
 	override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
 		return true
 	}
@@ -93,6 +101,7 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		let newContentView = contentView
 
 		self.contentView = contentView
+		newContentView.postureAlert = self.postureAlert
 
 		// Fill self via autoresizing; the item's overall width is controlled by
 		// `statusItem.length`, not by manipulating frames (which fights the

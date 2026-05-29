@@ -100,6 +100,15 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 		}
 	}
 
+	override var postureAlert: Bool {
+		didSet {
+			// No template image to tint here, so the live camera gets an
+			// orange frame instead.
+			self.cameraView.layer!.borderColor = NSColor.systemOrange.cgColor
+			self.cameraView.layer!.borderWidth = self.postureAlert ? 2.0 : 0.0
+		}
+	}
+
 	override var intrinsicContentSize: CGSize {
 		return CGSize(width: self.width, height: self.bounds.size.height)
 	}

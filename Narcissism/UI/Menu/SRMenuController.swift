@@ -46,6 +46,7 @@ class SRMenuController: NSObject {
 
 	fileprivate let preferences = SRSettings.sharedInstance
 	fileprivate var aboutWindowController: SRAboutWindowController? = nil
+	fileprivate var settingsWindowController: SRSettingsWindowController? = nil
 	fileprivate var postureCalibrationWindowController: SRPostureCalibrationWindowController? = nil
 
 
@@ -239,6 +240,13 @@ class SRMenuController: NSObject {
 
 		menu.addItem(NSMenuItem.separator())
 
+		// Settings
+		menu.addItem(self.createMenuItem(
+			"menu.settings"
+		) {
+			self.showSettings()
+		})
+
 		// About
 		menu.addItem(self.createMenuItem(
 			"menu.about"
@@ -400,6 +408,22 @@ class SRMenuController: NSObject {
 		controller.onClose = { [weak self] in self?.postureCalibrationWindowController = nil }
 		self.postureCalibrationWindowController = controller
 		controller.showWindow(self)
+	}
+
+	/// Presents the Settings window; a single kept instance, so the window
+	/// (and its selected tab) survives closing and reopening.
+	func showSettings() {
+		if self.settingsWindowController == nil {
+			let controller = SRSettingsWindowController(windowNibName: "")
+			// The page's Calibrate button behaves exactly like the menu
+			// item: clear any snooze, then the one shared calibration funnel.
+			controller.onCalibrate = { [weak self] in
+				SRSettings.sharedInstance.postureSnoozeUntil.value = .distantPast
+				self?.showPostureCalibration()
+			}
+			self.settingsWindowController = controller
+		}
+		self.settingsWindowController!.showWindow(self)
 	}
 
 	func showAboutDialog() {

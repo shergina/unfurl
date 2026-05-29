@@ -92,6 +92,16 @@ final class SRSettings {
 	// values persist, never imagery.
 	let postureBaselineSlouchRatio: Preference<CGFloat>
 	let postureBaselineDate: Preference<Date>
+	// How long (seconds) an issue must persist before it is voiced; drives
+	// the report debounce in the analysis service.
+	let postureNudgeDelay: Preference<CGFloat>
+	// The nudge channels: the corner note, a beep, and the status-item
+	// tint. Independent; all off means tracking runs silently.
+	let postureNoteEnabled: Preference<Bool>
+	let postureSoundEnabled: Preference<Bool>
+	// An NSSound system sound name (see SRPostureSoundController.soundNames).
+	let postureSoundName: Preference<String>
+	let postureStatusItemTint: Preference<Bool>
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
     // The camera's menu-bar width is session-only (never persisted): it always
@@ -115,6 +125,11 @@ final class SRSettings {
 		self.postureSnoozeUntil = Preference("PostureSnoozeUntil", default: .distantPast, defaults: defaults)
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
+		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
+		self.postureNoteEnabled = Preference("PostureNoteEnabled", default: true, defaults: defaults)
+		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)
+		self.postureSoundName = Preference("PostureSoundName", default: "Ping", defaults: defaults)
+		self.postureStatusItemTint = Preference("PostureStatusItemTint", default: false, defaults: defaults)
 	}
 }
 

@@ -83,6 +83,19 @@ class SRStatusItemController: NSObject, NSMenuDelegate, SRStatusItemViewDelegate
 			.sink { [unowned self] in self.statusItemView.lighted = $0 }
 			.store(in: &self.cancellables)
 
+		// The posture tint channel: light the item up while an issue is
+		// voiced, if the preference asks for it.
+		services.posture.onPostureStatus
+			.combineLatest(services.settings.postureStatusItemTint.publisher)
+			.sink { [unowned self] status, enabled in
+				var hasIssues = false
+				if case .evaluated(let issues)? = status, !issues.isEmpty {
+					hasIssues = true
+				}
+				self.statusItemView.postureAlert = enabled && hasIssues
+			}
+			.store(in: &self.cancellables)
+
 		NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
 			.sink { [unowned self] _ in
 				NSStatusBar.system.removeStatusItem(self.statusItem)

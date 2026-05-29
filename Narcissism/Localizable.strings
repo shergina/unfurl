@@ -31,6 +31,7 @@
 "menu.camera" = "Camera";
 "menu.camera.automatic" = "Automatic";
 "menu.check-for-update" = "Check for update...";
+"menu.settings" = "Settings...";
 "menu.quit" = "Quit Narcissism";
 
 
@@ -59,6 +60,30 @@
 "accessibility.status-item.help" = "Shows the camera menu.";
 "accessibility.panel.title" = "Narcissism Camera";
 "accessibility.camera-preview.label" = "Live camera preview";
+
+// Settings window
+"settings.tab.general" = "General";
+"settings.tab.notifications" = "Notifications";
+"settings.tab.statistics" = "Statistics";
+"settings.general.track-posture" = "Track Posture";
+"settings.general.calibrate" = "Calibrate Posture...";
+"settings.general.show-camera-panel" = "Show Camera Panel";
+"settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
+"settings.notifications.delay.label" = "Notify after:";
+"settings.notifications.delay.5-seconds" = "5 Seconds";
+"settings.notifications.delay.10-seconds" = "10 Seconds";
+"settings.notifications.delay.30-seconds" = "30 Seconds";
+"settings.notifications.delay.1-minute" = "1 Minute";
+"settings.notifications.delay.5-minutes" = "5 Minutes";
+"settings.notifications.channels.label" = "Notify with:";
+"settings.notifications.channel.note" = "On-screen note";
+"settings.notifications.channel.sound" = "Sound";
+"settings.notifications.channel.status-item" = "Menu bar icon lights up";
+"settings.notifications.sound.label" = "Sound:";
+"settings.notifications.snooze.label" = "Snooze:";
+"settings.notifications.snooze.off" = "Off";
+"settings.notifications.snooze.until" = "Until %@";
+"settings.statistics.placeholder" = "Posture statistics will appear here.";
 
 // Posture corner note
 "posture.note.slouching" = "Sit up straight";

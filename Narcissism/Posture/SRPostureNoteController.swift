@@ -77,7 +77,11 @@ final class SRPostureNoteController {
 		self.panel = panel
 		self.label = label
 
+		// The note is one of the selectable nudge channels: while its
+		// preference is off the status is treated as nothing-to-say.
 		self.postureService.onPostureStatus
+			.combineLatest(services.settings.postureNoteEnabled.publisher)
+			.map { status, enabled in enabled ? status : nil }
 			.removeDuplicates()
 			.sink { [weak self] status in self?.apply(status) }
 			.store(in: &self.cancellables)

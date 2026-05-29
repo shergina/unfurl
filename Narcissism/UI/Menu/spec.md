@@ -22,7 +22,7 @@
 ## Responsibilities and ownership
 
 - **Responsibilities**:
-  - Build the menu: Track Posture (first, so the posture opt-in leads the list; see `Narcissism/Posture/spec.md`), the posture Snooze submenu, Calibrate Posture, Take Photo, the camera-display toggles, mirror, ghost mode, the Camera source submenu, launch-at-login, About, Quit.
+  - Build the menu: Track Posture (first, so the posture opt-in leads the list; see `Narcissism/Posture/spec.md`), the posture Snooze submenu, Calibrate Posture, Take Photo, the camera-display toggles, mirror, ghost mode, the Camera source submenu, launch-at-login, Settings, About, Quit.
   - Bind each item's checked/enabled/visible to publishers via `createMenuItem`.
   - Display the global-shortcut glyph on items that have one (Take Photo, Show Camera Panel, Mirror), reading the key equivalents from `SRHotKeyController` so they match what fires.
   - Rebuild the Camera submenu (device list plus an "Automatic" option) whenever the connected devices or the stored selection change.
@@ -35,6 +35,7 @@
   - Quit is visible only in the status-bar/toolbar variants.
   - The posture Snooze item is visible exactly when Track Posture's checked state is (preference on and a camera available). Its submenu items write the snooze deadline preference; while a deadline is pending the item title names it ("Snoozed Until ...") and a Resume Now item appears. The menu never runs snooze logic itself; the composition root owns the resume timer (see `Narcissism/Posture/spec.md`).
   - Calibrate Posture shares the Snooze visibility rule. Its action clears the snooze deadline (a deliberate resume) and presents the calibration window. The menu controller owns that window (the About precedent) and never creates a second one; the composition root's no-baseline auto-open funnels through the same method.
+  - The menu controller also owns the single Settings window (`Narcissism/UI/Settings/spec.md`), kept across closes so the selected tab survives reopening; the Settings item presents or re-fronts it. The window's Calibrate button routes back through the same calibration funnel.
 
 ## Key workflows
 
@@ -72,7 +73,7 @@
 
 - **Public API surface**: `SRMenuController.sharedInstance`; `menuForStatusBar`, `menuForToolbar`, `menuForDock`.
 - **Inputs**: typed preference publishers; `onCaptureDeviceAvailable`; the current modifier flags at open time.
-- **Outputs**: preference toggles, the About window, application termination.
+- **Outputs**: preference toggles, the Settings window, the About window, application termination.
 
 ## Key design decisions (recorded)
 

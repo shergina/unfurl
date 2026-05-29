@@ -72,6 +72,15 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				self.analysisQueue.async { self.baselineSlouchRatio = baseline }
 			}
 			.store(in: &self.cancellables)
+
+		// Same mirroring for the nudge delay: windows are ~1 s, so the
+		// preference's seconds map straight to a window count.
+		SRSettings.sharedInstance.postureNudgeDelay.publisher
+			.sink { [unowned self] seconds in
+				let windows = max(1, Int(seconds.rounded()))
+				self.analysisQueue.async { self.issueReportWindows = windows }
+			}
+			.store(in: &self.cancellables)
 	}
 
 	/// Attaches a video data output to the shared session and begins the
@@ -189,10 +198,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// misaligned shoulders, naming the higher shoulder for correction.
 	fileprivate nonisolated static let maximumLevelShoulderTiltDegrees: CGFloat = 3.0
 
-	// Debounce for the corner note, counted in logging windows (~1/s).
-	// An issue is voiced only after being active this many windows...
-	nonisolated static let issueReportWindows = 4
-	// ...and an active episode ends only after this many consecutive clean
+	// An active episode ends only after this many consecutive clean
 	// windows (or instantly on a strong recovery past half the tolerance
 	// band). Brief dips at the threshold neither report nor reset.
 	nonisolated static let issueClearWindows = 2
@@ -230,6 +236,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var paddedWindow = WindowAccumulator()
 
 	// Issue debounce state. Touched only on the (serial) analysis queue.
+	// An issue is voiced only after being active this many windows (~1/s);
+	// mirrored from the nudge-delay preference (see init).
+	fileprivate nonisolated(unsafe) var issueReportWindows = 10
 	fileprivate nonisolated(unsafe) var issueTrackers: [SRPostureIssue: SRIssueTracker] = [:]
 	fileprivate nonisolated(unsafe) var notVisibleWindows = 0
 	fileprivate nonisolated(unsafe) var lastLoggedStatus: SRPostureStatus?
@@ -364,7 +373,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			self.updateTracker(for: .rightShoulderHigh, with: rightObservation)
 
 			// Stable declaration order, so the note's lines never reshuffle.
-			let reported = SRPostureIssue.allCases.filter { self.issueTrackers[$0]?.isReported ?? false }
+			let reported = SRPostureIssue.allCases.filter { self.issueTrackers[$0]?.isReported(after: self.issueReportWindows) ?? false }
 			status = .evaluated(issues: reported)
 		} else {
 			self.notVisibleWindows += 1
@@ -654,14 +663,18 @@ fileprivate enum SRIssueObservation {
 /// One issue's debounce state, advanced once per logging window (~1/s).
 /// An episode starts on a breach, ages through breaching and clean-dip
 /// windows alike (hovering at the threshold is still having the issue),
-/// is voiced once old enough, and ends only via the dual-path clear:
-/// enough consecutive clean windows, or one strongly recovered window.
+/// is voiced once old enough (the caller passes the preference-driven
+/// window count), and ends only via the dual-path clear: enough
+/// consecutive clean windows, or one strongly recovered window.
 fileprivate struct SRIssueTracker {
 	var activeWindows = 0
 	var cleanWindows = 0
 
 	var isActive: Bool { self.activeWindows > 0 }
-	var isReported: Bool { self.activeWindows >= SRPostureAnalysisService.issueReportWindows }
+
+	func isReported(after reportWindows: Int) -> Bool {
+		return self.activeWindows >= reportWindows
+	}
 
 	mutating func update(with observation: SRIssueObservation) {
 		switch observation {

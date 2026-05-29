@@ -27,6 +27,7 @@
   - Host the custom view in the status button with a pinned height and length-driven width.
   - Switch content among camera / icon / unavailable based on the preference and device availability (debounced).
   - Open the status menu on click; light the item while the menu is open.
+  - Posture tint channel: while a posture issue is voiced and the `PostureStatusItemTint` preference is on, the item lights up - the icon swaps to a pre-tinted orange copy, the live camera gets an orange border. The pre-tinted copy is deliberate: `NSStatusBarButton` renders template images through the menu bar's own styling, and a `contentTintColor` blanks the image instead of tinting it. The alert state is forwarded to whichever content view is current and re-applied on every content swap. Best-effort ambient state (see `Narcissism/Posture/spec.md`), never load-bearing: the item can be hidden by the notch or a crowded bar.
   - `SRScrollCameraView`: scroll the tall camera layer vertically as the mouse moves; drag on the item resizes it within limits and persists the width.
 - **Owned invariants** (must always hold):
   - Width flows through `statusItem.length`; the hosted view has an explicit height constraint (menu-bar thickness) so the button never collapses when a zero-intrinsic-height camera view is installed.
@@ -89,7 +90,7 @@
 ### Interfaces and contracts
 
 - **Public API surface**: `SRStatusItemController` and its `onMouseHover` (consumed by the panel to decide hover-show).
-- **Inputs**: camera availability, the two status-item preferences, mouse position (`SRMouseWatcher`).
+- **Inputs**: camera availability, the two status-item preferences, the posture status and tint preference, mouse position (`SRMouseWatcher`).
 - **Outputs**: `onMouseHover`; opens the shared menu.
 
 ## Key design decisions (recorded)

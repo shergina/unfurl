@@ -3,9 +3,11 @@
 Scope: the early increments of the posture-tracking effort. VISION.md
 next to this file remains the long-term goal document; this spec covers only
 what is built: the measurement probe (per-second metrics logging), the
-debounced corner posture note, the Track Posture menu toggle with its
-snooze, and the calibration window that measures the user's own
-good-posture slouch baseline.
+debounced nudge channels (corner note, sound, status-item tint), the
+Track Posture menu toggle with its snooze, and the calibration window
+that measures the user's own good-posture slouch baseline. The nudge
+delay and channels are configured on the Settings window's
+Notifications page (see UI/Settings/spec.md).
 
 ## Behavior
 
@@ -33,6 +35,9 @@ good-posture slouch baseline.
   writes a deadline to the PostureSnoozeUntil preference - 5/10/15/30
   minutes or 1/2/5 hours from now; Resume Now, shown only while snoozed,
   is the whole-snooze off switch and clears the deadline immediately.
+  The Settings window's Notifications page offers the same durations as
+  a popup writing the same preference (see UI/Settings/spec.md), so the
+  menu and the page always agree.
   While the deadline is in the future the probe is stopped exactly as the
   toggle stops it (output detached, note hidden, camera released to its
   ref-count), and the composition root schedules a one-shot timer that
@@ -110,9 +115,9 @@ good-posture slouch baseline.
   to judge against and nothing may pop over the calibration window.
   Decision (2026-07-24): the hardcoded 0.692 baseline of 2026-07-22 is
   retired; the preference is the only source. Deliberately no debounce
-  or hysteresis yet on the log line: per-window feedback is what the
-  experiment needs. The eventual nudge feature adds the ~10 s debounce
-  per VISION.md.
+  or hysteresis on the log line: per-window feedback is what the
+  experiment needs. The nudge debounce lives in the issue tracking
+  below, not here.
 - Shoulder alignment alert (experimental, log-only): same cadence and
   pipeline preference as the slouch alert. A window whose tilt magnitude
   exceeds 3 degrees off level logs a warning-level "Shoulders misaligned:"
@@ -143,11 +148,15 @@ good-posture slouch baseline.
   one-sidedly as breaching, clean, strongly recovered (past half the
   tolerance band on its own side), or unknown (not measurable; the
   tracker freezes - eyes hidden freezes only slouching). An issue is
-  voiced after being active ~4 windows (~4 s); an active episode ages
-  through clean dips (hovering at the threshold is still the issue) and
-  ends only via the dual-path clear: ~2 consecutive clean windows, or
-  instantly on one strongly recovered window - so a decisive correction
-  is rewarded immediately while a marginal one must hold. Five
+  voiced after being active for the nudge-delay preference
+  (PostureNudgeDelaySeconds, default 10 s; windows are ~1 s so seconds
+  map straight to a window count, mirrored onto the analysis queue the
+  same way the baseline is; the Settings window offers 5 s to 5 m). An
+  active episode ages through clean dips (hovering at the threshold is
+  still the issue) and ends only via the dual-path clear: ~2 consecutive
+  clean windows, or instantly on one strongly recovered window - so a
+  decisive correction is rewarded immediately while a marginal one must
+  hold. Five
   consecutive not-visible windows, or a capture timeline restart, reset
   every episode. The per-window warning lines in the log stay raw and
   undebounced on purpose: they are tuning telemetry; the note is the
@@ -166,7 +175,24 @@ good-posture slouch baseline.
   recordings never show it while the user still sees it, present on all
   Spaces including fullscreen, and deliberately indifferent to Focus
   modes. Fade animations and an escalation cooldown from the agreed
-  design are not built yet.
+  design are not built yet. The note is one of three independently
+  toggled nudge channels (PostureNoteEnabled, default on): while its
+  preference is off the status is treated as nothing-to-say and the
+  note never shows. All three channels off means tracking runs
+  silently.
+- Sound channel (SRPostureSoundController, PostureSoundEnabled default
+  off): plays the chosen system beep (PostureSoundName, one of the
+  soundNames list, default Ping) when a newly voiced issue appears in
+  the status - one beep per new issue, never per window; the upstream
+  debounce keeps voicing rare. A not-visible spell keeps the voiced set,
+  so briefly leaving the frame and returning with the same issue does
+  not beep again; the probe stopping clears it. The Settings window's
+  sound picker previews the beep on selection.
+- Status-item tint channel (PostureStatusItemTint, default off): while
+  any issue is voiced the menu-bar item lights up - the template icon
+  tints orange, or the live camera gets an orange border. Best-effort
+  ambient state per VISION.md, never load-bearing (the item can be
+  hidden by the notch or a crowded bar). See the Status Item spec.
 - Calibration window: opens whenever the probe would start (tracking on,
   not snoozed) and no baseline is stored - covering the fresh toggle-on
   and the launch replay of an install that predates calibration - and on
