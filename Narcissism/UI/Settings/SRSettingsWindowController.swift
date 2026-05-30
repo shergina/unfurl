@@ -40,9 +40,14 @@ class SRSettingsWindowController: NSWindowController {
 	override func showWindow(_ sender: Any?) {
 		super.showWindow(sender)
 
-		// The About-window recipe for an LSUIElement agent: bring the
-		// window forward without touching the activation policy.
+		// Bring the window forward without touching the activation policy.
+		// While the Dock tile is off that policy is .prohibited, so the
+		// activate call is ignored and makeKeyAndOrderFront only orders
+		// within our own inactive app; orderFrontRegardless forces this one
+		// jump above other apps' windows. It is a one-time ordering, not a
+		// floating level: any window clicked afterwards covers us normally.
 		self.window!.makeKeyAndOrderFront(sender)
+		self.window!.orderFrontRegardless()
 		NSApp.activate(ignoringOtherApps: true)
 	}
 
@@ -66,9 +71,14 @@ fileprivate final class SRSettingsTabViewController: NSTabViewController {
 		}
 
 		self.addTabViewItem(item(
-			SRSettingsGeneralViewController(onCalibrate: { [weak self] in self?.onCalibrate?() }),
+			SRSettingsGeneralViewController(),
 			labelKey: "settings.tab.general",
 			symbolName: "gearshape"
+		))
+		self.addTabViewItem(item(
+			SRSettingsPostureViewController(onCalibrate: { [weak self] in self?.onCalibrate?() }),
+			labelKey: "settings.tab.posture",
+			symbolName: "figure.stand"
 		))
 		self.addTabViewItem(item(
 			SRSettingsNotificationsViewController(),

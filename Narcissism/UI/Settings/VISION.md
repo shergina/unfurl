@@ -61,8 +61,10 @@ not lost after first launch.
 One window, pages switched in the top panel (toolbar tabs). Built so
 far (see spec.md):
 
-- General. Track Posture, Calibrate Posture, Show Camera Panel, Show
-  Camera in Menu Bar.
+- General. Track Posture, Show Camera Panel, Show Camera in Menu Bar,
+  Open at Login.
+- Posture. The baseline status and the Calibrate Posture button; the
+  natural home for baseline staleness hints later.
 - Notifications. The nudge delay (how long bad posture persists before
   a nudge), the three channels: corner note, sound (with a pick-and
   preview beep list), menu bar icon lighting up - and the snooze, the
@@ -81,11 +83,11 @@ Still planned:
   time. Breakdown: slouching vs raised-shoulder events and how often
   nudges fired. Trends: charts over recent weeks showing whether
   posture is improving. Needs the history store below.
-- General additions. Launch at Login, the hotkey cheat sheet
-  (Ctrl+Opt+Cmd C/P/M/N), maybe rebindable hotkeys later
-  (SRHotKeyController already anticipates this), maybe About and
-  version info folded in. System notifications stay the reserve nudge
-  channel from the posture vision.
+- General additions. The hotkey cheat sheet (Ctrl+Opt+Cmd C/P/M/N),
+  maybe rebindable hotkeys later (SRHotKeyController already
+  anticipates this), maybe About and version info folded in. System
+  notifications stay the reserve nudge channel from the posture
+  vision.
 
 ## The big new piece: posture history store
 

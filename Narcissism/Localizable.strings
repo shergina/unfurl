@@ -20,7 +20,7 @@
 "menu.posture-snooze.2-hours" = "2 Hours";
 "menu.posture-snooze.5-hours" = "5 Hours";
 "menu.posture-snooze.resume" = "Resume Now";
-"menu.calibrate-posture" = "Calibrate Posture...";
+"menu.calibrate-posture" = "Calibrate Posture…";
 "menu.launch-at-login" = "Open at Login";
 "menu.flip-camera-horizontally" = "Mirror mode (Flip Camera Horizontally)";
 "menu.show-camera-panel" = "Show Camera Panel";
@@ -30,8 +30,8 @@
 "menu.ghost-mode" = "Ghost Mode (Click-Through Panel)";
 "menu.camera" = "Camera";
 "menu.camera.automatic" = "Automatic";
-"menu.check-for-update" = "Check for update...";
-"menu.settings" = "Settings...";
+"menu.check-for-update" = "Check for update…";
+"menu.settings" = "Settings…";
 "menu.quit" = "Quit Narcissism";
 
 
@@ -63,12 +63,17 @@
 
 // Settings window
 "settings.tab.general" = "General";
+"settings.tab.posture" = "Posture";
 "settings.tab.notifications" = "Notifications";
 "settings.tab.statistics" = "Statistics";
 "settings.general.track-posture" = "Track Posture";
-"settings.general.calibrate" = "Calibrate Posture...";
 "settings.general.show-camera-panel" = "Show Camera Panel";
 "settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
+"settings.general.launch-at-login" = "Open at Login";
+"settings.posture.baseline.label" = "Baseline:";
+"settings.posture.baseline.calibrated" = "Calibrated %@";
+"settings.posture.baseline.none" = "Not calibrated";
+"settings.posture.calibrate" = "Calibrate Posture…";
 "settings.notifications.delay.label" = "Notify after:";
 "settings.notifications.delay.5-seconds" = "5 Seconds";
 "settings.notifications.delay.10-seconds" = "10 Seconds";

@@ -16,11 +16,9 @@ import Combine
 final class SRSettingsGeneralViewController: NSViewController {
 
 	fileprivate let settings = SRSettings.sharedInstance
-	fileprivate let onCalibrate: () -> Void
 	fileprivate var cancellables = Set<AnyCancellable>()
 
-	init(onCalibrate: @escaping () -> Void) {
-		self.onCalibrate = onCalibrate
+	init() {
 		super.init(nibName: nil, bundle: nil)
 	}
 
@@ -43,21 +41,9 @@ final class SRSettingsGeneralViewController: NSViewController {
 		}
 
 		addRow("settings.general.track-posture", SRPreferenceSwitch(preference: self.settings.postureTracking))
-
-		// Calibration only makes sense while tracking is on, matching the
-		// menu item's visibility rule.
-		let calibrateButton = NSButton(
-			title: NSLocalizedString("settings.general.calibrate", comment: ""),
-			target: self,
-			action: #selector(SRSettingsGeneralViewController.handleCalibrate(_:))
-		)
-		self.settings.postureTracking.publisher
-			.sink { [weak calibrateButton] tracking in calibrateButton?.isEnabled = tracking }
-			.store(in: &self.cancellables)
-		grid.addRow(with: [NSGridCell.emptyContentView, calibrateButton])
-
 		addRow("settings.general.show-camera-panel", SRPreferenceSwitch(preference: self.settings.cameraPanelPinned))
 		addRow("settings.general.show-camera-on-status-bar", SRPreferenceSwitch(preference: self.settings.showCameraOnStatusBar))
+		addRow("settings.general.launch-at-login", SRPreferenceSwitch(preference: self.settings.launchAtLogin))
 
 		let view = NSView()
 		view.addSubview(grid)
@@ -75,10 +61,6 @@ final class SRSettingsGeneralViewController: NSViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		self.preferredContentSize = CGSize(width: 540.0, height: max(240.0, self.view.fittingSize.height))
-	}
-
-	@objc fileprivate func handleCalibrate(_ sender: Any?) {
-		self.onCalibrate()
 	}
 
 }

@@ -9,20 +9,21 @@
 
 ## Summary
 
-- **What this subsystem is**: the app's one configuration window: a normal `NSWindow` whose content is an `NSTabViewController` in toolbar style (the System Settings look), with a General page, a Notifications page, and a placeholder Statistics page.
+- **What this subsystem is**: the app's one configuration window: a normal `NSWindow` whose content is an `NSTabViewController` in toolbar style (the System Settings look), with a General page, a Posture page, a Notifications page, and a placeholder Statistics page.
 - **One-sentence contract**: every control reflects its bound preference live and writes it back on change; the window has no side effects beyond preferences and the calibration funnel.
 
 ## Scope
 
 - **In scope**: `SRSettingsWindowController` (window + tabs), `SRSettingsGeneralViewController`, `SRSettingsNotificationsViewController`, `SRSettingsStatisticsViewController`, and the two-way binding controls in `SRSettingsControls.swift` (`SRPreferenceSwitch`, `SRPreferenceCheckbox`).
 - **Constraints / assumptions**:
-  - Shown via the About-window recipe (`makeKeyAndOrderFront` plus `NSApp.activate`), never by changing the activation policy - that stays owned by the Dock tile controller.
+  - Shown via the About-window recipe (`makeKeyAndOrderFront` plus `NSApp.activate`) plus `orderFrontRegardless`, never by changing the activation policy - that stays owned by the Dock tile controller. The regardless-ordering matters: with the Dock tile off the policy is `.prohibited`, activation is refused, and without it the window opens behind the active app. It is a one-time jump to the front, not a floating level; other windows cover it normally afterwards.
   - No page attaches to the camera session yet; the window consumes nothing from `SRCameraService`.
 
 ## Responsibilities and ownership
 
 - **Responsibilities**:
-  - General page: Track Posture switch, Calibrate Posture button (enabled only while tracking is on, routed through the owner's calibration funnel), Show Camera Panel switch (`cameraPanelPinned`), Show Camera in Menu Bar switch (`showCameraOnStatusBar`).
+  - General page: Track Posture switch, Show Camera Panel switch (`cameraPanelPinned`), Show Camera in Menu Bar switch (`showCameraOnStatusBar`), Open at Login switch (`launchAtLogin`).
+  - Posture page: the baseline status line ("Calibrated <date>" from `PostureBaselineDate`, or "Not calibrated" while the ratio sentinel is <= 0) and the Calibrate Posture button (enabled only while tracking is on, routed through the owner's calibration funnel; its row spans the grid centered, because a labelless button in the controls column reads as stranded).
   - Notifications page: the nudge delay popup (5 s / 10 s / 30 s / 1 m / 5 m writing `PostureNudgeDelaySeconds`; an off-list stored value selects the closest step), the three channel checkboxes (corner note, sound, status-item tint), the sound picker (enabled only while the sound channel is on; selecting persists the name and plays it once as a preview), and the snooze popup, rebuilt on every deadline change to mirror the menu's states: idle it shows "Off" over the durations; while snoozed it shows an inert "Until <time>" state line, the durations, and an explicit Resume Now item, so turning a snooze off is always one visible choice away. The popup is enabled only while Track Posture is on, because with tracking off the composition root clears any snooze write immediately (the master toggle means a clean slate).
   - Statistics page: a placeholder line only; it reserves the tab until the posture history store exists (see VISION.md).
   - The window title follows the selected tab, like System Settings.

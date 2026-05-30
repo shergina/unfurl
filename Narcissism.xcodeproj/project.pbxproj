@@ -22,6 +22,7 @@
 		59E5C008E5C008E5C008E508 /* SRSettingsNotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */; };
 		59E5C00AE5C00AE5C00AE50A /* SRSettingsStatisticsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C009E5C009E5C009E509 /* SRSettingsStatisticsViewController.swift */; };
 		59E5C00CE5C00CE5C00CE50C /* SRSettingsControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */; };
+		59E5C010E5C010E5C010E510 /* SRSettingsPostureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */; };
 		59D0C00BD0C00BD0C00BD00B /* SRPostureCalibrationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00AD0C00AD0C00AD00A /* SRPostureCalibrationSession.swift */; };
 		59D0C00DD0C00DD0C00DD00D /* SRPostureCalibrationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00CD0C00CD0C00CD00C /* SRPostureCalibrationViewController.swift */; };
 		59D0C00FD0C00FD0C00FD00F /* SRPostureCalibrationWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00ED0C00ED0C00ED00E /* SRPostureCalibrationWindowController.swift */; };
@@ -78,6 +79,7 @@
 		59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsNotificationsViewController.swift; sourceTree = "<group>"; };
 		59E5C009E5C009E5C009E509 /* SRSettingsStatisticsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsStatisticsViewController.swift; sourceTree = "<group>"; };
 		59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsControls.swift; sourceTree = "<group>"; };
+		59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsPostureViewController.swift; sourceTree = "<group>"; };
 		59E5C00DE5C00DE5C00DE50D /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
 		59E5C00EE5C00EE5C00EE50E /* VISION.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = VISION.md; sourceTree = "<group>"; };
 		592F534A1B37064D00F879FD /* SRMenuController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRMenuController.swift; sourceTree = "<group>"; };
@@ -324,6 +326,7 @@
 				59E5C003E5C003E5C003E503 /* SRSettingsWindowController.swift */,
 				59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */,
 				59E5C005E5C005E5C005E505 /* SRSettingsGeneralViewController.swift */,
+				59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */,
 				59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */,
 				59E5C009E5C009E5C009E509 /* SRSettingsStatisticsViewController.swift */,
 				59E5C00EE5C00EE5C00EE50E /* VISION.md */,
@@ -470,6 +473,7 @@
 				59E5C008E5C008E5C008E508 /* SRSettingsNotificationsViewController.swift in Sources */,
 				59E5C00AE5C00AE5C00AE50A /* SRSettingsStatisticsViewController.swift in Sources */,
 				59E5C00CE5C00CE5C00CE50C /* SRSettingsControls.swift in Sources */,
+				59E5C010E5C010E5C010E510 /* SRSettingsPostureViewController.swift in Sources */,
 				59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */,
 				59BC00459BC00459BC004504 /* SRHotKeyController.swift in Sources */,
 				A70E8A351BCECA4300B517A9 /* SRAboutViewController.swift in Sources */,
