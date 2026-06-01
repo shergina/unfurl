@@ -103,6 +103,14 @@ class SRStatusItemController: NSObject, NSMenuDelegate, SRStatusItemViewDelegate
 			.store(in: &self.cancellables)
 	}
 
+	/// The welcome tutorial's Locate Me: open the status menu exactly as a
+	/// click would. macOS highlights the item while its menu is open, and
+	/// that highlight is the locator. (A pre-open tint pulse was tried and
+	/// dropped: it only delayed the menu.)
+	func locate() {
+		self.handleButtonClick(nil)
+	}
+
 	@objc func handleButtonClick(_ sender: Any?) {
 		let menu = self.services.menu.menuForStatusBar()
 		menu.delegate = self

@@ -427,12 +427,19 @@ class SRMenuController: NSObject {
 		self.settingsWindowController!.showWindow(self)
 	}
 
+	/// Set by the composition root; the welcome tutorial's Locate Me routes
+	/// through here to the status item controller, so the welcome surface
+	/// never touches the status item directly.
+	var onLocateStatusItem: (() -> Void)?
+
 	/// Presents the welcome window; a single kept instance (the Settings
 	/// precedent). Shown by the composition root at launch; no menu item
 	/// triggers it yet (see UI/Welcome/spec.md).
 	func showWelcome() {
 		if self.welcomeWindowController == nil {
-			self.welcomeWindowController = SRWelcomeWindowController(windowNibName: "")
+			let controller = SRWelcomeWindowController(windowNibName: "")
+			controller.onLocate = { [weak self] in self?.onLocateStatusItem?() }
+			self.welcomeWindowController = controller
 		}
 		self.welcomeWindowController!.showWindow(self)
 	}

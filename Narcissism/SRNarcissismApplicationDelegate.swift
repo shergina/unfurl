@@ -48,6 +48,10 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		self.panelController = SRPanelController(services: self.services, statusItemController: statusItem)
 		self.dockTileController = SRDockTileController(services: self.services)
 
+		// The welcome tutorial's Locate Me points at the status item; the
+		// cross-surface wiring lives here, like the panel's.
+		self.services.menu.onLocateStatusItem = { [weak statusItem] in statusItem?.locate() }
+
 		// The posture probe (Posture/spec.md) runs while Track Posture is on
 		// and any snooze deadline has passed; both preferences replay their
 		// persisted values, so a relaunch resumes the stored choice and a

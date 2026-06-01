@@ -36,7 +36,7 @@
   - The posture Snooze item is visible exactly when Track Posture's checked state is (preference on and a camera available). Its submenu items write the snooze deadline preference; while a deadline is pending the item title names it ("Snoozed Until ...") and a Resume Now item appears. The menu never runs snooze logic itself; the composition root owns the resume timer (see `Narcissism/Posture/spec.md`).
   - Calibrate Posture shares the Snooze visibility rule. Its action clears the snooze deadline (a deliberate resume) and presents the calibration window. The menu controller owns that window (the About precedent) and never creates a second one; the composition root's no-baseline auto-open funnels through the same method.
   - The menu controller also owns the single Settings window (`Narcissism/UI/Settings/spec.md`), kept across closes so the selected tab survives reopening; the Settings item presents or re-fronts it. The window's Calibrate button routes back through the same calibration funnel.
-  - The menu controller also owns the single welcome window (`Narcissism/UI/Welcome/spec.md`), presented by the composition root at launch through `showWelcome()`; no menu item triggers it yet.
+  - The menu controller also owns the single welcome window (`Narcissism/UI/Welcome/spec.md`), presented by the composition root at launch through `showWelcome()`; no menu item triggers it yet. It carries the composition root's `onLocateStatusItem` closure into the window, so the welcome surface reaches the status item only through this explicit wiring.
 
 ## Key workflows
 

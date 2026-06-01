@@ -97,6 +97,15 @@
 "welcome.privacy.lead" = "Private by design.";
 "welcome.privacy.body" = "Everything happens on your Mac. No footage is ever kept, uploaded, or shared.";
 "welcome.continue" = "Continue";
+"welcome.tutorial.title" = "Narcissism lives in your menu bar";
+"welcome.tutorial.subtitle" = "No windows to keep open. Just a tiny camera at the top of your screen.";
+"welcome.tutorial.locate" = "Locate Me";
+"welcome.tutorial.camera.title" = "See yourself";
+"welcome.tutorial.camera.body" = "A live mirror in the menu bar, the floating camera panel, or the Dock icon.";
+"welcome.tutorial.posture.title" = "Posture coaching";
+"welcome.tutorial.posture.body" = "Specific corrections, not just alerts. “Lower your right shoulder.” “Sit up straight.”";
+"welcome.tutorial.notifications.title" = "Nudges, your way";
+"welcome.tutorial.notifications.body" = "An on-screen note, a sound, or a glowing menu bar icon, timed and snoozed to fit how you work.";
 
 // Posture corner note
 "posture.note.slouching" = "Sit up straight";

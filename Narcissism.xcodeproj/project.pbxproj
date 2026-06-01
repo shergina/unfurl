@@ -56,6 +56,7 @@
 		A7FF0FA11BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */; };
 		59FACE04FACE04FACE04FA04 /* SRWelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */; };
 		59FACE05FACE05FACE05FA05 /* SRWelcomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */; };
+		59FACE07FACE07FACE07FA07 /* SRWelcomeTutorialViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE06FACE06FACE06FA06 /* SRWelcomeTutorialViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -125,6 +126,7 @@
 		59FACE01FACE01FACE01FA01 /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
 		59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeWindowController.swift; sourceTree = "<group>"; };
 		59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeViewController.swift; sourceTree = "<group>"; };
+		59FACE06FACE06FACE06FA06 /* SRWelcomeTutorialViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeTutorialViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -346,6 +348,7 @@
 				59FACE01FACE01FACE01FA01 /* spec.md */,
 				59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */,
 				59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */,
+				59FACE06FACE06FACE06FA06 /* SRWelcomeTutorialViewController.swift */,
 			);
 			path = Welcome;
 			sourceTree = "<group>";
@@ -513,6 +516,7 @@
 				59133E901B2E21C8004480EA /* SRPanelViewController.swift in Sources */,
 				59FACE04FACE04FACE04FA04 /* SRWelcomeWindowController.swift in Sources */,
 				59FACE05FACE05FACE05FA05 /* SRWelcomeViewController.swift in Sources */,
+				59FACE07FACE07FACE07FA07 /* SRWelcomeTutorialViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
