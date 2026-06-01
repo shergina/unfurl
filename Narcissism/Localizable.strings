@@ -90,6 +90,14 @@
 "settings.notifications.snooze.until" = "Until %@";
 "settings.statistics.placeholder" = "Posture statistics will appear here.";
 
+// Welcome window
+"welcome.title" = "Welcome to Narcissism";
+"welcome.slogan" = "Work doesn’t have to come at the expense of your spine";
+"welcome.description" = "Made by someone who spent too many years hunched over a keyboard, Narcissism helps you build healthier posture habits without stepping away from work. It uses your camera to catch slouching and shoulder imbalance, then gives you a quiet nudge to straighten up.";
+"welcome.privacy.lead" = "Private by design.";
+"welcome.privacy.body" = "Everything happens on your Mac. No footage is ever kept, uploaded, or shared.";
+"welcome.continue" = "Continue";
+
 // Posture corner note
 "posture.note.slouching" = "Sit up straight";
 "posture.note.lower-left-shoulder" = "Lower your left shoulder";

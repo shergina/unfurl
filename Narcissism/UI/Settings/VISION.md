@@ -4,8 +4,10 @@ Status: building. The first increment exists: the Settings window (that
 is the decided name) with toolbar tabs - a General page, a Notifications
 page with the nudge delay and the three nudge channels, and a
 placeholder Statistics tab - specified in spec.md next to this file.
-This document remains the long-term plan for the rest: the onboarding
-flow and the remaining pages. Edit it as the design firms up. As pieces
+The onboarding flow has started as well: the welcome page (feature 1's
+page 1) exists, specified in UI/Welcome/spec.md; its pages 2 and 3 and
+the first-run gate are still to come. This document remains the
+long-term plan for the rest. Edit it as the design firms up. As pieces
 get built, their stable contracts graduate into spec.md files next to
 the code; everything here stays vision, not behavioral spec.
 

@@ -48,6 +48,7 @@ class SRMenuController: NSObject {
 	fileprivate var aboutWindowController: SRAboutWindowController? = nil
 	fileprivate var settingsWindowController: SRSettingsWindowController? = nil
 	fileprivate var postureCalibrationWindowController: SRPostureCalibrationWindowController? = nil
+	fileprivate var welcomeWindowController: SRWelcomeWindowController? = nil
 
 
 	fileprivate let showQuitMenuItem = CurrentValueSubject<Bool, Never>(false)
@@ -424,6 +425,16 @@ class SRMenuController: NSObject {
 			self.settingsWindowController = controller
 		}
 		self.settingsWindowController!.showWindow(self)
+	}
+
+	/// Presents the welcome window; a single kept instance (the Settings
+	/// precedent). Shown by the composition root at launch; no menu item
+	/// triggers it yet (see UI/Welcome/spec.md).
+	func showWelcome() {
+		if self.welcomeWindowController == nil {
+			self.welcomeWindowController = SRWelcomeWindowController(windowNibName: "")
+		}
+		self.welcomeWindowController!.showWindow(self)
 	}
 
 	func showAboutDialog() {

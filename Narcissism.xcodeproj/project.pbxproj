@@ -54,6 +54,8 @@
 		A70E8A351BCECA4300B517A9 /* SRAboutViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */; };
 		A74880381B827375008E21FF /* SRStatusBarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74880371B827375008E21FF /* SRStatusBarButton.swift */; };
 		A7FF0FA11BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */; };
+		59FACE04FACE04FACE04FA04 /* SRWelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */; };
+		59FACE05FACE05FACE05FA05 /* SRWelcomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -120,6 +122,9 @@
 		A70E8A341BCECA4300B517A9 /* SRAboutViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRAboutViewController.swift; path = About/SRAboutViewController.swift; sourceTree = "<group>"; };
 		A74880371B827375008E21FF /* SRStatusBarButton.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatusBarButton.swift; sourceTree = "<group>"; };
 		A7FF0FA01BD020AF002C73DB /* SRLaunchApplicationAtLoginController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRLaunchApplicationAtLoginController.swift; path = Tools/SRLaunchApplicationAtLoginController.swift; sourceTree = "<group>"; };
+		59FACE01FACE01FACE01FA01 /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
+		59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeWindowController.swift; sourceTree = "<group>"; };
+		59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -290,6 +295,7 @@
 				5941BB111B0752E500B49D52 /* Menu */,
 				59EF39FF1B01EF31008FA796 /* Panel */,
 				59E5C000E5C000E5C000E500 /* Settings */,
+				59FACE00FACE00FACE00FA00 /* Welcome */,
 				59210C7E1BD8D0970016880F /* Camera */,
 				59EF3A171B01EF31008FA796 /* Status Item */,
 			);
@@ -332,6 +338,16 @@
 				59E5C00EE5C00EE5C00EE50E /* VISION.md */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		59FACE00FACE00FACE00FA00 /* Welcome */ = {
+			isa = PBXGroup;
+			children = (
+				59FACE01FACE01FACE01FA01 /* spec.md */,
+				59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */,
+				59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */,
+			);
+			path = Welcome;
 			sourceTree = "<group>";
 		};
 		A70E8A0F1BC438D000B517A9 /* Frame View */ = {
@@ -495,6 +511,8 @@
 				593766D31B3F22C900E52DD2 /* SRCameraView.swift in Sources */,
 				592F534B1B37064D00F879FD /* SRMenuController.swift in Sources */,
 				59133E901B2E21C8004480EA /* SRPanelViewController.swift in Sources */,
+				59FACE04FACE04FACE04FA04 /* SRWelcomeWindowController.swift in Sources */,
+				59FACE05FACE05FACE05FA05 /* SRWelcomeViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
