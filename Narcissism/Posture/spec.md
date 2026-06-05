@@ -199,7 +199,15 @@ Notifications page (see UI/Settings/spec.md).
   demand from the menu's "Calibrate Posture..." item (visible exactly
   when Snooze is; choosing it clears any snooze, a deliberate resume).
   Both entry points funnel through SRMenuController, which owns the one
-  window, so a second can never appear. The window floats above normal
+  window, so a second can never appear. The welcome flow's posture page
+  (UI/Welcome/spec.md) embeds the same SRPostureCalibrationViewController
+  instead of opening this window; while that page is up the funnel
+  re-fronts the welcome window, keeping calibration a single surface.
+  That page runs with Track Posture still off (it starts and stops the
+  probe directly) and turns tracking on exactly when a capture completed.
+  It also hides the view controller's inline action buttons
+  (showsActionButtons) and renders its own, driving the session through
+  its public begin/redo and phase publisher. The window floats above normal
   windows (level .floating: a brief, focused task must not get lost
   behind other work) and moves to the active Space when re-fronted
   rather than switching Spaces. Content: a live always-mirrored

@@ -26,6 +26,12 @@ final class SRPostureCalibrationViewController: NSViewController {
 	/// closes on it.
 	var onFinished: (() -> Void)?
 
+	/// The standalone window shows the action buttons (Begin, Looks Good,
+	/// Try Again) inline; the welcome flow's embed turns this off and
+	/// renders its own from the public session API (UI/Welcome/spec.md).
+	/// Set before the view loads.
+	var showsActionButtons = true
+
 	fileprivate var didInstallConstraints = false
 	fileprivate var placeholderView: SRCameraPlaceholerView!
 	fileprivate var cameraView: SRPostureCalibrationCameraView!
@@ -80,6 +86,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 		)
 		self.beginButton.translatesAutoresizingMaskIntoConstraints = false
 		self.beginButton.bezelStyle = .rounded
+		self.beginButton.controlSize = .large
 		self.beginButton.keyEquivalent = "\r"
 		self.view.addSubview(self.beginButton)
 
@@ -91,6 +98,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 		)
 		self.doneButton.translatesAutoresizingMaskIntoConstraints = false
 		self.doneButton.bezelStyle = .rounded
+		self.doneButton.controlSize = .large
 		self.doneButton.keyEquivalent = "\r"
 		self.doneButton.isHidden = true
 		self.view.addSubview(self.doneButton)
@@ -102,6 +110,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 		)
 		self.redoButton.translatesAutoresizingMaskIntoConstraints = false
 		self.redoButton.bezelStyle = .rounded
+		self.redoButton.controlSize = .large
 		self.redoButton.isHidden = true
 		self.view.addSubview(self.redoButton)
 
@@ -191,7 +200,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 			// Zero the bar while hidden, so a redo never shows it sliding
 			// back down from full.
 			self.progressIndicator.doubleValue = 0
-			self.beginButton.isHidden = false
+			self.beginButton.isHidden = !self.showsActionButtons
 			self.beginButton.isEnabled = (guidance == .good)
 			self.guidanceLabel.stringValue = Self.text(for: guidance, failure: failure)
 
@@ -224,7 +233,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 			// The bar animates its fill at its own (undocumented) pace;
 			// give it a generous beat to land before the buttons show up.
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { [weak self] in
-				guard let self, case .done = self.session.onPhase.value else { return }
+				guard let self, self.showsActionButtons, case .done = self.session.onPhase.value else { return }
 				self.doneButton.isHidden = false
 				self.redoButton.isHidden = false
 			}

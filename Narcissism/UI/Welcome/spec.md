@@ -2,31 +2,55 @@
 
 ## Metadata
 
-- **Title**: The welcome window (first-run onboarding, pages one and two).
+- **Title**: The welcome window (first-run onboarding, five pages).
 - **Surface**: a fixed-size titled window (title text hidden), shown by the composition root at launch.
 - **Actor isolation**: main-actor.
-- **Related code**: `Narcissism/UI/Settings/VISION.md` (the three-page onboarding plan this implements the first increments of); `Narcissism/UI/Menu/spec.md` (owner); `Narcissism/UI/Status Item/spec.md` (the locate pulse Locate Me triggers).
+- **Related code**: `Narcissism/UI/Settings/VISION.md` (the three-page onboarding plan this implements); `Narcissism/UI/Menu/spec.md` (owner); `Narcissism/UI/Status Item/spec.md` (the menu Locate Me opens); `Narcissism/Posture/spec.md` (the calibration content page three embeds).
 
 ## Summary
 
-- **What this subsystem is**: the onboarding flow. Page one (about): the app icon, a "Welcome to Narcissism" title, the slogan, the maker's description, the privacy block. Page two (tutorial): where the app lives (a Locate Me button that points at the status item) and three feature rows describing what it does.
-- **One-sentence contract**: the window reads and writes no preferences; its only side effect is Locate Me, which is delegated out through a closure; Continue advances pages, and the last page's Continue closes the window.
+- **What this subsystem is**: the onboarding flow, five pages. About: the app icon, a "Welcome to Narcissism" title, the slogan, the maker's description, the privacy block. Tutorial: where the app lives (a Locate Me button that points at the status item) and three feature rows describing what it does. Get ready: the setup checklist (screen angle, clothing, lighting, clear camera) shown before the camera ever starts. Good posture: the sit-like-this tips (hips back, sit tall, shoulders level), where Ready lives. Posture preset: a header plus the embedded calibration content, ending in Looks Good (enables Track Posture and closes) or Not Now (closes with nothing changed).
+- **One-sentence contract**: the flow's only durable effects are the ones calibration itself produces - a saved baseline and, on success, Track Posture switching on; every other path leaves preferences untouched.
 
 ## Scope
 
-- **In scope**: `SRWelcomeWindowController` (window + page swapping), `SRWelcomeViewController` (page one), `SRWelcomeTutorialViewController` (page two).
+- **In scope**: `SRWelcomeWindowController` (window + page swapping), `SRWelcomeViewController` (about), `SRWelcomeTutorialViewController` (tutorial), `SRWelcomeReadyViewController` (get ready), `SRWelcomeGoodPostureViewController` (good posture), `SRWelcomePostureViewController` (posture preset), `SRWelcomeRows` (the shared row style of the list pages).
 - **Constraints / assumptions**:
   - Shown via the Settings-window recipe (`makeKeyAndOrderFront` plus `orderFrontRegardless` plus `NSApp.activate`), never by changing the activation policy. At launch the policy is usually `.prohibited`, so without the regardless-ordering the window opens behind the active app.
+  - The window floats while open (`level = .floating`, moves to the active Space on re-front) - the calibration-window precedent: onboarding is a short focused task, and without the level the system camera-permission alert drops the window behind other apps when dismissed.
   - `SRMenuController` owns the single kept instance (the Settings precedent); the composition root presents it through `showWelcome()`.
   - Locate Me never touches the status item directly: the page calls the window's `onLocate`, the menu controller forwards to `onLocateStatusItem`, and the composition root wires that to `SRStatusItemController.locate()` (the same explicit cross-surface wiring the panel uses).
 
 ## Flow
 
-- Pages are swapped as the window's content view controller; the window resizes to each page's Auto Layout size.
-- Page one Continue advances to page two. Page two Continue closes the window (until page three exists). Closing the window at any page is allowed and has no side effects.
-- The kept instance re-shows starting from page one: a fresh presentation is always the whole flow.
+- Pages are swapped as the window's content view controller. Every page lays out at one shared fixed size (`SRWelcomeWindowController.pageSize`, set by the tallest page), so the window never changes size mid-flow; the shorter pages center their content in the room above the button band.
+- The button band is assistant style on every page: Back alone in the bottom-left corner (navigation), the page's decision in the bottom-right (about and tutorial: Continue; get ready: Continue with Not Now beside it; good posture: Ready with Not Now beside it; posture: Begin with Not Now beside it, or Looks Good with Try Again beside it). Navigation and decisions never share a group.
+- The order is about -> tutorial -> get ready -> good posture -> posture preset; the posture page ends the flow (Looks Good or Not Now close the window), and Not Now on the get-ready and good-posture pages closes it the same way. Closing the window at any page is allowed; only the posture page's finished state has a side effect (below).
+- Every page after the first has a Back button to the previous page. The posture page's Back and Not Now show only while positioning and before a capture completed; leaving that page via Back runs the same teardown as any other exit.
+- The kept instance re-shows starting from the about page: a fresh presentation is always the whole flow.
 
-## Page two (recorded decisions)
+## Posture page (recorded decisions)
+
+- The calibration surface is `SRPostureCalibrationViewController` embedded as a child view controller - the same content the standalone window shows (preview with dots, placeholder, guidance, countdown, progress). The embed's inline action buttons are disabled (`showsActionButtons`); the page renders Begin, Not Now, Try Again, and Looks Good itself in the bottom band, driven by the session's public phase publisher (Begin enabled exactly on good framing, the finished pair after the same progress-settle beat). The capture logic, gates, and baseline persistence are untouched (Posture/spec.md).
+- The probe normally runs only while Track Posture is on, but this page needs frame samples before the user has opted in: on appear it starts `SRPostureAnalysisService` directly (and mutes evaluation via `setCalibrationWindowOpen`, like the standalone window); on disappear it stops the probe again unless tracking is on by then. Track Posture itself is not touched to get samples - setting it early would trigger the composition root's no-baseline auto-open over this page.
+- Success enables coaching: the single teardown path runs on every way off the page (Looks Good, later, the window close button) and turns Track Posture on exactly when a baseline was captured (`completed`), mirroring the standalone window's "closing in the finished state is the same as Looks Good". The baseline is saved before tracking flips, so the composition root's replay never reopens calibration.
+- Not Now (the deferral escape) is visible only while positioning and only before a baseline was captured; from the finished state the choices are Looks Good / Try Again. It closes the window with nothing changed - tracking stays off, and the existing menu flow (toggle on -> standalone calibration window) remains the later path.
+- While this page is up it is the one calibration surface: `SRMenuController.showPostureCalibration` re-fronts the welcome window instead of opening the standalone window (the one-surface invariant, extended).
+
+## Get-ready page (recorded decisions)
+
+- The checklist exists because the baseline is setup-sensitive (Posture/spec.md records baseline staleness as per-camera-placement): screen angle changes the measured geometry, bulky clothing and poor or backlit lighting degrade the body-pose detection, and a covered camera defeats everything. Settling the setup before measuring improves the baseline.
+- The camera permission prompt still lands at app launch on a fresh install, not on this flow's pages: the mirror surfaces (panel pinned, menu-bar camera) default on and attach the shared session immediately. That is accepted - the about page's privacy block is on screen at that moment, which is the priming. This page's deferral governs the posture probe only.
+- The camera and probe are deliberately untouched until Ready: the checklist gets read without a live self-view competing for attention, the camera permission prompt lands right after the user read "nothing covering the camera", and a Not Now here never triggers the camera at all.
+- The rows reuse the tutorial's row style (SRWelcomeRows).
+
+## Good-posture page (recorded decisions)
+
+- The baseline is whatever posture the user holds during the capture, which makes these tips the flow's most load-bearing advice; the page sits immediately before the camera page so they are fresh when Begin is pressed.
+- Three tips only: hips back, sit tall, shoulders down and level (the latter two map onto the measured slouch ratio and shoulder tilt). A fourth screen-at-eye-level tip was considered and dropped (2026-07-27): it overlapped the checklist's screen-angle row.
+- Ready lives here, not on the checklist, because this page immediately precedes the capture. It is deliberately not "Begin": Begin is the capture trigger on the next page, and one flow must not have two different Begins.
+
+## Tutorial page (recorded decisions)
 
 - Feature order is Camera, Posture, Notifications: camera first because it is what the app is (and explains the icon just located), posture as the hero second, notifications third since they are how posture speaks. It also lands posture-adjacent content right before the future posture setup page.
 - The rows use the What's New pattern: an accent-tinted SF Symbol column, a bold title, a secondary one-liner, left-aligned. `figure.stand` and `bell.badge` deliberately match the Settings tab icons.
@@ -35,7 +59,7 @@
 
 ## Temporary behavior (recorded 2026-07-26)
 
-- The window is shown on every launch while its content is iterated on. The first-run gate (a HasCompletedOnboarding preference per VISION.md), page three, and the re-run entry point are not built yet.
+- The window is shown on every launch while its content is iterated on. The first-run gate (a HasCompletedOnboarding preference per VISION.md) and the re-run entry point are not built yet. Until the gate exists, the posture page can also be reached on an already-calibrated install, where it simply behaves as a recalibration (the overwrite semantics calibration already has).
 
 ## Copy decisions (recorded)
 
@@ -46,12 +70,12 @@
 
 ## Requirements
 
-- **Native fidelity**: system title bar with hidden title, system fonts, SF Symbols, the default-button (Return) Continue; the window is sized by Auto Layout from its content.
+- **Native fidelity**: system title bar with hidden title, system fonts, SF Symbols, the default-button (Return) Continue; one fixed window size shared by all pages.
 - **Concurrency**: main-actor throughout; no camera, no publishers.
 
 ## Open questions
 
-- Page three (posture setup with a "later" escape) per VISION.md, and whether finishing lands on the Settings window.
+- Whether finishing should land on the Settings window per VISION.md.
 - Where the re-run entry point lives once the first-run gate exists (menu item vs About vs Settings).
 - An Open at Login checkbox on the last page.
 - Whether the page swap should animate (it is currently a cut).

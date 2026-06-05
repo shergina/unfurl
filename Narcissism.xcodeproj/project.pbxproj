@@ -57,6 +57,10 @@
 		59FACE04FACE04FACE04FA04 /* SRWelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */; };
 		59FACE05FACE05FACE05FA05 /* SRWelcomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */; };
 		59FACE07FACE07FACE07FA07 /* SRWelcomeTutorialViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE06FACE06FACE06FA06 /* SRWelcomeTutorialViewController.swift */; };
+		59FACE09FACE09FACE09FA09 /* SRWelcomePostureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE08FACE08FACE08FA08 /* SRWelcomePostureViewController.swift */; };
+		59FACE0BFACE0BFACE0BFA0B /* SRWelcomeReadyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE0AFACE0AFACE0AFA0A /* SRWelcomeReadyViewController.swift */; };
+		59FACE0DFACE0DFACE0DFA0D /* SRWelcomeRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE0CFACE0CFACE0CFA0C /* SRWelcomeRows.swift */; };
+		59FACE0FFACE0FFACE0FFA0F /* SRWelcomeGoodPostureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FACE0EFACE0EFACE0EFA0E /* SRWelcomeGoodPostureViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -127,6 +131,10 @@
 		59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeWindowController.swift; sourceTree = "<group>"; };
 		59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeViewController.swift; sourceTree = "<group>"; };
 		59FACE06FACE06FACE06FA06 /* SRWelcomeTutorialViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeTutorialViewController.swift; sourceTree = "<group>"; };
+		59FACE08FACE08FACE08FA08 /* SRWelcomePostureViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomePostureViewController.swift; sourceTree = "<group>"; };
+		59FACE0AFACE0AFACE0AFA0A /* SRWelcomeReadyViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeReadyViewController.swift; sourceTree = "<group>"; };
+		59FACE0CFACE0CFACE0CFA0C /* SRWelcomeRows.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeRows.swift; sourceTree = "<group>"; };
+		59FACE0EFACE0EFACE0EFA0E /* SRWelcomeGoodPostureViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRWelcomeGoodPostureViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -349,6 +357,10 @@
 				59FACE02FACE02FACE02FA02 /* SRWelcomeWindowController.swift */,
 				59FACE03FACE03FACE03FA03 /* SRWelcomeViewController.swift */,
 				59FACE06FACE06FACE06FA06 /* SRWelcomeTutorialViewController.swift */,
+				59FACE0AFACE0AFACE0AFA0A /* SRWelcomeReadyViewController.swift */,
+				59FACE0EFACE0EFACE0EFA0E /* SRWelcomeGoodPostureViewController.swift */,
+				59FACE08FACE08FACE08FA08 /* SRWelcomePostureViewController.swift */,
+				59FACE0CFACE0CFACE0CFA0C /* SRWelcomeRows.swift */,
 			);
 			path = Welcome;
 			sourceTree = "<group>";
@@ -517,6 +529,10 @@
 				59FACE04FACE04FACE04FA04 /* SRWelcomeWindowController.swift in Sources */,
 				59FACE05FACE05FACE05FA05 /* SRWelcomeViewController.swift in Sources */,
 				59FACE07FACE07FACE07FA07 /* SRWelcomeTutorialViewController.swift in Sources */,
+				59FACE09FACE09FACE09FA09 /* SRWelcomePostureViewController.swift in Sources */,
+				59FACE0BFACE0BFACE0BFA0B /* SRWelcomeReadyViewController.swift in Sources */,
+				59FACE0DFACE0DFACE0DFA0D /* SRWelcomeRows.swift in Sources */,
+				59FACE0FFACE0FFACE0FFA0F /* SRWelcomeGoodPostureViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

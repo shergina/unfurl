@@ -15,21 +15,18 @@ class SRWelcomeTutorialViewController: NSViewController {
 
 	var onLocate: (() -> Void)?
 	var onContinue: (() -> Void)?
-
-	fileprivate let kTextWidth = CGFloat(400)
-	fileprivate let kRowIconWidth = CGFloat(30)
-	fileprivate let kRowSpacing = CGFloat(12)
+	var onBack: (() -> Void)?
 
 	override func loadView() {
 		let view = NSView()
 
-		let titleView = self.label(
+		let titleView = SRWelcomeRows.label(
 			NSLocalizedString("welcome.tutorial.title", comment: ""),
 			font: NSFont.systemFont(ofSize: 20, weight: .bold)
 		)
 		titleView.alignment = .center
 
-		let subtitleView = self.label(
+		let subtitleView = SRWelcomeRows.label(
 			NSLocalizedString("welcome.tutorial.subtitle", comment: ""),
 			font: NSFont.systemFont(ofSize: 13),
 			color: NSColor.secondaryLabelColor
@@ -46,17 +43,17 @@ class SRWelcomeTutorialViewController: NSViewController {
 		locateButton.translatesAutoresizingMaskIntoConstraints = false
 
 		let rows = NSStackView(views: [
-			self.featureRow(
+			SRWelcomeRows.row(
 				symbol: "web.camera",
 				titleKey: "welcome.tutorial.camera.title",
 				bodyKey: "welcome.tutorial.camera.body"
 			),
-			self.featureRow(
+			SRWelcomeRows.row(
 				symbol: "figure.stand",
 				titleKey: "welcome.tutorial.posture.title",
 				bodyKey: "welcome.tutorial.posture.body"
 			),
-			self.featureRow(
+			SRWelcomeRows.row(
 				symbol: "bell.badge",
 				titleKey: "welcome.tutorial.notifications.title",
 				bodyKey: "welcome.tutorial.notifications.body"
@@ -76,24 +73,41 @@ class SRWelcomeTutorialViewController: NSViewController {
 		continueButton.controlSize = .large
 		continueButton.translatesAutoresizingMaskIntoConstraints = false
 
-		let stack = NSStackView(views: [titleView, subtitleView, locateButton, rows, continueButton])
+		let backButton = NSButton(
+			title: NSLocalizedString("welcome.back", comment: ""),
+			target: self,
+			action: #selector(self.backPressed(_:))
+		)
+		backButton.controlSize = .large
+		backButton.translatesAutoresizingMaskIntoConstraints = false
+
+		let stack = NSStackView(views: [titleView, subtitleView, locateButton, rows])
 		stack.orientation = .vertical
 		stack.alignment = .centerX
 		stack.spacing = 12
 		stack.setCustomSpacing(16, after: subtitleView)
 		stack.setCustomSpacing(28, after: locateButton)
-		stack.setCustomSpacing(32, after: rows)
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		view.addSubview(stack)
+		view.addSubview(backButton)
+		view.addSubview(continueButton)
 
+		// The shared page size; content centers in the room above the
+		// bottom button band (Back left, Continue right, assistant style).
 		NSLayoutConstraint.activate([
-			view.widthAnchor.constraint(equalToConstant: 480),
+			view.widthAnchor.constraint(equalToConstant: SRWelcomeWindowController.pageSize.width),
+			view.heightAnchor.constraint(equalToConstant: SRWelcomeWindowController.pageSize.height),
 
-			rows.widthAnchor.constraint(equalToConstant: self.kTextWidth),
-			continueButton.widthAnchor.constraint(equalToConstant: 200),
+			rows.widthAnchor.constraint(equalToConstant: SRWelcomeRows.textWidth),
 
-			stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 40),
-			stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -36),
+			backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
+			backButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30),
+
+			continueButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
+			continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
+			continueButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30),
+
+			stack.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -24),
 			stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
 			stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
 		])
@@ -109,69 +123,8 @@ class SRWelcomeTutorialViewController: NSViewController {
 		self.onContinue?()
 	}
 
-	fileprivate func featureRow(symbol: String, titleKey: String, bodyKey: String) -> NSView {
-		let title = NSLocalizedString(titleKey, comment: "")
-
-		let iconView = NSImageView()
-		iconView.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)?
-			.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 22, weight: .regular))
-		iconView.contentTintColor = .controlAccentColor
-		iconView.translatesAutoresizingMaskIntoConstraints = false
-
-		let bodyWidth = self.kTextWidth - self.kRowIconWidth - self.kRowSpacing
-		let titleView = self.label(
-			title,
-			font: NSFont.systemFont(ofSize: 13, weight: .bold),
-			maxWidth: bodyWidth
-		)
-		let bodyView = self.label(
-			NSLocalizedString(bodyKey, comment: ""),
-			font: NSFont.systemFont(ofSize: 13),
-			color: NSColor.secondaryLabelColor,
-			maxWidth: bodyWidth
-		)
-
-		let text = NSStackView(views: [titleView, bodyView])
-		text.orientation = .vertical
-		text.alignment = .leading
-		text.spacing = 2
-		text.translatesAutoresizingMaskIntoConstraints = false
-
-		let row = NSView()
-		row.translatesAutoresizingMaskIntoConstraints = false
-		row.addSubview(iconView)
-		row.addSubview(text)
-
-		NSLayoutConstraint.activate([
-			iconView.leadingAnchor.constraint(equalTo: row.leadingAnchor),
-			iconView.widthAnchor.constraint(equalToConstant: self.kRowIconWidth),
-			// Centered on the whole text block (the What's New look). Symbol
-			// glyphs fill their boxes unevenly, so edge-alignment reads as
-			// scattered; center-anchoring hides that.
-			iconView.centerYAnchor.constraint(equalTo: text.centerYAnchor),
-
-			text.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: self.kRowIconWidth + self.kRowSpacing),
-			text.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-			text.topAnchor.constraint(equalTo: row.topAnchor),
-			text.bottomAnchor.constraint(equalTo: row.bottomAnchor),
-		])
-
-		return row
-	}
-
-	fileprivate func label(
-		_ text: String,
-		font: NSFont,
-		color: NSColor = .labelColor,
-		maxWidth: CGFloat? = nil
-	) -> NSTextField {
-		let label = NSTextField(wrappingLabelWithString: text)
-		label.translatesAutoresizingMaskIntoConstraints = false
-		label.font = font
-		label.textColor = color
-		label.isSelectable = false
-		label.preferredMaxLayoutWidth = maxWidth ?? self.kTextWidth
-		return label
+	@objc fileprivate func backPressed(_ sender: Any?) {
+		self.onBack?()
 	}
 
 }

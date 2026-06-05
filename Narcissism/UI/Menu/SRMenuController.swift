@@ -401,6 +401,13 @@ class SRMenuController: NSObject {
 	/// entry points (menu item, no-baseline auto-open) funnel through here,
 	/// so there is never a second window.
 	func showPostureCalibration() {
+		// While the welcome flow's posture page is up, that page is the one
+		// calibration surface: re-front it instead of opening a second.
+		if let welcome = self.welcomeWindowController, welcome.isShowingPostureCalibration {
+			welcome.showWindow(self)
+			return
+		}
+
 		if let existing = self.postureCalibrationWindowController {
 			existing.showWindow(self)
 			return

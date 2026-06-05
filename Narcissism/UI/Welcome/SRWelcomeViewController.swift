@@ -53,7 +53,7 @@ class SRWelcomeViewController: NSViewController {
 		continueButton.translatesAutoresizingMaskIntoConstraints = false
 
 		let stack = NSStackView(views: [
-			iconView, titleView, sloganView, descriptionView, privacyView, continueButton,
+			iconView, titleView, sloganView, descriptionView, privacyView,
 		])
 		stack.orientation = .vertical
 		stack.alignment = .centerX
@@ -62,20 +62,24 @@ class SRWelcomeViewController: NSViewController {
 		// here already reads as a comfortable gap.
 		stack.setCustomSpacing(8, after: iconView)
 		stack.setCustomSpacing(10, after: titleView)
-		stack.setCustomSpacing(28, after: privacyView)
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		view.addSubview(stack)
+		view.addSubview(continueButton)
 
+		// The shared page size; content centers in the room above the
+		// bottom button band.
 		NSLayoutConstraint.activate([
-			view.widthAnchor.constraint(equalToConstant: 480),
+			view.widthAnchor.constraint(equalToConstant: SRWelcomeWindowController.pageSize.width),
+			view.heightAnchor.constraint(equalToConstant: SRWelcomeWindowController.pageSize.height),
 
 			iconView.widthAnchor.constraint(equalToConstant: 96),
 			iconView.heightAnchor.constraint(equalToConstant: 96),
 
-			continueButton.widthAnchor.constraint(equalToConstant: 200),
+			continueButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
+			continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
+			continueButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30),
 
-			stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 30),
-			stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -36),
+			stack.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -24),
 			stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
 			stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
 		])
