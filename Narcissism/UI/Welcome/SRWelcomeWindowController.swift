@@ -23,6 +23,11 @@ class SRWelcomeWindowController: NSWindowController {
 	/// through here to the status item (wired in the composition root).
 	var onLocate: (() -> Void)?
 
+	/// Fires on every close, whichever path took the window down (a page's
+	/// Not Now, the posture page finishing, the close button). The owner
+	/// marks onboarding completed here.
+	var onDidClose: (() -> Void)?
+
 	override func loadWindow() {
 		// The real page size, not .zero: center() runs before a deferred
 		// window is materialized, and centering a zero-size frame parks the
@@ -38,6 +43,7 @@ class SRWelcomeWindowController: NSWindowController {
 		window.titleVisibility = .hidden
 		window.title = NSLocalizedString("welcome.title", comment: "")
 		window.isReleasedWhenClosed = false
+		window.delegate = self
 
 		// Float while open, the calibration-window precedent: onboarding is
 		// a short focused task, and without this the system camera
@@ -119,6 +125,15 @@ class SRWelcomeWindowController: NSWindowController {
 		return self.isWindowLoaded
 			&& self.window?.isVisible == true
 			&& self.contentViewController is SRWelcomePostureViewController
+	}
+
+}
+
+
+extension SRWelcomeWindowController: NSWindowDelegate {
+
+	func windowWillClose(_ notification: Notification) {
+		self.onDidClose?()
 	}
 
 }

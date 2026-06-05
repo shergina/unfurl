@@ -10,7 +10,7 @@ import AppKit
 
 /// The shared row style of the welcome flow's list pages (tutorial, get
 /// ready, good posture): an accent-tinted symbol column next to a bold
-/// title over a secondary one-liner, icon centered on the text block.
+/// title over a secondary one-liner, icon centered on the title line.
 @MainActor
 enum SRWelcomeRows {
 
@@ -55,8 +55,10 @@ enum SRWelcomeRows {
 			iconView.leadingAnchor.constraint(equalTo: row.leadingAnchor),
 			iconView.widthAnchor.constraint(equalToConstant: Self.iconWidth),
 			// Symbol glyphs fill their boxes unevenly, so edge-alignment
-			// reads as scattered; center-anchoring on the block hides that.
-			iconView.centerYAnchor.constraint(equalTo: text.centerYAnchor),
+			// reads as scattered; center-anchoring hides that. Anchor to the
+			// title, not the text block: body length varies per row, and
+			// block-centering drags the icon away from its heading.
+			iconView.centerYAnchor.constraint(equalTo: titleView.centerYAnchor),
 
 			text.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: Self.iconWidth + Self.iconSpacing),
 			text.trailingAnchor.constraint(equalTo: row.trailingAnchor),

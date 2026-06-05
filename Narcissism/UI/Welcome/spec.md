@@ -3,14 +3,14 @@
 ## Metadata
 
 - **Title**: The welcome window (first-run onboarding, five pages).
-- **Surface**: a fixed-size titled window (title text hidden), shown by the composition root at launch.
+- **Surface**: a fixed-size titled window (title text hidden), shown by the composition root on first launch.
 - **Actor isolation**: main-actor.
 - **Related code**: `Narcissism/UI/Settings/VISION.md` (the three-page onboarding plan this implements); `Narcissism/UI/Menu/spec.md` (owner); `Narcissism/UI/Status Item/spec.md` (the menu Locate Me opens); `Narcissism/Posture/spec.md` (the calibration content page three embeds).
 
 ## Summary
 
 - **What this subsystem is**: the onboarding flow, five pages. About: the app icon, a "Welcome to Narcissism" title, the slogan, the maker's description, the privacy block. Tutorial: where the app lives (a Locate Me button that points at the status item) and three feature rows describing what it does. Get ready: the setup checklist (screen angle, clothing, lighting, clear camera) shown before the camera ever starts. Good posture: the sit-like-this tips (hips back, sit tall, shoulders level), where Ready lives. Posture preset: a header plus the embedded calibration content, ending in Looks Good (enables Track Posture and closes) or Not Now (closes with nothing changed).
-- **One-sentence contract**: the flow's only durable effects are the ones calibration itself produces - a saved baseline and, on success, Track Posture switching on; every other path leaves preferences untouched.
+- **One-sentence contract**: the flow's durable effects are the ones calibration itself produces (a saved baseline and, on success, Track Posture switching on) plus the first-run flag every close sets; every other preference is left untouched.
 
 ## Scope
 
@@ -54,12 +54,15 @@
 
 - Feature order is Camera, Posture, Notifications: camera first because it is what the app is (and explains the icon just located), posture as the hero second, notifications third since they are how posture speaks. It also lands posture-adjacent content right before the future posture setup page.
 - The rows use the What's New pattern: an accent-tinted SF Symbol column, a bold title, a secondary one-liner, left-aligned. `figure.stand` and `bell.badge` deliberately match the Settings tab icons.
+- Row icons center on the title line, not the whole text block (2026-07-28): body length varies from one to three lines across rows, and block-centering dragged icons away from their headings by different amounts on the same page.
 - Locate Me is a plain push button; Continue stays the page's single default (accent) button.
 - Locate Me opens the status menu immediately (see the Status Item spec): macOS highlights a status item while its menu is open, and that highlight is the locator. A pre-open tint pulse was tried and dropped (2026-07-26) as pure delay. Deliberately no hidden-icon detection or fallback text either: the Status Item spec records that no reliable hidden signal exists, and the open menu is itself the locator of last resort.
 
-## Temporary behavior (recorded 2026-07-26)
+## First-run gate (recorded 2026-07-28)
 
-- The window is shown on every launch while its content is iterated on. The first-run gate (a HasCompletedOnboarding preference per VISION.md) and the re-run entry point are not built yet. Until the gate exists, the posture page can also be reached on an already-calibrated install, where it simply behaves as a recalibration (the overwrite semantics calibration already has).
+- The composition root shows the window at launch only while HasCompletedOnboarding (per VISION.md) is false. Any close sets it true - a page's Not Now, the posture page finishing, or the window's close button - because the spec treats closing at any page as a legitimate exit, and reopening a dismissed flow on every launch would punish that. The window controller reports the close through `onDidClose`; the menu controller (the owner) writes the preference. Closing lands nowhere (the home-window landing tried on 2026-07-28 was reversed with the home window itself the same day): the app returns to being a quiet menu-bar agent.
+- Deliberately close-marked, not show-marked: quitting the app with the window still open (never dismissed) leaves the flag false, so the flow returns next launch.
+- No re-run entry point exists yet (open question below); until one does, a rerun means resetting the preference (`defaults delete` the key).
 
 ## Copy decisions (recorded)
 
@@ -75,7 +78,6 @@
 
 ## Open questions
 
-- Whether finishing should land on the Settings window per VISION.md.
-- Where the re-run entry point lives once the first-run gate exists (menu item vs About vs Settings).
+- Where the re-run entry point lives (menu item vs About vs Settings); VISION.md wants the tutorial re-runnable.
 - An Open at Login checkbox on the last page.
 - Whether the page swap should animate (it is currently a cut).

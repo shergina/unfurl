@@ -440,12 +440,15 @@ class SRMenuController: NSObject {
 	var onLocateStatusItem: (() -> Void)?
 
 	/// Presents the welcome window; a single kept instance (the Settings
-	/// precedent). Shown by the composition root at launch; no menu item
-	/// triggers it yet (see UI/Welcome/spec.md).
+	/// precedent). Shown by the composition root on first launch; no menu
+	/// item triggers it yet (see UI/Welcome/spec.md).
 	func showWelcome() {
 		if self.welcomeWindowController == nil {
 			let controller = SRWelcomeWindowController(windowNibName: "")
 			controller.onLocate = { [weak self] in self?.onLocateStatusItem?() }
+			// Any dismissal counts as onboarding done; the flow never
+			// reopens on its own after the first close.
+			controller.onDidClose = { [preferences] in preferences.hasCompletedOnboarding.value = true }
 			self.welcomeWindowController = controller
 		}
 		self.welcomeWindowController!.showWindow(self)

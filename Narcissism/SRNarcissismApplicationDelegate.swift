@@ -69,10 +69,12 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		self.postureNoteController = SRPostureNoteController(services: self.services)
 		self.postureSoundController = SRPostureSoundController(services: self.services)
 
-		// Welcome window: every launch for now, while its content is being
-		// iterated on; the first-run gate comes with the rest of the flow
+		// Welcome window: first launch only. Dismissing it (any path) flips
+		// the flag, so the flow shows until the user has closed it once
 		// (see UI/Welcome/spec.md).
-		self.services.menu.showWelcome()
+		if !self.services.settings.hasCompletedOnboarding.value {
+			self.services.menu.showWelcome()
+		}
 	}
 
 	/// Turns the two posture preferences into probe state: run while tracking

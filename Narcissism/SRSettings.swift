@@ -102,6 +102,9 @@ final class SRSettings {
 	// An NSSound system sound name (see SRPostureSoundController.soundNames).
 	let postureSoundName: Preference<String>
 	let postureStatusItemTint: Preference<Bool>
+	// The first-run gate: false until the welcome window is dismissed once
+	// (any path counts); the composition root shows it only while false.
+	let hasCompletedOnboarding: Preference<Bool>
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
     // The camera's menu-bar width is session-only (never persisted): it always
@@ -130,6 +133,7 @@ final class SRSettings {
 		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)
 		self.postureSoundName = Preference("PostureSoundName", default: "Ping", defaults: defaults)
 		self.postureStatusItemTint = Preference("PostureStatusItemTint", default: false, defaults: defaults)
+		self.hasCompletedOnboarding = Preference("HasCompletedOnboarding", default: false, defaults: defaults)
 	}
 }
 
