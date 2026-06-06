@@ -47,6 +47,7 @@ class SRMenuController: NSObject {
 	fileprivate let preferences = SRSettings.sharedInstance
 	fileprivate var aboutWindowController: SRAboutWindowController? = nil
 	fileprivate var settingsWindowController: SRSettingsWindowController? = nil
+	fileprivate var statisticsWindowController: SRStatisticsWindowController? = nil
 	fileprivate var postureCalibrationWindowController: SRPostureCalibrationWindowController? = nil
 	fileprivate var welcomeWindowController: SRWelcomeWindowController? = nil
 
@@ -241,6 +242,13 @@ class SRMenuController: NSObject {
 
 		menu.addItem(NSMenuItem.separator())
 
+		// Statistics
+		menu.addItem(self.createMenuItem(
+			"menu.statistics"
+		) {
+			self.showStatistics()
+		})
+
 		// Settings
 		menu.addItem(self.createMenuItem(
 			"menu.settings"
@@ -432,6 +440,15 @@ class SRMenuController: NSObject {
 			self.settingsWindowController = controller
 		}
 		self.settingsWindowController!.showWindow(self)
+	}
+
+	/// Presents the Statistics window; a single kept instance, the
+	/// Settings precedent.
+	func showStatistics() {
+		if self.statisticsWindowController == nil {
+			self.statisticsWindowController = SRStatisticsWindowController(windowNibName: "")
+		}
+		self.statisticsWindowController!.showWindow(self)
 	}
 
 	/// Set by the composition root; the welcome tutorial's Locate Me routes

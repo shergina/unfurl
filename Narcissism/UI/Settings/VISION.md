@@ -1,13 +1,15 @@
 # Home Screen and Onboarding - Product Vision and Roadmap
 
-Status: building. The first increment exists: the Settings window (that
-is the decided name) with toolbar tabs - a General page, a Notifications
-page with the nudge delay and the three nudge channels, and a
-placeholder Statistics tab - specified in spec.md next to this file.
-The onboarding flow has started as well: the welcome page (feature 1's
-page 1) exists, specified in UI/Welcome/spec.md; its pages 2 and 3 and
-the first-run gate are still to come. This document remains the
-long-term plan for the rest. Edit it as the design firms up. As pieces
+Status: building. The Settings window exists with toolbar tabs -
+General, Posture, Notifications - specified in spec.md next to this
+file. A home-window variant (app-named window, Statistics first,
+opened at launch) was tried and reversed on 2026-07-28: no main
+window for now, the app stays a quiet menu-bar agent. Statistics is
+its own placeholder window instead (UI/Statistics/spec.md), opened
+from the menu. The onboarding flow exists with its first-run gate
+(UI/Welcome/spec.md); closing it lands nowhere. This document remains
+the long-term plan for the rest; the home-window idea in Feature 2
+stays vision, shelved rather than deleted. Edit it as the design firms up. As pieces
 get built, their stable contracts graduate into spec.md files next to
 the code; everything here stays vision, not behavioral spec.
 
@@ -58,10 +60,10 @@ a new persisted preference (HasCompletedOnboarding). The tutorial must
 be re-runnable later from the home window or the menu, so the content is
 not lost after first launch.
 
-## Feature 2: the home window (now the Settings window)
+## Feature 2: the home window
 
-One window, pages switched in the top panel (toolbar tabs). Built so
-far (see spec.md):
+One window, pages switched in the top panel (toolbar tabs), Statistics
+first. Built so far (see spec.md):
 
 - General. Track Posture, Show Camera Panel, Show Camera in Menu Bar,
   Open at Login.

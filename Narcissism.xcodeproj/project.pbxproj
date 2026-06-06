@@ -20,7 +20,7 @@
 		59E5C004E5C004E5C004E504 /* SRSettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C003E5C003E5C003E503 /* SRSettingsWindowController.swift */; };
 		59E5C006E5C006E5C006E506 /* SRSettingsGeneralViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C005E5C005E5C005E505 /* SRSettingsGeneralViewController.swift */; };
 		59E5C008E5C008E5C008E508 /* SRSettingsNotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */; };
-		59E5C00AE5C00AE5C00AE50A /* SRSettingsStatisticsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C009E5C009E5C009E509 /* SRSettingsStatisticsViewController.swift */; };
+		59C7A702C7A702C7A702C702 /* SRStatisticsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C7A701C7A701C7A701C701 /* SRStatisticsWindowController.swift */; };
 		59E5C00CE5C00CE5C00CE50C /* SRSettingsControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */; };
 		59E5C010E5C010E5C010E510 /* SRSettingsPostureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */; };
 		59D0C00BD0C00BD0C00BD00B /* SRPostureCalibrationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00AD0C00AD0C00AD00A /* SRPostureCalibrationSession.swift */; };
@@ -84,7 +84,8 @@
 		59E5C003E5C003E5C003E503 /* SRSettingsWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsWindowController.swift; sourceTree = "<group>"; };
 		59E5C005E5C005E5C005E505 /* SRSettingsGeneralViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsGeneralViewController.swift; sourceTree = "<group>"; };
 		59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsNotificationsViewController.swift; sourceTree = "<group>"; };
-		59E5C009E5C009E5C009E509 /* SRSettingsStatisticsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsStatisticsViewController.swift; sourceTree = "<group>"; };
+		59C7A701C7A701C7A701C701 /* SRStatisticsWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatisticsWindowController.swift; sourceTree = "<group>"; };
+		59C7A703C7A703C7A703C703 /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
 		59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsControls.swift; sourceTree = "<group>"; };
 		59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsPostureViewController.swift; sourceTree = "<group>"; };
 		59E5C00DE5C00DE5C00DE50D /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
@@ -305,6 +306,7 @@
 				5941BB111B0752E500B49D52 /* Menu */,
 				59EF39FF1B01EF31008FA796 /* Panel */,
 				59E5C000E5C000E5C000E500 /* Settings */,
+				59C7A700C7A700C7A700C700 /* Statistics */,
 				59FACE00FACE00FACE00FA00 /* Welcome */,
 				59210C7E1BD8D0970016880F /* Camera */,
 				59EF3A171B01EF31008FA796 /* Status Item */,
@@ -344,10 +346,18 @@
 				59E5C005E5C005E5C005E505 /* SRSettingsGeneralViewController.swift */,
 				59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */,
 				59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */,
-				59E5C009E5C009E5C009E509 /* SRSettingsStatisticsViewController.swift */,
 				59E5C00EE5C00EE5C00EE50E /* VISION.md */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		59C7A700C7A700C7A700C700 /* Statistics */ = {
+			isa = PBXGroup;
+			children = (
+				59C7A703C7A703C7A703C703 /* spec.md */,
+				59C7A701C7A701C7A701C701 /* SRStatisticsWindowController.swift */,
+			);
+			path = Statistics;
 			sourceTree = "<group>";
 		};
 		59FACE00FACE00FACE00FA00 /* Welcome */ = {
@@ -502,7 +512,7 @@
 				59E5C004E5C004E5C004E504 /* SRSettingsWindowController.swift in Sources */,
 				59E5C006E5C006E5C006E506 /* SRSettingsGeneralViewController.swift in Sources */,
 				59E5C008E5C008E5C008E508 /* SRSettingsNotificationsViewController.swift in Sources */,
-				59E5C00AE5C00AE5C00AE50A /* SRSettingsStatisticsViewController.swift in Sources */,
+				59C7A702C7A702C7A702C702 /* SRStatisticsWindowController.swift in Sources */,
 				59E5C00CE5C00CE5C00CE50C /* SRSettingsControls.swift in Sources */,
 				59E5C010E5C010E5C010E510 /* SRSettingsPostureViewController.swift in Sources */,
 				59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */,

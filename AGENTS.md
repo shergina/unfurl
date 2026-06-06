@@ -25,6 +25,7 @@ Narcissism is a native macOS menu-bar camera app (AppKit, Swift 6, sandboxed).
 
 These distill `.spec/constitution.md`; the constitution wins if they ever conflict.
 
+- **Follow the macOS Human Interface Guidelines.** The app aims for best-in-class platform quality. When a design question has a platform convention - menu ordering and grouping, window roles, control choice, label style - the convention wins over invention. If a proposed design fights how a Mac app is expected to behave, redesign it rather than shipping the fight.
 - **Prefer the system primitive.** Before hand-drawing chrome or reimplementing a system behavior, use the real one (`NSPanel` chrome, `SMAppService`, SF Symbols, `NSStatusItem.length`, system shadows and corners). Hand-rolled equivalents are what we keep deleting.
 - **Stay main-actor by default.** UI and controllers are `@MainActor`. Only the camera session queue and the AVFoundation callbacks run off-main, and they hand back finished `Sendable` values. The build must stay warning-clean under strict concurrency; do not silence isolation warnings, fix them.
 - **Never blank-frame a failure.** Camera permission and errors surface through `SRCameraService.onState`; user-facing surfaces explain the state. Do not swallow errors into `print` or a discarded `Task`.

@@ -31,6 +31,7 @@
 "menu.camera" = "Camera";
 "menu.camera.automatic" = "Automatic";
 "menu.check-for-update" = "Check for update…";
+"menu.statistics" = "Statistics";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit Narcissism";
 
@@ -65,7 +66,6 @@
 "settings.tab.general" = "General";
 "settings.tab.posture" = "Posture";
 "settings.tab.notifications" = "Notifications";
-"settings.tab.statistics" = "Statistics";
 "settings.general.track-posture" = "Track Posture";
 "settings.general.show-camera-panel" = "Show Camera Panel";
 "settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
@@ -88,7 +88,9 @@
 "settings.notifications.snooze.label" = "Snooze:";
 "settings.notifications.snooze.off" = "Off";
 "settings.notifications.snooze.until" = "Until %@";
-"settings.statistics.placeholder" = "Posture statistics will appear here.";
+// Statistics window
+"statistics.window.title" = "Statistics";
+"statistics.placeholder" = "Posture statistics will appear here.";
 
 // Welcome window
 "welcome.title" = "Welcome to Narcissism";
