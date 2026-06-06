@@ -115,18 +115,20 @@ class SRMenuController: NSObject {
 		return menuItem;
 	}
 
+	/// A toggle's checked state: its preference, and-ed with camera
+	/// availability so a checked feature never claims to run cameraless.
+	fileprivate func preferenceAndCameraAvailable(_ preference: Preference<Bool>) -> BoolPublisher {
+		return preference.publisher
+			.combineLatest(SRCameraService.sharedInstance.onCaptureDeviceAvailable)
+			.map { $0 && $1 }
+			.eraseToAnyPublisher()
+	}
+
 	func createMenu() -> NSMenu {
 		let menu = NSMenu(title: "")
 		menu.autoenablesItems = false
 
 		let onCaptureDeviceAvailable = SRCameraService.sharedInstance.onCaptureDeviceAvailable.eraseToAnyPublisher()
-
-		func preferenceAndCameraAvailable(_ preference: Preference<Bool>) -> BoolPublisher {
-			return preference.publisher
-				.combineLatest(onCaptureDeviceAvailable)
-				.map { $0 && $1 }
-				.eraseToAnyPublisher()
-		}
 
 		// Track Posture
 		menu.addItem(self.createMenuItem(
@@ -152,7 +154,8 @@ class SRMenuController: NSObject {
 
 		menu.addItem(NSMenuItem.separator())
 
-		// Take Photo
+		// Take Photo: the one camera action, kept top-level; the camera
+		// options live one hover away in the submenu below it.
 		menu.addItem(self.createMenuItem(
 			"menu.take-photo",
 			keyEquivalent: SRHotKeyController.takePhotoKeyEquivalent,
@@ -162,83 +165,8 @@ class SRMenuController: NSObject {
 			SRPhotoCaptureService.sharedInstance.capture()
 		})
 
-		menu.addItem(NSMenuItem.separator())
-
-		// Show Camera Panel
-		menu.addItem(self.createMenuItem(
-			"menu.show-camera-panel",
-			keyEquivalent: SRHotKeyController.togglePanelKeyEquivalent,
-			keyEquivalentModifierMask: SRHotKeyController.modifiers,
-			checked: preferenceAndCameraAvailable(self.preferences.cameraPanelPinned),
-			enabled: onCaptureDeviceAvailable
-		) {
-			self.preferences.cameraPanelPinned.toggle()
-		})
-
-		menu.addItem(NSMenuItem.separator())
-
-		// Show Camera in Status Bar
-		menu.addItem(self.createMenuItem(
-			"menu.show-camera-on-status-bar",
-			checked: preferenceAndCameraAvailable(self.preferences.showCameraOnStatusBar),
-			enabled: onCaptureDeviceAvailable
-		) {
-			self.preferences.showCameraOnStatusBar.toggle()
-		})
-
-		// Show Camera in Dock Tile
-		menu.addItem(self.createMenuItem(
-			"menu.show-camera-on-dock-tile",
-			checked: preferenceAndCameraAvailable(self.preferences.showCameraOnDockTile),
-			enabled: onCaptureDeviceAvailable
-		) {
-			self.preferences.showCameraOnDockTile.toggle()
-		})
-
-		// Show Camera Panel on Hover
-		menu.addItem(self.createMenuItem(
-			"menu.show-camera-panel-on-hover",
-			checked: preferenceAndCameraAvailable(self.preferences.showCameraPanelOnHover),
-			enabled: onCaptureDeviceAvailable
-		) {
-			self.preferences.showCameraPanelOnHover.toggle()
-		})
-
-		// Flip Camera Horizontally
-		menu.addItem(self.createMenuItem(
-			"menu.flip-camera-horizontally",
-			keyEquivalent: SRHotKeyController.toggleMirrorKeyEquivalent,
-			keyEquivalentModifierMask: SRHotKeyController.modifiers,
-			checked: self.preferences.flipCameraHorizontally.publisher,
-			enabled: onCaptureDeviceAvailable
-		) {
-			self.preferences.flipCameraHorizontally.toggle()
-		})
-
-		// Ghost Mode — also the escape hatch: a ghosted panel is click-through,
-		// so its own toolbar button can't be reached to turn the mode off.
-		menu.addItem(self.createMenuItem(
-			"menu.ghost-mode",
-			checked: self.preferences.cameraPanelGhostMode.publisher,
-			enabled: onCaptureDeviceAvailable
-		) {
-			self.preferences.cameraPanelGhostMode.toggle()
-		})
-
-		menu.addItem(NSMenuItem.separator())
-
-		// Camera (source selection)
-		menu.addItem(self.makeCameraSourceItem())
-
-		menu.addItem(NSMenuItem.separator())
-
-		// Launch at Login
-		menu.addItem(self.createMenuItem(
-			"menu.launch-at-login",
-			checked: self.preferences.launchAtLogin.publisher
-		) {
-			self.preferences.launchAtLogin.toggle()
-		})
+		// Camera: every camera control in one submenu (see spec.md).
+		menu.addItem(self.makeCameraItem())
 
 		menu.addItem(NSMenuItem.separator())
 
@@ -352,11 +280,12 @@ class SRMenuController: NSObject {
 		return formatter
 	}()
 
-	/// The "Camera" parent item with a submenu that lists the connected
-	/// devices plus an "Automatic" option. The submenu is rebuilt whenever the
-	/// device list or the user's choice changes; the checkmark follows the
-	/// stored preference (the option the user picked), not the live device.
-	fileprivate func makeCameraSourceItem() -> NSMenuItem {
+	/// The "Camera" parent item: every camera control in one submenu - the
+	/// surface toggles (panel, hover, menu bar, Dock), the modes (mirror,
+	/// ghost), and the source list at the bottom, rebuilt as devices come
+	/// and go. The parent stays enabled with no camera so the options
+	/// remain discoverable; the items inside disable themselves.
+	fileprivate func makeCameraItem() -> NSMenuItem {
 		let parent = NSMenuItem(
 			title: NSLocalizedString("menu.camera", comment: ""),
 			action: nil,
@@ -366,22 +295,87 @@ class SRMenuController: NSObject {
 		submenu.autoenablesItems = false
 		parent.submenu = submenu
 
-		SRCameraService.sharedInstance.onCaptureDeviceAvailable
-			.sink { [unowned parent] in parent.isEnabled = $0 }
-			.store(in: &self.cancellables)
+		let onCaptureDeviceAvailable = SRCameraService.sharedInstance.onCaptureDeviceAvailable.eraseToAnyPublisher()
+
+		submenu.addItem(self.createMenuItem(
+			"menu.show-camera-panel",
+			keyEquivalent: SRHotKeyController.togglePanelKeyEquivalent,
+			keyEquivalentModifierMask: SRHotKeyController.modifiers,
+			checked: self.preferenceAndCameraAvailable(self.preferences.cameraPanelPinned),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.cameraPanelPinned.toggle()
+		})
+
+		submenu.addItem(self.createMenuItem(
+			"menu.show-camera-panel-on-hover",
+			checked: self.preferenceAndCameraAvailable(self.preferences.showCameraPanelOnHover),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.showCameraPanelOnHover.toggle()
+		})
+
+		submenu.addItem(self.createMenuItem(
+			"menu.show-camera-on-status-bar",
+			checked: self.preferenceAndCameraAvailable(self.preferences.showCameraOnStatusBar),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.showCameraOnStatusBar.toggle()
+		})
+
+		submenu.addItem(self.createMenuItem(
+			"menu.show-camera-on-dock-tile",
+			checked: self.preferenceAndCameraAvailable(self.preferences.showCameraOnDockTile),
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.showCameraOnDockTile.toggle()
+		})
+
+		submenu.addItem(NSMenuItem.separator())
+
+		submenu.addItem(self.createMenuItem(
+			"menu.flip-camera-horizontally",
+			keyEquivalent: SRHotKeyController.toggleMirrorKeyEquivalent,
+			keyEquivalentModifierMask: SRHotKeyController.modifiers,
+			checked: self.preferences.flipCameraHorizontally.publisher,
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.flipCameraHorizontally.toggle()
+		})
+
+		// Ghost Mode - also the escape hatch: a ghosted panel is click-through,
+		// so its own toolbar button can't be reached to turn the mode off.
+		submenu.addItem(self.createMenuItem(
+			"menu.ghost-mode",
+			checked: self.preferences.cameraPanelGhostMode.publisher,
+			enabled: onCaptureDeviceAvailable
+		) {
+			self.preferences.cameraPanelGhostMode.toggle()
+		})
+
+		// The source list, one radio group after the boundary separator:
+		// "Automatic" plus the connected devices, rebuilt on every device
+		// or selection change. The checkmark follows the stored preference
+		// (the option the user picked), not the live device.
+		let sourcesBoundary = NSMenuItem.separator()
+		submenu.addItem(sourcesBoundary)
 
 		SRCameraService.sharedInstance.onDevices
 			.combineLatest(self.preferences.selectedCameraDeviceID.publisher)
-			.sink { [weak self] devices, selectedID in
-				self?.rebuildCameraSubmenu(submenu, devices: devices, selectedID: selectedID)
+			.sink { [weak self, unowned submenu, unowned sourcesBoundary] devices, selectedID in
+				self?.rebuildCameraSources(in: submenu, after: sourcesBoundary, devices: devices, selectedID: selectedID)
 			}
 			.store(in: &self.cancellables)
 
 		return parent
 	}
 
-	fileprivate func rebuildCameraSubmenu(_ submenu: NSMenu, devices: [CameraDevice], selectedID: String) {
-		submenu.removeAllItems()
+	fileprivate func rebuildCameraSources(in submenu: NSMenu, after boundary: NSMenuItem, devices: [CameraDevice], selectedID: String) {
+		let boundaryIndex = submenu.index(of: boundary)
+		guard boundaryIndex >= 0 else { return }
+		while submenu.items.count > boundaryIndex + 1 {
+			submenu.removeItem(at: boundaryIndex + 1)
+		}
 
 		let automatic = NSMenuItemWithClosure(
 			title: NSLocalizedString("menu.camera.automatic", comment: ""),
@@ -391,10 +385,6 @@ class SRMenuController: NSObject {
 		}
 		automatic.state = selectedID.isEmpty ? .on : .off
 		submenu.addItem(automatic)
-
-		if !devices.isEmpty {
-			submenu.addItem(NSMenuItem.separator())
-		}
 
 		for device in devices {
 			let item = NSMenuItemWithClosure(title: device.name, keyEquivalent: "") {

@@ -22,14 +22,15 @@
 ## Responsibilities and ownership
 
 - **Responsibilities**:
-  - Build the menu: Track Posture (first, so the posture opt-in leads the list; see `Narcissism/Posture/spec.md`), the posture Snooze submenu, Calibrate Posture, Take Photo, the camera-display toggles, mirror, ghost mode, the Camera source submenu, launch-at-login, Settings, About, Quit.
+  - Build the menu in three groups: the posture block first (Track Posture, the Snooze submenu, Calibrate Posture; posture leads the list, see `Narcissism/Posture/spec.md`), then the camera block (Take Photo, and one Camera submenu holding the surface toggles, mirror, ghost mode, and the source list), then the housekeeping block (Statistics, Settings, About, Quit).
   - Bind each item's checked/enabled/visible to publishers via `createMenuItem`.
   - Display the global-shortcut glyph on items that have one (Take Photo, Show Camera Panel, Mirror), reading the key equivalents from `SRHotKeyController` so they match what fires.
-  - Rebuild the Camera submenu (device list plus an "Automatic" option) whenever the connected devices or the stored selection change.
+  - Rebuild the Camera submenu's source section (an "Automatic" option plus the device list, one radio group after the boundary separator) whenever the connected devices or the stored selection change; the toggle items above the boundary are static.
   - Provide `menuForStatusBar`, `menuForToolbar`, `menuForDock`.
 - **Owned invariants** (must always hold):
   - A toggle item is checked exactly when its bound preference publisher is true; camera-dependent items are enabled exactly when `onCaptureDeviceAvailable` is true.
-  - In the Camera submenu, exactly one item carries the checkmark: it follows the stored `selectedCameraDeviceID` preference (the option the user picked - "Automatic" when "", else the matching device), not the live active device.
+  - In the Camera submenu's source section, exactly one item carries the checkmark: it follows the stored `selectedCameraDeviceID` preference (the option the user picked - "Automatic" when "", else the matching device), not the live active device.
+  - The Camera parent item stays enabled with no camera available, so the options remain discoverable; the items inside disable themselves individually.
   - Ghost mode is also reachable from the menu because a ghosted (click-through) panel cannot be operated from its own chip; the menu is the escape hatch.
   - A key equivalent shown here is display-only: the status/Dock menu is not the main menu, so it is matched only while the menu is open. The shortcut fires globally through `SRHotKeyController`; the glyph and the hot key are kept in sync by reading the same constants.
   - Quit is visible only in the status-bar/toolbar variants.
@@ -53,7 +54,7 @@
 
 ### Workflow 3: choose a camera
 
-1. The Camera parent item holds a submenu subscribed to `SRCameraService.onDevices` combined with the `selectedCameraDeviceID` preference; each emission rebuilds the submenu ("Automatic", a separator, then one item per connected device) with the checkmark on the item matching the preference.
+1. The Camera submenu's source section is subscribed to `SRCameraService.onDevices` combined with the `selectedCameraDeviceID` preference; each emission rebuilds the items after the boundary separator ("Automatic", then one item per connected device) with the checkmark on the item matching the preference.
 2. Selecting an item writes `selectedCameraDeviceID` (device `uniqueID`, or "" for Automatic). The menu does not talk to the camera directly; the composition root translates that preference into `camera.selectDevice(id:)`.
 
 ## Requirements (what must be true)
@@ -79,6 +80,12 @@
 
 ## Key design decisions (recorded)
 
+- **Decision** (2026-07-28): the menu slimmed from ~15 items to 9, per the HIG principle in AGENTS.md.
+  - The six camera toggles (panel, hover, menu bar, Dock, mirror, ghost) collapsed into one Camera submenu that also absorbed the old source-picker submenu, ending the two-camera-entries confusion. Labels shortened to read inside a submenu titled Camera ("Show in Menu Bar", "Mirror Image"); the mirror and ghost parentheticals dropped.
+  - Take Photo stays top-level: it is the one camera action, and actions buried in an options submenu die there. Its group sits mid-menu, below the posture block - the ordering, not the depth, is what shifts emphasis to posture.
+  - Camera-below-Settings was considered and rejected: the bottom block is the housekeeping zone (Statistics, Settings, About, Quit) where macOS users scan for app management, not features.
+  - The launch-at-login item is deleted, not moved: pure housekeeping, already on the Settings General page (the "menu slims down" open question in UI/Settings/VISION.md, answered).
+  - Ellipsis discipline per the HIG: dots only where the command needs further input before it accomplishes anything (Settings, Calibrate Posture). About and Statistics are plain - they open view-only windows and the command completes when the window shows. If the Statistics window ever gains interactive content, its dots can return.
 - **Decision**: bind items to typed preference publishers.
   - Context: an earlier `Any`-typed settings store seeded every preference with `false` through a bridging bug, so every checkmark and every enabled state read wrong and every menu feature silently broke. The failure was invisible because nothing was type-checked.
   - Chosen: items bind to `Preference<Bool>.publisher`; a type mismatch is now a compile error, and the menu is the most visible consumer that proves the fix.

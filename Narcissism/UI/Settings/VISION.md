@@ -133,5 +133,7 @@ Each phase ships with its spec.md updates.
   window (an unused "Check for update..." string already exists in the
   app).
 - Whether onboarding reuses the Settings window or is its own window.
-- Whether the menu slims down now that the Settings window exists.
+- Answered 2026-07-28: the menu slimmed down - camera controls collapsed
+  into one Camera submenu, launch-at-login dropped from the menu (it
+  lives on the General page). See UI/Menu/spec.md.
 - What else Photos grows to include (format, destination picker).
