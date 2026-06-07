@@ -6,11 +6,12 @@
 //
 
 import Cocoa
+import Combine
+import SwiftUI
 
 
-/// The Statistics window: a standalone window reserved for the posture
-/// statistics to come (see UI/Settings/VISION.md), a placeholder line
-/// until the history store exists. Owned as a single kept instance by
+/// The Statistics window: today's hourly posture chart over the history
+/// store's live counts (see spec.md). Owned as a single kept instance by
 /// SRMenuController, shown from the menu's Statistics item.
 class SRStatisticsWindowController: NSWindowController {
 
@@ -47,9 +48,15 @@ class SRStatisticsWindowController: NSWindowController {
 }
 
 
-/// The content, deliberately empty for now: the window exists before the
-/// posture history store that will feed it does.
+/// Hosts the SwiftUI today chart and drives its redraw cadence: fresh on
+/// every appearance, then at most one redraw per 30 seconds off the
+/// history service's change publisher while the window is visible. The
+/// chart itself never self-updates - calm by construction (spec.md).
 fileprivate final class SRStatisticsViewController: NSViewController {
+
+	fileprivate let history = SRPostureHistoryService.sharedInstance
+	fileprivate var hostingView: NSHostingView<SRStatisticsTodayView>!
+	fileprivate var cancellables = Set<AnyCancellable>()
 
 	init() {
 		super.init(nibName: nil, bundle: nil)
@@ -60,22 +67,47 @@ fileprivate final class SRStatisticsViewController: NSViewController {
 	}
 
 	override func loadView() {
-		let label = NSTextField(labelWithString: NSLocalizedString("statistics.placeholder", comment: ""))
-		label.textColor = .secondaryLabelColor
-		label.translatesAutoresizingMaskIntoConstraints = false
-
-		let view = NSView()
-		view.addSubview(label)
+		let hosting = NSHostingView(rootView: SRStatisticsTodayView(model: self.currentModel()))
+		self.hostingView = hosting
 		// The view carries the window size (the welcome-page pattern):
 		// setting contentViewController resizes the window to the view's
-		// fitting size, and without these the window collapses to the label.
+		// fitting size, and without these the window collapses.
 		NSLayoutConstraint.activate([
-			view.widthAnchor.constraint(equalToConstant: SRStatisticsWindowController.windowSize.width),
-			view.heightAnchor.constraint(equalToConstant: SRStatisticsWindowController.windowSize.height),
-			label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-			label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+			hosting.widthAnchor.constraint(equalToConstant: SRStatisticsWindowController.windowSize.width),
+			hosting.heightAnchor.constraint(equalToConstant: SRStatisticsWindowController.windowSize.height),
 		])
-		self.view = view
+		self.view = hosting
+	}
+
+	override func viewDidLoad() {
+		super.viewDidLoad()
+
+		self.history.onChange
+			.throttle(for: .seconds(30), scheduler: DispatchQueue.main, latest: true)
+			.sink { [unowned self] in self.render() }
+			.store(in: &self.cancellables)
+	}
+
+	override func viewWillAppear() {
+		super.viewWillAppear()
+		// Fresh on every open; this is also what rolls the chart over to
+		// the new day when the window is reopened after midnight.
+		self.render()
+	}
+
+	fileprivate func render() {
+		// A closed window skips the redraw; viewWillAppear catches up.
+		guard self.hostingView.window?.isVisible == true || self.hostingView.window == nil else { return }
+		self.hostingView.rootView = SRStatisticsTodayView(model: self.currentModel())
+	}
+
+	fileprivate func currentModel() -> SRStatisticsTodayModel {
+		let now = Date.now
+		return SRStatisticsTodayModel.today(
+			in: self.history.days,
+			dayKey: SRPostureHistoryService.dayKey(for: now),
+			now: now
+		)
 	}
 
 }

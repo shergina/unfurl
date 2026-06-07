@@ -300,6 +300,9 @@ Notifications page (see UI/Settings/spec.md).
 - Load and save failures are logged (category PostureHistory), never
   silent; a corrupt file starts a fresh history and is overwritten at
   the next flush.
+- The service publishes onChange (once per recorded sample, once when
+  the loaded file merges in); consumers throttle to their own cadence.
+  The Statistics window is the consumer (UI/Statistics/spec.md).
 
 ## Invariants
 

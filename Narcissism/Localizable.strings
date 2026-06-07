@@ -89,7 +89,13 @@
 "settings.notifications.snooze.until" = "Until %@";
 // Statistics window
 "statistics.window.title" = "Statistics";
-"statistics.placeholder" = "Posture statistics will appear here.";
+"statistics.today.title" = "Today";
+"statistics.today.tracked" = "%@ tracked";
+"statistics.series.slouching" = "Slouching";
+"statistics.series.shoulders" = "Uneven Shoulders";
+"statistics.provisional-note" = "The gray baseline marks tracked hours. Dimmed bars are still in progress or have under ten minutes of tracking.";
+"statistics.empty.title" = "No posture data yet today.";
+"statistics.empty.hint" = "Turn on Track Posture to start collecting.";
 
 // Welcome window
 "welcome.title" = "Welcome to Narcissism";

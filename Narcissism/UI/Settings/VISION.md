@@ -125,7 +125,8 @@ Each phase ships with its spec.md updates.
 2. Photos page and the Visibility and Appearance page. No new storage.
 3. Onboarding flow and first-run detection.
 4. Done 2026-07-28: the posture history store, recording.
-5. Posture Statistics window over the accumulated history.
+5. Started 2026-07-29: the Statistics window draws today's hourly
+   chart; the calendar heatmap and multi-day views remain.
 
 ## Open questions (decide before or during build, do not guess)
 

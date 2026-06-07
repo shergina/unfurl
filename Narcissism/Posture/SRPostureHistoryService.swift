@@ -47,6 +47,12 @@ final class SRPostureHistoryService {
 
 	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.narcissism", category: "PostureHistory")
 
+	/// Fires whenever the counts change: once per recorded sample, and
+	/// once when the loaded file merges in. Consumers throttle to their
+	/// own cadence (the Statistics window redraws at most every 30 s);
+	/// nothing in the app renders per-emission.
+	let onChange = PassthroughSubject<Void, Never>()
+
 	fileprivate var history = SRPostureHistory()
 	fileprivate var runs: [SRPostureIssue: SustainedRun] = [:]
 	fileprivate var lastSampleDate: Date?
@@ -73,6 +79,11 @@ final class SRPostureHistoryService {
 	/// strings ("2026-07-28"); see SRPostureHistoryDay.
 	var days: [String: SRPostureHistoryDay] {
 		return self.history.days
+	}
+
+	/// The key `days` uses for a date (local calendar day).
+	static func dayKey(for date: Date) -> String {
+		return self.dayKeyFormatter.string(from: date)
 	}
 
 	/// Synchronous write, for application termination only; every other
@@ -103,6 +114,7 @@ final class SRPostureHistoryService {
 		self.advanceRun(.leftShoulderHigh, breaching: sample.visible && sample.leftShoulderHigh, at: sample.timestamp)
 		self.advanceRun(.rightShoulderHigh, breaching: sample.visible && sample.rightShoulderHigh, at: sample.timestamp)
 
+		self.onChange.send()
 		self.flushIfDue(at: sample.timestamp)
 	}
 
@@ -178,6 +190,7 @@ final class SRPostureHistoryService {
 			}
 		}
 		self.history = merged
+		self.onChange.send()
 	}
 
 	fileprivate func flushIfDue(at timestamp: Date) {
