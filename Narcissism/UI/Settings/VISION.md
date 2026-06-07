@@ -95,13 +95,17 @@ Still planned:
 
 ## The big new piece: posture history store
 
-Statistics need data, and today nothing persists; posture metrics go
-only to the unified log. Plan: a small on-device store fed by the
-posture service's once-per-second status, aggregated into per-day
-buckets (seconds good and bad per issue, nudge counts). Raw per-second
-samples are never kept long-term, only aggregates. Consequence for
-ordering: start recording history early, well before the statistics page
-ships, so the page has data on day one.
+Built 2026-07-28 (SRPostureHistoryService, specified in
+Posture/spec.md): per-day, per-hour buckets of second counts (measured,
+slouch-measurable, slouching, left/right shoulder high), fed by the
+probe's raw per-window samples through a sustained-run filter so
+transient movement (a sip of coffee) never counts while sustained bad
+posture counts in full. Counts, never ratios; aggregates only, raw
+samples never persisted; JSON in Application Support; 366-day
+retention. Recording runs whenever tracking does, well before the
+statistics window can draw - so the charts have history on day one.
+Still unrecorded: nudge counts (add when the statistics design needs
+them).
 
 ## How this fits the existing architecture
 
@@ -120,15 +124,16 @@ Each phase ships with its spec.md updates.
    Statistics placeholder; the nudge delay and channels behind it.
 2. Photos page and the Visibility and Appearance page. No new storage.
 3. Onboarding flow and first-run detection.
-4. Posture history store (start recording early).
-5. Posture Statistics page over the accumulated history.
+4. Done 2026-07-28: the posture history store, recording.
+5. Posture Statistics window over the accumulated history.
 
 ## Open questions (decide before or during build, do not guess)
 
 - What appearance covers beyond the posture note style.
 - Whether note style settings live on Notifications or on Visibility
   and Appearance.
-- History retention window and the exact aggregates to keep.
+- Answered 2026-07-28: history keeps 366 days of hourly second counts
+  (see Posture/spec.md); nudge counts wait for the statistics design.
 - Whether About and a future check-for-updates fold into the Settings
   window (an unused "Check for update..." string already exists in the
   app).

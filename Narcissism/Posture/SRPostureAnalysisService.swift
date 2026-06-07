@@ -48,6 +48,13 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// first window completes.
 	let onPostureStatus = CurrentValueSubject<SRPostureStatus?, Never>(nil)
 
+	/// The raw per-window verdicts for the history store, published on the
+	/// main actor once per logging window while evaluation is live (muted
+	/// windows publish nothing). Deliberately un-debounced: the store
+	/// applies its own sustained-run rule (see SRPostureHistoryService),
+	/// independent of the nudge machinery above.
+	let onWindowSample = PassthroughSubject<SRPostureWindowSample, Never>()
+
 	fileprivate var output: AVCaptureVideoDataOutput?
 
 	/// The in-flight attach from start(), kept so stop() can wait for it to
@@ -372,6 +379,16 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			self.updateTracker(for: .leftShoulderHigh, with: leftObservation)
 			self.updateTracker(for: .rightShoulderHigh, with: rightObservation)
 
+			let sample = SRPostureWindowSample(
+				timestamp: Date.now,
+				visible: true,
+				slouchMeasurable: measurement.slouchRatio != nil,
+				slouching: slouchObservation == .breaching,
+				leftShoulderHigh: leftObservation == .breaching,
+				rightShoulderHigh: rightObservation == .breaching
+			)
+			Task { @MainActor [sample] in self.onWindowSample.send(sample) }
+
 			// Stable declaration order, so the note's lines never reshuffle.
 			let reported = SRPostureIssue.allCases.filter { self.issueTrackers[$0]?.isReported(after: self.issueReportWindows) ?? false }
 			status = .evaluated(issues: reported)
@@ -380,6 +397,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			if self.notVisibleWindows >= Self.notVisibleResetWindows {
 				self.issueTrackers = [:]
 			}
+			let sample = SRPostureWindowSample.notVisible(at: Date.now)
+			Task { @MainActor [sample] in self.onWindowSample.send(sample) }
 			status = .notVisible
 		}
 
@@ -704,6 +723,31 @@ struct SRPostureJoints: Sendable {
 	let rightShoulder: CGPoint
 	let leftEye: CGPoint?
 	let rightEye: CGPoint?
+}
+
+
+/// One logging window's raw verdicts for the history store: whether the
+/// user was visible, whether the slouch ratio was measurable (eyes seen),
+/// and which issues breached their thresholds this window. Un-debounced
+/// on purpose - the store applies its own sustained-run rule.
+struct SRPostureWindowSample: Sendable {
+	let timestamp: Date
+	let visible: Bool
+	let slouchMeasurable: Bool
+	let slouching: Bool
+	let leftShoulderHigh: Bool
+	let rightShoulderHigh: Bool
+
+	static func notVisible(at timestamp: Date) -> SRPostureWindowSample {
+		return SRPostureWindowSample(
+			timestamp: timestamp,
+			visible: false,
+			slouchMeasurable: false,
+			slouching: false,
+			leftShoulderHigh: false,
+			rightShoulderHigh: false
+		)
+	}
 }
 
 

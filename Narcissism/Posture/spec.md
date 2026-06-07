@@ -259,6 +259,48 @@ Notifications page (see UI/Settings/spec.md).
   not match the code). Delete that view and its panel hookup when the
   accuracy question is fully closed; onFrameSample itself is permanent.
 
+## History recording (SRPostureHistoryService, added 2026-07-28)
+
+- Alongside the debounced status, the service publishes one raw
+  per-window sample (onWindowSample) while evaluation is live: visible or
+  not, slouch measurable or not (the eyes), and the un-debounced breach
+  verdict per issue. Muted windows (no baseline, calibration window open)
+  publish nothing, so posing during calibration is never recorded.
+- SRPostureHistoryService (a composition-root service, AppServices) folds
+  those samples into per-day, per-hour buckets of five counters, all in
+  seconds: measured, slouch-measurable, slouching, left shoulder high,
+  right shoulder high. Counts are stored, never ratios: percentages are
+  computed at display time as sum-of-numerators over sum-of-denominators,
+  so a 30-minute session weighs exactly what it measured. One window
+  counts as one second (windows are ~1 s).
+- Sustained-run rule: an issue's seconds count only within runs that held
+  at least qualifySeconds (15); a qualifying run is credited from its
+  first breaching second (retroactively, into the buckets those seconds
+  fell in). Up to gapToleranceSeconds (2) of non-breaching windows are
+  tolerated inside a run without being counted themselves; a longer gap
+  ends the run, and a run that dies unqualified contributes nothing.
+  Rationale: the harm in bad posture is holding it, not passing through
+  it - reaching for a cup or stretching must not count, while those same
+  seconds still count as measured (denominator) time, which is exactly
+  how a user reads a coffee sip: fine.
+- The constants are measurement constants, deliberately independent of
+  the notification machinery (nudge delay, clear hysteresis): changing
+  notification preferences must never rewrite history. Nudges may fire
+  at one threshold while statistics require another; different jobs.
+- A pause between samples longer than 5 s resets every run (probe
+  stopped: toggle, snooze, sleep, camera loss); whatever follows is a
+  fresh sitting.
+- Persistence: JSON (PostureHistory.json) in the sandbox container's
+  Application Support, written atomically off the main thread at most
+  once a minute plus one synchronous write at app termination. Days
+  older than 366 are pruned at load. Aggregates only - no frames,
+  landmarks, or raw samples are ever persisted (the privacy stance in
+  both VISION.md files). Untracked days and hours are simply absent from
+  the file; the future charts render absence as no-data, never as zero.
+- Load and save failures are logged (category PostureHistory), never
+  silent; a corrupt file starts a fresh history and is overwritten at
+  the next flush.
+
 ## Invariants
 
 - No second AVCaptureSession; the probe consumes SRCameraService.attachOutput.

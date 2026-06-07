@@ -137,4 +137,10 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		return self.services.menu.menuForDock()
 	}
 
+	func applicationWillTerminate(_ notification: Notification) {
+		// The one synchronous history write: unsaved posture counts must
+		// not die with the process.
+		self.services.postureHistory.flushNow()
+	}
+
 }
