@@ -26,9 +26,9 @@ struct SRStatisticsHourStat: Identifiable {
 }
 
 
-/// The today page's data: one stat per hour across the measured span
+/// One day's chart data: one stat per hour across the measured span
 /// (padded one hour each side, clamped to the day).
-struct SRStatisticsTodayModel {
+struct SRStatisticsDayModel {
 	let hours: [SRStatisticsHourStat]
 	let hourRange: ClosedRange<Int>
 	let totalMeasuredSeconds: Int
@@ -37,26 +37,28 @@ struct SRStatisticsTodayModel {
 	/// percentage over a few minutes is a guess, not a measurement.
 	static let solidFloorSeconds = 600
 
-	static func today(in days: [String: SRPostureHistoryDay], dayKey: String, now: Date) -> SRStatisticsTodayModel {
+	/// `currentHour` is non-nil only for today: it extends the axis span
+	/// to now and dims the in-progress hour. Past days are static.
+	static func day(in days: [String: SRPostureHistoryDay], key: String, selectedDay: Date, currentHour: Int?) -> SRStatisticsDayModel {
 		var buckets: [Int: SRPostureHistoryBucket] = [:]
-		for (key, bucket) in days[dayKey]?.hours ?? [:] {
-			if let hour = Int(key) { buckets[hour] = bucket }
+		for (hourKey, bucket) in days[key]?.hours ?? [:] {
+			if let hour = Int(hourKey) { buckets[hour] = bucket }
 		}
 
 		let calendar = Calendar.current
-		let currentHour = calendar.component(.hour, from: now)
 		let measuredHours = buckets.filter { $0.value.measuredSeconds > 0 }.keys
 		let total = buckets.values.reduce(0) { $0 + $1.measuredSeconds }
 		guard let first = measuredHours.min(), let last = measuredHours.max(), total > 0 else {
-			return SRStatisticsTodayModel(hours: [], hourRange: 0...23, totalMeasuredSeconds: 0)
+			return SRStatisticsDayModel(hours: [], hourRange: 0...23, totalMeasuredSeconds: 0)
 		}
 
-		let range = max(0, min(first, currentHour) - 1)...min(23, max(last, currentHour) + 1)
-		let hours = range.map { hour -> SRStatisticsHourStat in
+		let lo = max(0, min(first, currentHour ?? first) - 1)
+		let hi = min(23, max(last, currentHour ?? last) + 1)
+		let hours = (lo...hi).map { hour -> SRStatisticsHourStat in
 			let bucket = buckets[hour] ?? SRPostureHistoryBucket()
 			return SRStatisticsHourStat(
 				hour: hour,
-				date: calendar.date(bySettingHour: hour, minute: 0, second: 0, of: now) ?? now,
+				date: calendar.date(bySettingHour: hour, minute: 0, second: 0, of: selectedDay) ?? selectedDay,
 				slouchPercent: bucket.slouchMeasurableSeconds > 0
 					? Double(bucket.slouchingSeconds) / Double(bucket.slouchMeasurableSeconds) * 100
 					: nil,
@@ -67,40 +69,76 @@ struct SRStatisticsTodayModel {
 				provisional: hour == currentHour || (bucket.measuredSeconds > 0 && bucket.measuredSeconds < Self.solidFloorSeconds)
 			)
 		}
-		return SRStatisticsTodayModel(hours: hours, hourRange: range, totalMeasuredSeconds: total)
+		return SRStatisticsDayModel(hours: hours, hourRange: lo...hi, totalMeasuredSeconds: total)
 	}
 }
 
 
-/// The today chart: sustained slouching and uneven shoulders per hour,
-/// as percentages of that hour's measured time. Hours without data stay
-/// blank on a continuous axis; the in-progress hour and thin hours are
-/// dimmed (see spec.md). Redrawn by the hosting controller, never
-/// self-updating.
-struct SRStatisticsTodayView: View {
+/// One cell of the date strip.
+struct SRStatisticsDayCell: Identifiable {
+	let date: Date
+	let key: String
+	let hasData: Bool
+	var id: String { key }
+}
 
-	let model: SRStatisticsTodayModel
+
+/// Everything the window shows, replaced wholesale by the controller on
+/// selection changes and (throttled) data changes.
+struct SRStatisticsViewState {
+	var strip: [SRStatisticsDayCell]
+	var selectedKey: String
+	var selectedDate: Date
+	var todayDate: Date
+	var isToday: Bool
+	var day: SRStatisticsDayModel
+}
+
+
+/// The bridge between the AppKit controller and the SwiftUI content: the
+/// controller mutates `state`, SwiftUI diffs. The root view stays the
+/// same instance across updates, so the strip's scroll position and
+/// other view-local state survive the 30-second refreshes.
+@MainActor
+final class SRStatisticsStore: ObservableObject {
+	@Published var state: SRStatisticsViewState
+	/// Set by the controller; the strip and the Today button route here.
+	var onSelect: ((Date) -> Void)?
+
+	init(state: SRStatisticsViewState) {
+		self.state = state
+	}
+}
+
+
+/// The statistics window's content: the date strip (today rightmost,
+/// back to the first recorded day), then the selected day's hourly
+/// chart, or an explanation when the day holds no data (see spec.md).
+struct SRStatisticsRootView: View {
+
+	@ObservedObject var store: SRStatisticsStore
 
 	var body: some View {
-		if model.totalMeasuredSeconds == 0 {
-			VStack(spacing: 6) {
-				Text(NSLocalizedString("statistics.empty.title", comment: ""))
-				Text(NSLocalizedString("statistics.empty.hint", comment: ""))
-					.foregroundStyle(.secondary)
-			}
-			.frame(maxWidth: .infinity, maxHeight: .infinity)
-		} else {
-			VStack(alignment: .leading, spacing: 4) {
-				Text(NSLocalizedString("statistics.today.title", comment: ""))
-					.font(.title2.bold())
+		VStack(alignment: .leading, spacing: 4) {
+			dateStrip
+				.padding(.bottom, 10)
+
+			Text(store.state.isToday
+				? NSLocalizedString("statistics.today.title", comment: "")
+				: store.state.selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+				.font(.title2.bold())
+
+			if store.state.day.totalMeasuredSeconds == 0 {
+				emptyDay
+			} else {
 				Text(String(
 					format: NSLocalizedString("statistics.today.tracked", comment: ""),
-					SRStatisticsFormatters.duration.string(from: TimeInterval(model.totalMeasuredSeconds)) ?? ""
+					SRStatisticsFormatters.duration.string(from: TimeInterval(store.state.day.totalMeasuredSeconds)) ?? ""
 				))
 				.font(.subheadline)
 				.foregroundStyle(.secondary)
 
-				chart
+				SRStatisticsDayChart(model: store.state.day)
 					.padding(.top, 12)
 
 				Text(NSLocalizedString("statistics.provisional-note", comment: ""))
@@ -108,16 +146,115 @@ struct SRStatisticsTodayView: View {
 					.foregroundStyle(.secondary)
 					.padding(.top, 8)
 			}
-			.padding(20)
-			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+		}
+		.padding(20)
+		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+	}
+
+	fileprivate var dateStrip: some View {
+		HStack(spacing: 12) {
+			ScrollViewReader { proxy in
+				ScrollView(.horizontal, showsIndicators: false) {
+					HStack(spacing: 2) {
+						ForEach(store.state.strip) { cell in
+							SRStatisticsDayCellView(
+								cell: cell,
+								selected: cell.key == store.state.selectedKey,
+								action: { store.onSelect?(cell.date) }
+							)
+							.id(cell.key)
+						}
+					}
+					.padding(.vertical, 2)
+				}
+				.onAppear {
+					proxy.scrollTo(store.state.selectedKey, anchor: .trailing)
+				}
+				.onChange(of: store.state.selectedKey) { _, key in
+					proxy.scrollTo(key)
+				}
+			}
+
+			Button(NSLocalizedString("statistics.today-button", comment: "")) {
+				store.onSelect?(store.state.todayDate)
+			}
+			.disabled(store.state.isToday)
 		}
 	}
 
-	fileprivate var chart: some View {
+	fileprivate var emptyDay: some View {
+		VStack(spacing: 6) {
+			if store.state.isToday {
+				Text(NSLocalizedString("statistics.empty.title", comment: ""))
+				Text(NSLocalizedString("statistics.empty.hint", comment: ""))
+					.foregroundStyle(.secondary)
+			} else {
+				Text(String(
+					format: NSLocalizedString("statistics.empty.day", comment: ""),
+					store.state.selectedDate.formatted(date: .long, time: .omitted)
+				))
+				.foregroundStyle(.secondary)
+			}
+		}
+		.frame(maxWidth: .infinity, maxHeight: .infinity)
+	}
+
+}
+
+
+/// One strip cell: weekday initial over day number. Days without data
+/// are shaded light gray (tertiary ink, the native nothing-here
+/// treatment) but stay selectable; the selected day wears the accent.
+fileprivate struct SRStatisticsDayCellView: View {
+
+	let cell: SRStatisticsDayCell
+	let selected: Bool
+	let action: () -> Void
+
+	var body: some View {
+		Button(action: self.action) {
+			VStack(spacing: 3) {
+				Text(SRStatisticsFormatters.weekdayInitial.string(from: cell.date))
+					.font(.caption2)
+					.foregroundStyle(.secondary)
+				Text(SRStatisticsFormatters.dayNumber.string(from: cell.date))
+					.font(.callout.monospacedDigit())
+					.foregroundStyle(self.numberStyle)
+					.frame(width: 28, height: 28)
+					.background {
+						if self.selected {
+							Circle().fill(Color.accentColor)
+						}
+					}
+			}
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel(cell.date.formatted(date: .long, time: .omitted))
+		.accessibilityValue(cell.hasData ? "" : NSLocalizedString("statistics.empty.title", comment: ""))
+	}
+
+	fileprivate var numberStyle: AnyShapeStyle {
+		if self.selected {
+			return AnyShapeStyle(.white)
+		}
+		return cell.hasData ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary)
+	}
+
+}
+
+
+/// The hourly chart for one day; pure rendering of the model (the
+/// provisional dimming and axis span are decided by the model builder).
+struct SRStatisticsDayChart: View {
+
+	let model: SRStatisticsDayModel
+
+	var body: some View {
 		let slouching = NSLocalizedString("statistics.series.slouching", comment: "")
 		let shoulders = NSLocalizedString("statistics.series.shoulders", comment: "")
 
-		return Chart {
+		Chart {
 			ForEach(model.hours) { stat in
 				// The tracked strip: a quiet baseline segment under every
 				// hour with measured time, so a clean hour (0 percent, no
@@ -235,6 +372,19 @@ enum SRStatisticsFormatters {
 		let formatter = DateComponentsFormatter()
 		formatter.allowedUnits = [.hour, .minute]
 		formatter.unitsStyle = .abbreviated
+		return formatter
+	}()
+
+	/// Narrow weekday ("M", "T"), for the strip cells.
+	static let weekdayInitial: DateFormatter = {
+		let formatter = DateFormatter()
+		formatter.setLocalizedDateFormatFromTemplate("EEEEE")
+		return formatter
+	}()
+
+	static let dayNumber: DateFormatter = {
+		let formatter = DateFormatter()
+		formatter.setLocalizedDateFormatFromTemplate("d")
 		return formatter
 	}()
 

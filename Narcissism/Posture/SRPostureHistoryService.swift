@@ -86,6 +86,11 @@ final class SRPostureHistoryService {
 		return self.dayKeyFormatter.string(from: date)
 	}
 
+	/// The inverse of dayKey: the day a key names, at its local midnight.
+	static func day(forKey key: String) -> Date? {
+		return self.dayKeyFormatter.date(from: key)
+	}
+
 	/// Synchronous write, for application termination only; every other
 	/// flush happens off the main thread.
 	func flushNow() {

@@ -43,19 +43,26 @@ class SRStatisticsWindowController: NSWindowController {
 		self.window!.makeKeyAndOrderFront(sender)
 		self.window!.orderFrontRegardless()
 		NSApp.activate(ignoringOtherApps: true)
+
+		// Left/right arrows step through the date strip.
+		self.window!.makeFirstResponder(self.contentViewController?.view)
 	}
 
 }
 
 
-/// Hosts the SwiftUI today chart and drives its redraw cadence: fresh on
-/// every appearance, then at most one redraw per 30 seconds off the
-/// history service's change publisher while the window is visible. The
-/// chart itself never self-updates - calm by construction (spec.md).
+/// Hosts the SwiftUI content and owns the selection and redraw cadence:
+/// the selected day resets to today on every appearance, the state
+/// refreshes at most once per 30 seconds off the history service's
+/// change publisher while the window is visible, and left/right arrows
+/// step through the strip. The state flows through SRStatisticsStore so
+/// the root view instance survives refreshes (preserving the strip's
+/// scroll position); the views never self-update (spec.md).
 fileprivate final class SRStatisticsViewController: NSViewController {
 
 	fileprivate let history = SRPostureHistoryService.sharedInstance
-	fileprivate var hostingView: NSHostingView<SRStatisticsTodayView>!
+	fileprivate var store: SRStatisticsStore!
+	fileprivate var selectedDay = Calendar.current.startOfDay(for: Date.now)
 	fileprivate var cancellables = Set<AnyCancellable>()
 
 	init() {
@@ -67,8 +74,12 @@ fileprivate final class SRStatisticsViewController: NSViewController {
 	}
 
 	override func loadView() {
-		let hosting = NSHostingView(rootView: SRStatisticsTodayView(model: self.currentModel()))
-		self.hostingView = hosting
+		let store = SRStatisticsStore(state: self.currentState())
+		store.onSelect = { [unowned self] date in self.select(date) }
+		self.store = store
+
+		let hosting = SRStatisticsHostingView(rootView: SRStatisticsRootView(store: store))
+		hosting.onStepDay = { [unowned self] delta in self.step(delta) }
 		// The view carries the window size (the welcome-page pattern):
 		// setting contentViewController resizes the window to the view's
 		// fitting size, and without these the window collapses.
@@ -84,30 +95,95 @@ fileprivate final class SRStatisticsViewController: NSViewController {
 
 		self.history.onChange
 			.throttle(for: .seconds(30), scheduler: DispatchQueue.main, latest: true)
-			.sink { [unowned self] in self.render() }
+			.sink { [unowned self] in self.refresh() }
 			.store(in: &self.cancellables)
 	}
 
 	override func viewWillAppear() {
 		super.viewWillAppear()
-		// Fresh on every open; this is also what rolls the chart over to
-		// the new day when the window is reopened after midnight.
-		self.render()
+		// Every open starts on today; this is also what rolls the window
+		// over to the new day when it is reopened after midnight.
+		self.selectedDay = Calendar.current.startOfDay(for: Date.now)
+		self.refresh()
 	}
 
-	fileprivate func render() {
-		// A closed window skips the redraw; viewWillAppear catches up.
-		guard self.hostingView.window?.isVisible == true || self.hostingView.window == nil else { return }
-		self.hostingView.rootView = SRStatisticsTodayView(model: self.currentModel())
+	fileprivate func select(_ date: Date) {
+		self.selectedDay = Calendar.current.startOfDay(for: date)
+		self.refresh()
 	}
 
-	fileprivate func currentModel() -> SRStatisticsTodayModel {
+	/// Arrow keys: one day per press, clamped to the strip's span.
+	fileprivate func step(_ delta: Int) {
+		let calendar = Calendar.current
+		guard
+			let moved = calendar.date(byAdding: .day, value: delta, to: self.selectedDay),
+			let first = self.store.state.strip.first?.date,
+			let last = self.store.state.strip.last?.date
+		else { return }
+		self.select(min(max(moved, first), last))
+	}
+
+	fileprivate func refresh() {
+		// A closed window skips the refresh; viewWillAppear catches up.
+		guard self.view.window?.isVisible == true || self.view.window == nil else { return }
+		self.store.state = self.currentState()
+	}
+
+	fileprivate func currentState() -> SRStatisticsViewState {
+		let calendar = Calendar.current
 		let now = Date.now
-		return SRStatisticsTodayModel.today(
-			in: self.history.days,
-			dayKey: SRPostureHistoryService.dayKey(for: now),
-			now: now
+		let today = calendar.startOfDay(for: now)
+		let selectedKey = SRPostureHistoryService.dayKey(for: self.selectedDay)
+		let isToday = self.selectedDay == today
+
+		// The strip: today rightmost, back to the first recorded day
+		// (just today while nothing is recorded yet).
+		var firstDay = today
+		if let earliestKey = self.history.days.keys.min(),
+			let parsed = SRPostureHistoryService.day(forKey: earliestKey) {
+			firstDay = min(calendar.startOfDay(for: parsed), today)
+		}
+		var strip: [SRStatisticsDayCell] = []
+		var date = firstDay
+		while date <= today {
+			let key = SRPostureHistoryService.dayKey(for: date)
+			let measured = self.history.days[key]?.hours.values.reduce(0) { $0 + $1.measuredSeconds } ?? 0
+			strip.append(SRStatisticsDayCell(date: date, key: key, hasData: measured > 0))
+			date = calendar.date(byAdding: .day, value: 1, to: date) ?? today.addingTimeInterval(1)
+		}
+
+		return SRStatisticsViewState(
+			strip: strip,
+			selectedKey: selectedKey,
+			selectedDate: self.selectedDay,
+			todayDate: today,
+			isToday: isToday,
+			day: SRStatisticsDayModel.day(
+				in: self.history.days,
+				key: selectedKey,
+				selectedDay: self.selectedDay,
+				currentHour: isToday ? calendar.component(.hour, from: now) : nil
+			)
 		)
+	}
+
+}
+
+
+/// Hosting view that turns left/right arrow presses into date-strip
+/// steps; everything else passes through to SwiftUI.
+fileprivate final class SRStatisticsHostingView: NSHostingView<SRStatisticsRootView> {
+
+	var onStepDay: ((Int) -> Void)?
+
+	override var acceptsFirstResponder: Bool { return true }
+
+	override func keyDown(with event: NSEvent) {
+		switch event.keyCode {
+		case 123: self.onStepDay?(-1)  // left arrow
+		case 124: self.onStepDay?(1)   // right arrow
+		default: super.keyDown(with: event)
+		}
 	}
 
 }

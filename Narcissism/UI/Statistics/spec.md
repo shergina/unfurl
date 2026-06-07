@@ -9,7 +9,7 @@
 
 ## Summary
 
-- **What this subsystem is**: the posture statistics window. First increment (2026-07-29): today's hourly chart - sustained slouching and uneven shoulders as percentages of each hour's measured time, drawn with Swift Charts over the history store's live counts. Later: the calendar heatmap and multi-day averages (VISION.md).
+- **What this subsystem is**: the posture statistics window: a horizontal date strip (today rightmost, back to the first recorded day) over the selected day's hourly chart - sustained slouching and uneven shoulders as percentages of each hour's measured time, drawn with Swift Charts over the history store's live counts. Later: multi-day aggregate views (VISION.md).
 - **One-sentence contract**: the window renders the history store read-only; it owns no preferences, touches no camera, and has no side effects.
 
 ## Recorded decisions
@@ -22,6 +22,10 @@
 - Provisional rendering: the in-progress hour and any hour under ten minutes measured draw dimmed (0.4 opacity), with a footnote explaining the dimming. A partial hour is a guess, not a measurement, and the sustained-run rule's retroactive credit can visibly jump a thin bar.
 - Series colors are fixed dynamic colors, one step per appearance (light #F74F9E/#5856D6, dark #EE4D96/#5E5CE6), validated for colorblind separation (deutan dE >= 13) and 3:1 surface contrast in both modes. Deliberately not the user's accent: an accent change must never repaint a series into the other one.
 - No data at all today shows an explanation ("no data yet, turn on Track Posture"), never an empty chart.
+- The date strip (2026-07-29, the Health cycle-strip pattern): weekday initial over day number, today rightmost, spanning back to the earliest recorded day - the actual data span, not the retention window. Days without data are shaded light gray (tertiary ink, the native nothing-here treatment - a filled gray cell would read as selection) but stay selectable; picking one shows "There is no posture data for <date>" with the date locale-formatted. Today's empty state keeps the turn-on-tracking hint; a past day's does not (the past cannot be retroactively tracked).
+- Selection: accent-tinted circle (selection semantics, so the user accent is correct here, unlike the series colors). A Today button snaps back, disabled while today is selected; left/right arrow keys step one day, clamped to the strip's span. Every window open resets to today.
+- Past days are static: the current-hour provisional dimming applies only to today (the model builder gets currentHour only then); the 30-second refresh cadence is unchanged and simply finds nothing new on past days.
+- The AppKit controller owns selection and refresh; state flows through an ObservableObject store into one long-lived SwiftUI root view, so a refresh never resets the strip's scroll position (replacing the root view wholesale would).
 
 - Statistics is its own window, not a Settings tab (decided 2026-07-28, the same day a home-window experiment was tried and reversed): settings are things you set and leave, statistics are things you check and revisit, and neither framing served the other. The brief home-window variant (app-named window, Statistics tab first, fixed page size, opened at launch) is fully reverted; no window opens at launch besides the first-run welcome flow.
 - Sized 640 x 480 from the start: the future charts want more room than the settings pages, and the placeholder holding the final frame avoids a resize surprise later.
@@ -35,6 +39,7 @@
 
 ## Open questions
 
-- The calendar heatmap and multi-day views (percentages as sum of numerators over sum of denominators across days, never averaged percentages).
+- Multi-day aggregate views (percentages as sum of numerators over sum of denominators across days, never averaged percentages); whether a month-grid heatmap joins the strip once months of data exist.
+- Month orientation in the strip (labels at month boundaries, click-to-jump): scrolling far back currently relies on the selected date title.
 - Hover tooltips (per-hour detail: minutes tracked, per-issue seconds); skipped in the first increment.
 - Whether the window becomes resizable now that it has real content.

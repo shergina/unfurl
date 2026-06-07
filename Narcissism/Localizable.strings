@@ -96,6 +96,8 @@
 "statistics.provisional-note" = "The gray baseline marks tracked hours. Dimmed bars are still in progress or have under ten minutes of tracking.";
 "statistics.empty.title" = "No posture data yet today.";
 "statistics.empty.hint" = "Turn on Track Posture to start collecting.";
+"statistics.empty.day" = "There is no posture data for %@.";
+"statistics.today-button" = "Today";
 
 // Welcome window
 "welcome.title" = "Welcome to Narcissism";
