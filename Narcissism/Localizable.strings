@@ -98,6 +98,11 @@
 "statistics.empty.hint" = "Turn on Track Posture to start collecting.";
 "statistics.empty.day" = "There is no posture data for %@.";
 "statistics.today-button" = "Today";
+"statistics.tooltip.hours" = "%1$@ – %2$@";
+"statistics.tooltip.clean" = "No sustained issues";
+"statistics.tooltip.slouching" = "Slouching: %@";
+"statistics.tooltip.left-high" = "Left shoulder high: %@";
+"statistics.tooltip.right-high" = "Right shoulder high: %@";
 
 // Welcome window
 "welcome.title" = "Welcome to Narcissism";

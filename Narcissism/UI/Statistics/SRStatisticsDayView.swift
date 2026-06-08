@@ -20,6 +20,12 @@ struct SRStatisticsHourStat: Identifiable {
 	let slouchPercent: Double?
 	let shouldersPercent: Double?
 	let measuredSeconds: Int
+	// The raw durations behind the percentages, for the hover tooltip -
+	// which is also where the left/right split surfaces (the bar merges
+	// the two directions; the tooltip separates them).
+	let slouchingSeconds: Int
+	let leftHighSeconds: Int
+	let rightHighSeconds: Int
 	/// Still in progress, or under the solid floor: drawn dimmed.
 	let provisional: Bool
 	var id: Int { hour }
@@ -66,6 +72,9 @@ struct SRStatisticsDayModel {
 					? Double(bucket.leftShoulderHighSeconds + bucket.rightShoulderHighSeconds) / Double(bucket.measuredSeconds) * 100
 					: nil,
 				measuredSeconds: bucket.measuredSeconds,
+				slouchingSeconds: bucket.slouchingSeconds,
+				leftHighSeconds: bucket.leftShoulderHighSeconds,
+				rightHighSeconds: bucket.rightShoulderHighSeconds,
 				provisional: hour == currentHour || (bucket.measuredSeconds > 0 && bucket.measuredSeconds < Self.solidFloorSeconds)
 			)
 		}
@@ -250,11 +259,25 @@ struct SRStatisticsDayChart: View {
 
 	let model: SRStatisticsDayModel
 
+	/// The hour under the pointer (only ever a tracked hour). View-local:
+	/// it survives the 30-second model refreshes but never drives them.
+	@State fileprivate var hoveredHour: Int?
+
 	var body: some View {
 		let slouching = NSLocalizedString("statistics.series.slouching", comment: "")
 		let shoulders = NSLocalizedString("statistics.series.shoulders", comment: "")
 
 		Chart {
+			// The hovered column, highlighted behind the marks; fixed
+			// style on purpose, so it never enters the legend.
+			if let stat = self.hoveredStat {
+				RectangleMark(
+					xStart: .value("Hour", stat.date),
+					xEnd: .value("Hour", stat.date.addingTimeInterval(3600))
+				)
+				.foregroundStyle(.quaternary.opacity(0.5))
+			}
+
 			ForEach(model.hours) { stat in
 				// The tracked strip: a quiet baseline segment under every
 				// hour with measured time, so a clean hour (0 percent, no
@@ -325,6 +348,94 @@ struct SRStatisticsDayChart: View {
 				}
 			}
 		}
+		.chartOverlay { proxy in
+			GeometryReader { geometry in
+				ZStack(alignment: .topLeading) {
+					// The hover surface: the whole plot area, so the hit
+					// target is the hour column, never just the thin bars.
+					Rectangle()
+						.fill(.clear)
+						.contentShape(Rectangle())
+						.onContinuousHover { phase in
+							switch phase {
+							case .active(let location):
+								self.hoveredHour = self.hour(at: location, proxy: proxy, geometry: geometry)
+							case .ended:
+								self.hoveredHour = nil
+							}
+						}
+
+					if let stat = self.hoveredStat {
+						self.tooltip(for: stat, proxy: proxy, geometry: geometry)
+					}
+				}
+			}
+		}
+	}
+
+	fileprivate var hoveredStat: SRStatisticsHourStat? {
+		guard let hovered = self.hoveredHour else { return nil }
+		return model.hours.first { $0.hour == hovered && $0.measuredSeconds > 0 }
+	}
+
+	/// The tracked hour under the pointer, nil over margins or blank slots.
+	fileprivate func hour(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) -> Int? {
+		guard let plotAnchor = proxy.plotFrame else { return nil }
+		let plot = geometry[plotAnchor]
+		guard plot.contains(location) else { return nil }
+		guard let date: Date = proxy.value(atX: location.x - plot.origin.x) else { return nil }
+		return Calendar.current.component(.hour, from: date)
+	}
+
+	/// The hover card: hour range, tracked time, then each issue's
+	/// duration (the left/right shoulder split lives here). Durations,
+	/// not percentages - the bars already say the percentages.
+	fileprivate func tooltip(for stat: SRStatisticsHourStat, proxy: ChartProxy, geometry: GeometryProxy) -> some View {
+		let card = VStack(alignment: .leading, spacing: 3) {
+			Text(String(
+				format: NSLocalizedString("statistics.tooltip.hours", comment: ""),
+				Self.hourLabel(stat.hour), Self.hourLabel(stat.hour + 1)
+			))
+			.font(.caption.bold())
+			Text(String(
+				format: NSLocalizedString("statistics.today.tracked", comment: ""),
+				SRStatisticsFormatters.shortDuration.string(from: TimeInterval(stat.measuredSeconds)) ?? ""
+			))
+			.font(.caption)
+			.foregroundStyle(.secondary)
+
+			if stat.slouchingSeconds + stat.leftHighSeconds + stat.rightHighSeconds == 0 {
+				Text(NSLocalizedString("statistics.tooltip.clean", comment: ""))
+					.font(.caption)
+			} else {
+				if stat.slouchingSeconds > 0 {
+					self.tooltipRow("statistics.tooltip.slouching", seconds: stat.slouchingSeconds)
+				}
+				if stat.leftHighSeconds > 0 {
+					self.tooltipRow("statistics.tooltip.left-high", seconds: stat.leftHighSeconds)
+				}
+				if stat.rightHighSeconds > 0 {
+					self.tooltipRow("statistics.tooltip.right-high", seconds: stat.rightHighSeconds)
+				}
+			}
+		}
+		.padding(8)
+		.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+		.allowsHitTesting(false)  // never steal the hover from the plot
+
+		// Centered over the hovered hour, clamped into the plot.
+		let plot = proxy.plotFrame.map { geometry[$0] } ?? .zero
+		let center = proxy.position(forX: stat.date.addingTimeInterval(1800)) ?? 0
+		let x = min(max(plot.origin.x + center, plot.minX + 80), plot.maxX - 80)
+		return card.position(x: x, y: plot.minY + 48)
+	}
+
+	fileprivate func tooltipRow(_ key: String, seconds: Int) -> some View {
+		return Text(String(
+			format: NSLocalizedString(key, comment: ""),
+			SRStatisticsFormatters.shortDuration.string(from: TimeInterval(seconds)) ?? ""
+		))
+		.font(.caption)
 	}
 
 	/// From the first shown hour's start to the last shown hour's end.
@@ -372,6 +483,15 @@ enum SRStatisticsFormatters {
 		let formatter = DateComponentsFormatter()
 		formatter.allowedUnits = [.hour, .minute]
 		formatter.unitsStyle = .abbreviated
+		return formatter
+	}()
+
+	/// Tooltip durations, down to seconds ("1m 30s", "42s").
+	static let shortDuration: DateComponentsFormatter = {
+		let formatter = DateComponentsFormatter()
+		formatter.allowedUnits = [.hour, .minute, .second]
+		formatter.unitsStyle = .abbreviated
+		formatter.maximumUnitCount = 2
 		return formatter
 	}()
 
