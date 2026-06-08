@@ -125,8 +125,9 @@ Each phase ships with its spec.md updates.
 2. Photos page and the Visibility and Appearance page. No new storage.
 3. Onboarding flow and first-run detection.
 4. Done 2026-07-28: the posture history store, recording.
-5. Started 2026-07-29: the Statistics window draws today's hourly
-   chart; the calendar heatmap and multi-day views remain.
+5. Started 2026-07-29: the Statistics window draws the day page (date
+   strip, hourly chart, tooltips) and the week-by-week Trends page; a
+   month-grid heatmap remains an option once months of data exist.
 
 ## Open questions (decide before or during build, do not guess)
 

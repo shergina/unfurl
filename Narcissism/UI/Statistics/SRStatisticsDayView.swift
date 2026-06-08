@@ -101,6 +101,15 @@ struct SRStatisticsViewState {
 	var todayDate: Date
 	var isToday: Bool
 	var day: SRStatisticsDayModel
+	var trends: SRStatisticsTrendsModel
+}
+
+
+/// The window's two pages. View-local state in the root view (not the
+/// controller): the choice survives refreshes but drives nothing else.
+enum SRStatisticsTab {
+	case day
+	case trends
 }
 
 
@@ -126,38 +135,58 @@ final class SRStatisticsStore: ObservableObject {
 struct SRStatisticsRootView: View {
 
 	@ObservedObject var store: SRStatisticsStore
+	@State fileprivate var tab = SRStatisticsTab.day
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 4) {
-			dateStrip
-				.padding(.bottom, 10)
+			Picker("", selection: $tab) {
+				Text(NSLocalizedString("statistics.tab.day", comment: "")).tag(SRStatisticsTab.day)
+				Text(NSLocalizedString("statistics.tab.trends", comment: "")).tag(SRStatisticsTab.trends)
+			}
+			.pickerStyle(.segmented)
+			.labelsHidden()
+			.frame(width: 220)
+			.frame(maxWidth: .infinity)
+			.padding(.bottom, 12)
 
-			Text(store.state.isToday
-				? NSLocalizedString("statistics.today.title", comment: "")
-				: store.state.selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-				.font(.title2.bold())
-
-			if store.state.day.totalMeasuredSeconds == 0 {
-				emptyDay
-			} else {
-				Text(String(
-					format: NSLocalizedString("statistics.today.tracked", comment: ""),
-					SRStatisticsFormatters.duration.string(from: TimeInterval(store.state.day.totalMeasuredSeconds)) ?? ""
-				))
-				.font(.subheadline)
-				.foregroundStyle(.secondary)
-
-				SRStatisticsDayChart(model: store.state.day)
-					.padding(.top, 12)
-
-				Text(NSLocalizedString("statistics.provisional-note", comment: ""))
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.padding(.top, 8)
+			switch tab {
+			case .day:
+				dayPage
+			case .trends:
+				SRStatisticsTrendsView(model: store.state.trends)
 			}
 		}
 		.padding(20)
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+	}
+
+	@ViewBuilder fileprivate var dayPage: some View {
+		dateStrip
+			.padding(.bottom, 10)
+
+		Text(store.state.isToday
+			? NSLocalizedString("statistics.today.title", comment: "")
+			: store.state.selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+			.font(.title2.bold())
+
+		if store.state.day.totalMeasuredSeconds == 0 {
+			emptyDay
+		} else {
+			Text(String(
+				format: NSLocalizedString("statistics.today.tracked", comment: ""),
+				SRStatisticsFormatters.duration.string(from: TimeInterval(store.state.day.totalMeasuredSeconds)) ?? ""
+			))
+			.font(.subheadline)
+			.foregroundStyle(.secondary)
+
+			SRStatisticsDayChart(model: store.state.day)
+				.padding(.top, 12)
+
+			Text(NSLocalizedString("statistics.provisional-note", comment: ""))
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.padding(.top, 8)
+		}
 	}
 
 	fileprivate var dateStrip: some View {

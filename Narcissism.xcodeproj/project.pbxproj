@@ -23,6 +23,7 @@
 		59E5C008E5C008E5C008E508 /* SRSettingsNotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */; };
 		59C7A702C7A702C7A702C702 /* SRStatisticsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C7A701C7A701C7A701C701 /* SRStatisticsWindowController.swift */; };
 		59C7A706C7A706C7A706C706 /* SRStatisticsDayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C7A705C7A705C7A705C705 /* SRStatisticsDayView.swift */; };
+		59C7A708C7A708C7A708C708 /* SRStatisticsTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C7A707C7A707C7A707C707 /* SRStatisticsTrendsView.swift */; };
 		59E5C00CE5C00CE5C00CE50C /* SRSettingsControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */; };
 		59E5C010E5C010E5C010E510 /* SRSettingsPostureViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */; };
 		59D0C00BD0C00BD0C00BD00B /* SRPostureCalibrationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00AD0C00AD0C00AD00A /* SRPostureCalibrationSession.swift */; };
@@ -89,6 +90,7 @@
 		59E5C007E5C007E5C007E507 /* SRSettingsNotificationsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsNotificationsViewController.swift; sourceTree = "<group>"; };
 		59C7A701C7A701C7A701C701 /* SRStatisticsWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatisticsWindowController.swift; sourceTree = "<group>"; };
 		59C7A705C7A705C7A705C705 /* SRStatisticsDayView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatisticsDayView.swift; sourceTree = "<group>"; };
+		59C7A707C7A707C7A707C707 /* SRStatisticsTrendsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRStatisticsTrendsView.swift; sourceTree = "<group>"; };
 		59C7A703C7A703C7A703C703 /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
 		59E5C00BE5C00BE5C00BE50B /* SRSettingsControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsControls.swift; sourceTree = "<group>"; };
 		59E5C00FE5C00FE5C00FE50F /* SRSettingsPostureViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettingsPostureViewController.swift; sourceTree = "<group>"; };
@@ -362,6 +364,7 @@
 				59C7A703C7A703C7A703C703 /* spec.md */,
 				59C7A701C7A701C7A701C701 /* SRStatisticsWindowController.swift */,
 				59C7A705C7A705C7A705C705 /* SRStatisticsDayView.swift */,
+				59C7A707C7A707C7A707C707 /* SRStatisticsTrendsView.swift */,
 			);
 			path = Statistics;
 			sourceTree = "<group>";
@@ -521,6 +524,7 @@
 				59E5C008E5C008E5C008E508 /* SRSettingsNotificationsViewController.swift in Sources */,
 				59C7A702C7A702C7A702C702 /* SRStatisticsWindowController.swift in Sources */,
 				59C7A706C7A706C7A706C706 /* SRStatisticsDayView.swift in Sources */,
+				59C7A708C7A708C7A708C708 /* SRStatisticsTrendsView.swift in Sources */,
 				59E5C00CE5C00CE5C00CE50C /* SRSettingsControls.swift in Sources */,
 				59E5C010E5C010E5C010E510 /* SRSettingsPostureViewController.swift in Sources */,
 				59BC00259BC00259BC002502 /* SRBackgroundCursor.swift in Sources */,

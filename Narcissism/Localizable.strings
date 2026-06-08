@@ -103,6 +103,14 @@
 "statistics.tooltip.slouching" = "Slouching: %@";
 "statistics.tooltip.left-high" = "Left shoulder high: %@";
 "statistics.tooltip.right-high" = "Right shoulder high: %@";
+"statistics.tab.day" = "Day";
+"statistics.tab.trends" = "Trends";
+"statistics.trends.title" = "Trends";
+"statistics.trends.weeks.one" = "1 week of data";
+"statistics.trends.weeks.many" = "%d weeks of data";
+"statistics.trends.empty" = "Trends will appear once posture data has been recorded.";
+"statistics.trends.one-week" = "One week so far — trend lines appear as more weeks accumulate.";
+"statistics.trends.note" = "Dimmed points are weeks still in progress or with little data.";
 
 // Welcome window
 "welcome.title" = "Welcome to Narcissism";

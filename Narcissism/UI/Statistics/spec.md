@@ -9,7 +9,7 @@
 
 ## Summary
 
-- **What this subsystem is**: the posture statistics window: a horizontal date strip (today rightmost, back to the first recorded day) over the selected day's hourly chart - sustained slouching and uneven shoulders as percentages of each hour's measured time, drawn with Swift Charts over the history store's live counts. Later: multi-day aggregate views (VISION.md).
+- **What this subsystem is**: the posture statistics window, two pages behind a segmented picker. Day: a horizontal date strip (today rightmost, back to the first recorded day) over the selected day's hourly chart. Trends: the two issues week by week as a multiline chart. Both draw with Swift Charts over the history store's live counts.
 - **One-sentence contract**: the window renders the history store read-only; it owns no preferences, touches no camera, and has no side effects.
 
 ## Recorded decisions
@@ -26,6 +26,9 @@
 - Selection: accent-tinted circle (selection semantics, so the user accent is correct here, unlike the series colors). A Today button snaps back, disabled while today is selected; left/right arrow keys step one day, clamped to the strip's span. Every window open resets to today.
 - Past days are static: the current-hour provisional dimming applies only to today (the model builder gets currentHour only then); the 30-second refresh cadence is unchanged and simply finds nothing new on past days.
 - The AppKit controller owns selection and refresh; state flows through an ObservableObject store into one long-lived SwiftUI root view, so a refresh never resets the strip's scroll position (replacing the root view wholesale would).
+- Trends page (2026-07-29): one point per calendar week (local first-weekday), each issue summed across the week before dividing, with the same per-issue denominators as the day chart (slouching over slouch-measurable, shoulders over measured) so a week always agrees with its days. Lines break at untracked weeks - a line across a gap would fabricate data - implemented as consecutive-week runs in separate line series sharing one legend entry. Points for the in-progress week or weeks under an hour of measured time draw dimmed. Same series colors as the day chart: color follows the entity across views.
+- Sparse trends (2026-07-29): one tracked week draws its dots plus a caption saying lines appear as weeks accumulate - real data is never hidden behind a come-back-later message. Only zero recorded data shows a message instead of the chart.
+- The Day/Trends picker is view-local state in the root view: it survives refreshes, resets to Day when the window reopens, and the controller does not know about it (arrow keys still step the day selection even from Trends, harmlessly).
 - Hover tooltips (2026-07-29): hovering any tracked hour highlights the column (the whole column is the hit target, never just the thin bars) and shows a material card - hour range, tracked time, then per-issue durations. Durations, not percentages: the bars already say the percentages. This is where the left/right shoulder split surfaces (the bar merges the directions), and a tracked hour with no issues says "No sustained issues". Blank hours show nothing - they are blank on purpose. The hover state is view-local and survives the 30-second refreshes.
 
 - Statistics is its own window, not a Settings tab (decided 2026-07-28, the same day a home-window experiment was tried and reversed): settings are things you set and leave, statistics are things you check and revisit, and neither framing served the other. The brief home-window variant (app-named window, Statistics tab first, fixed page size, opened at launch) is fully reverted; no window opens at launch besides the first-run welcome flow.
@@ -40,6 +43,7 @@
 
 ## Open questions
 
-- Multi-day aggregate views (percentages as sum of numerators over sum of denominators across days, never averaged percentages); whether a month-grid heatmap joins the strip once months of data exist.
+- Whether a month-grid heatmap joins the strip once months of data exist.
+- Hover on the trends chart (crosshair plus per-week detail), matching the day chart's tooltips.
 - Month orientation in the strip (labels at month boundaries, click-to-jump): scrolling far back currently relies on the selected date title.
 - Whether the window becomes resizable now that it has real content.

@@ -163,7 +163,8 @@ fileprivate final class SRStatisticsViewController: NSViewController {
 				key: selectedKey,
 				selectedDay: self.selectedDay,
 				currentHour: isToday ? calendar.component(.hour, from: now) : nil
-			)
+			),
+			trends: SRStatisticsTrendsModel.trends(in: self.history.days, now: now)
 		)
 	}
 
