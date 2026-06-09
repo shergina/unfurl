@@ -299,7 +299,9 @@ Notifications page (see UI/Settings/spec.md).
   so a 30-minute session weighs exactly what it measured. One window
   counts as one second (windows are ~1 s).
 - Sustained-run rule: an issue's seconds count only within runs that held
-  at least qualifySeconds (15); a qualifying run is credited from its
+  at least qualifySeconds (10; lowered from 15 on 2026-07-30 so a
+  slouch that held to the default nudge delay is also on the record);
+  a qualifying run is credited from its
   first breaching second (retroactively, into the buckets those seconds
   fell in). Up to gapToleranceSeconds (2) of non-breaching windows are
   tolerated inside a run without being counted themselves; a longer gap

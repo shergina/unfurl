@@ -33,7 +33,10 @@ final class SRPostureHistoryService {
 	static let sharedInstance = SRPostureHistoryService()
 
 	/// A breach run counts only once it has held this many seconds.
-	nonisolated static let qualifySeconds = 15
+	/// Lowered from 15 on 2026-07-30: a slouch that held to the default
+	/// nudge delay should also be on the record. Still a fixed constant,
+	/// deliberately never the nudge-delay preference.
+	nonisolated static let qualifySeconds = 10
 	/// Non-breaching seconds tolerated inside a run before it ends.
 	nonisolated static let gapToleranceSeconds = 2
 	/// A pause between samples longer than this resets every run: the
