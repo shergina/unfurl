@@ -170,16 +170,41 @@ Notifications page (see UI/Settings/spec.md).
   disappearing is the reward (decided 2026-07-22, replacing the earlier
   always-visible "Posture: good" state). Ghost properties per the
   notifications design (decided 2026-07-22):
-  click-through (ignoresMouseEvents), semi-transparent HUD material,
+  click-through (ignoresMouseEvents), semi-transparent adaptive material,
   excluded from screen capture (sharingType none) so shared screens and
   recordings never show it while the user still sees it, present on all
   Spaces including fullscreen, and deliberately indifferent to Focus
-  modes. Fade animations and an escalation cooldown from the agreed
-  design are not built yet. The note is one of three independently
+  modes. The note is one of three independently
   toggled nudge channels (PostureNoteEnabled, default on): while its
   preference is off the status is treated as nothing-to-say and the
   note never shows. All three channels off means tracking runs
   silently.
+- Note appearance (redesigned 2026-07-30): the system notification
+  banner's anatomy instead of the earlier bare dark chip. Adaptive
+  popover material following light and dark mode, 16 pt rounded corners
+  cut with the effect view's maskImage (the only clip that reaches the
+  behind-window material; a layer mask leaves opaque corners), a
+  leading 24 pt hierarchical SF Symbol in a fixed slot:
+  figure.seated.side tinted orange for corrections,
+  eye.trianglebadge.exclamationmark in secondary gray for can't-see-you.
+  Each issue is its own 13 pt semibold line in the primary label color:
+  the corrections are peers, so no title-and-detail hierarchy (a
+  banner-style bold-first-line variant was tried and dropped the same
+  day). The panel
+  hugs its content above a generous floor (280 x 58) so it reads as a
+  banner, not a chip, and short messages do not jitter its size. Shows
+  and hides with a ~0.25 s fade, instant under Reduce Motion; a fade
+  racing the opposite fade resolves to the latest state. The escalation
+  cooldown from the agreed design is still not built.
+- Note ghost mode (PostureNoteGhost, default on; a checkbox on the
+  Settings window's Notifications page, enabled only while the note
+  channel is): while on, the visible note fades to almost nothing when
+  the pointer is inside its frame and back when it leaves - the same
+  behavior the floating panel's ghost mode has. The note is
+  click-through, so tracking areas never fire; hover is watched with
+  global and local mouse-moved monitors, installed only while the note
+  is on screen and ghost is on (keep background cost low), and torn
+  down when it hides. The hover fade is instant under Reduce Motion.
 - Sound channel (SRPostureSoundController, PostureSoundEnabled default
   off): plays the chosen system beep (PostureSoundName, one of the
   soundNames list, default Ping) when a newly voiced issue appears in

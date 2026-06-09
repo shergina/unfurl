@@ -98,6 +98,9 @@ final class SRSettings {
 	// The nudge channels: the corner note, a beep, and the status-item
 	// tint. Independent; all off means tracking runs silently.
 	let postureNoteEnabled: Preference<Bool>
+	// Ghost mode for the corner note: fade it to almost nothing while the
+	// pointer is over it.
+	let postureNoteGhost: Preference<Bool>
 	let postureSoundEnabled: Preference<Bool>
 	// An NSSound system sound name (see SRPostureSoundController.soundNames).
 	let postureSoundName: Preference<String>
@@ -130,6 +133,7 @@ final class SRSettings {
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
 		self.postureNoteEnabled = Preference("PostureNoteEnabled", default: true, defaults: defaults)
+		self.postureNoteGhost = Preference("PostureNoteGhost", default: true, defaults: defaults)
 		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)
 		self.postureSoundName = Preference("PostureSoundName", default: "Ping", defaults: defaults)
 		self.postureStatusItemTint = Preference("PostureStatusItemTint", default: false, defaults: defaults)

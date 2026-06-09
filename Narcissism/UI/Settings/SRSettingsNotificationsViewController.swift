@@ -11,8 +11,8 @@ import Combine
 
 /// The Notifications page: how long bad posture must persist before a
 /// nudge, which channels it arrives through (corner note, sound,
-/// status-item tint), and the snooze. The sound picker previews on
-/// selection.
+/// status-item tint), the note's ghost mode, and the snooze. The sound
+/// picker previews on selection.
 final class SRSettingsNotificationsViewController: NSViewController {
 
 	fileprivate let settings = SRSettings.sharedInstance
@@ -106,6 +106,14 @@ final class SRSettingsNotificationsViewController: NSViewController {
 			NSGridCell.emptyContentView,
 			SRPreferenceCheckbox(titleKey: "settings.notifications.channel.status-item", preference: self.settings.postureStatusItemTint),
 		])
+
+		// The note's ghost mode; only meaningful while the note channel is
+		// on, so it disables with it (the sound picker pattern).
+		let ghostCheckbox = SRPreferenceCheckbox(titleKey: "settings.notifications.note-ghost", preference: self.settings.postureNoteGhost)
+		self.settings.postureNoteEnabled.publisher
+			.sink { [weak ghostCheckbox] enabled in ghostCheckbox?.isEnabled = enabled }
+			.store(in: &self.cancellables)
+		addRow("settings.notifications.note.label", ghostCheckbox)
 
 		let soundPopup = NSPopUpButton()
 		for name in SRPostureSoundController.soundNames {
