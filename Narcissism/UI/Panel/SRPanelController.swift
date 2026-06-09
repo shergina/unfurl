@@ -204,16 +204,16 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 	fileprivate func installGhostMouseMonitors() {
 		guard self.ghostMouseMonitors.isEmpty else { return }
 
-		if let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
+		if let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved], handler: { [weak self] _ in
 			self?.updateGhostHover()
-		} {
+		}) {
 			self.ghostMouseMonitors.append(global)
 		}
 
-		if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { [weak self] event in
+		if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved], handler: { [weak self] event in
 			self?.updateGhostHover()
 			return event
-		} {
+		}) {
 			self.ghostMouseMonitors.append(local)
 		}
 	}
