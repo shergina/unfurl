@@ -102,6 +102,12 @@ Notifications page (see UI/Settings/spec.md).
   scale-invariant, so chair and laptop moves cancel out. Smaller means more
   slouch. This is the live metric the future baseline comparison will run
   on.
+- Whenever the eye heights are available, the line also reports a rough
+  estimate of the share of the frame height the person occupies: from the
+  frame's bottom edge (the body runs off it) to an estimated head top,
+  taken as half the eye-to-shoulder drop above the eyes. Added 2026-07-30
+  to inform the zoom-out framing questions (how much of the frame the
+  visible person actually fills); rough by design, not a posture metric.
 - Slouch alert (experimental, log-only): each window's best available
   slouch ratio (padded pipeline preferred, plain as fallback) is compared
   against the user's calibrated baseline: the PostureBaselineSlouchRatio
@@ -279,10 +285,10 @@ Notifications page (see UI/Settings/spec.md).
   positioned via layerPointConverted so aspect-fill cropping and
   mirroring apply to them exactly as to the video. The floating panel's
   camera view is still temporarily SRPostureDebugCameraView (accuracy
-  aid), drawing the same dots behind a dotsVisible master switch - false
-  in code as of 2026-07-24 (the earlier "currently true" note here did
-  not match the code). Delete that view and its panel hookup when the
-  accuracy question is fully closed; onFrameSample itself is permanent.
+  aid), drawing the same dots behind a dotsVisible master switch - true
+  again as of 2026-07-30, turned back on for the tilted-screen detection
+  question. Delete that view and its panel hookup when the accuracy
+  question is fully closed; onFrameSample itself is permanent.
 
 ## History recording (SRPostureHistoryService, added 2026-07-28)
 

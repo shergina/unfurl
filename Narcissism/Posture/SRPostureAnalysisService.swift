@@ -552,6 +552,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		var eyeHeightFraction: CGFloat?
 		var eyeHeightPixels: CGFloat?
 		var slouchRatio: CGFloat?
+		var personHeightFraction: CGFloat?
 		var leftEyePoint: CGPoint?
 		var rightEyePoint: CGPoint?
 		if
@@ -573,6 +574,13 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			// cancel out. Smaller means more slouch.
 			let shoulderHeightPixels = ((left.y + right.y) / 2 - (1 - frameFraction)) * height
 			slouchRatio = (eyeHeightPixels! - shoulderHeightPixels) / distanceInPixels
+
+			// Rough frame occupancy: the body runs off the frame's bottom
+			// edge, so the occupied share is frame bottom to head top. The
+			// head top is not a joint; estimate it as half the eye-to-
+			// shoulder drop above the eyes.
+			let shoulderFraction = ((left.y + right.y) / 2 - (1 - frameFraction)) / frameFraction
+			personHeightFraction = min(1, fraction + (fraction - shoulderFraction) / 2)
 		}
 
 		return .measured(ShoulderMeasurement(
@@ -585,6 +593,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			eyeHeightFraction: eyeHeightFraction,
 			eyeHeightPixels: eyeHeightPixels,
 			slouchRatio: slouchRatio,
+			personHeightFraction: personHeightFraction,
 			shoulderTiltDegrees: tiltDegrees,
 			joints: SRPostureJoints(
 				leftShoulder: remapToFrame(left),
@@ -620,6 +629,12 @@ fileprivate struct ShoulderMeasurement {
 	/// the scale-invariant slouch ratio from VISION.md. Nil whenever the eye
 	/// heights are. Smaller means more slouch.
 	let slouchRatio: CGFloat?
+
+	/// Rough share of the frame's height the person occupies, from the
+	/// frame's bottom edge (the body runs off it) to the estimated head
+	/// top (half the eye-to-shoulder drop above the eyes). Nil whenever
+	/// the eye heights are.
+	let personHeightFraction: CGFloat?
 
 	/// The angle of the shoulder line off horizontal, in degrees. Positive
 	/// means the subject's anatomical left shoulder is higher; 0 is level.
@@ -796,6 +811,9 @@ fileprivate struct WindowAccumulator {
 			}
 			if let slouchRatio = best.slouchRatio {
 				line += String(format: ", slouch ratio %.3f", slouchRatio)
+			}
+			if let personHeightFraction = best.personHeightFraction {
+				line += String(format: ", occupies ~%.0f%% of height", personHeightFraction * 100)
 			}
 			line += String(format: ", tilt %+.1f deg", best.shoulderTiltDegrees)
 			return line

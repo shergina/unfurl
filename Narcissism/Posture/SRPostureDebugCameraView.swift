@@ -25,7 +25,7 @@ class SRPostureDebugCameraView: SRCameraView {
 	/// Master switch for the overlay. All the plumbing (joint publishing,
 	/// subscription, coordinate conversion) stays wired; while false the
 	/// dots are simply never shown. Flip to true to see them again.
-	fileprivate static let dotsVisible = false
+	fileprivate static let dotsVisible = true
 
 	fileprivate var leftShoulderDot: CALayer!
 	fileprivate var rightShoulderDot: CALayer!
