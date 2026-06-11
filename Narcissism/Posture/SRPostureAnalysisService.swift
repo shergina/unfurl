@@ -22,14 +22,15 @@ import os
 /// composition root calls start/stop as the preference changes. See
 /// spec.md.
 ///
-/// Currently running the synthetic zoom-out experiment: the body-pose model
-/// is trained on full-body imagery and mostly fails on laptop framing where
-/// a head and shoulders fill the frame. Each analyzed frame is therefore
-/// measured twice - on the raw frame and on the frame composited at the top
-/// of a taller black canvas, which makes the visible upper body a small
-/// figure near the top of a mostly empty image, closer to the training
-/// distribution. The log reports both so the lift is measurable on
-/// identical frames. See spec.md for the decision this feeds.
+/// Currently running round two of the zoom-out experiment: the body-pose
+/// model is trained on full-body imagery and mostly fails on laptop framing
+/// where a head and shoulders fill the frame. Each analyzed frame is
+/// measured twice - on the frame composited at the top of a fixed black
+/// canvas 2.5x the frame height (round one's winner; the raw "plain"
+/// pipeline lost decisively and was deleted), and on a canvas sized and
+/// positioned from the detected face so the implied figure keeps full-body
+/// proportions at any sitting distance and screen tilt. The log reports
+/// both so the lift is measurable on identical frames. See spec.md.
 @MainActor
 final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
@@ -161,6 +162,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 					self.issueTrackers = [:]
 					self.notVisibleWindows = 0
 					self.lastLoggedStatus = nil
+					self.smoothedFaceBox = nil
+					self.lastFaceTime = .invalid
 					continuation.resume()
 				}
 			}
@@ -183,9 +186,44 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
     // This sets the number of log lines per second (one):
 	fileprivate nonisolated static let logInterval = CMTime(value: 1, timescale: 1)
 
-	/// Height multiplier for the zoom-out canvas. At 2.5 the camera frame
-	/// occupies the top 40 percent of the analyzed image.
+	/// Height multiplier for the fixed zoom-out canvas. At 2.5 the camera
+	/// frame occupies the top 40 percent of the analyzed image.
 	fileprivate nonisolated static let paddingFactor = 2.5
+
+	/// The fixed canvas's frame placement for the coordinate remap: full
+	/// width, the top 1/paddingFactor of the height.
+	fileprivate nonisolated static let paddedFrameRect = CGRect(x: 0, y: 1 - 1 / paddingFactor, width: 1, height: 1 / paddingFactor)
+
+	// The adaptive canvas is sized off the detected head instead: a standing
+	// figure is 7-8 head-lengths tall and 2-2.5 wide at the shoulders, so a
+	// canvas measured in head-heights keeps the implied figure plausibly
+	// proportioned however close the user leans in. Vision's face box covers
+	// roughly eyebrows to chin, so it is inflated to a full head first; all
+	// the growth is upward (the chin is already the head's bottom).
+	fileprivate nonisolated static let headInflation: CGFloat = 1.3
+	fileprivate nonisolated static let adaptiveHeightInHeads: CGFloat = 7.5
+	fileprivate nonisolated static let adaptiveWidthInHeads: CGFloat = 5.5
+
+	/// The estimated head top sits this fraction below the adaptive canvas's
+	/// top edge; frame content that lands above it (the ceiling band when
+	/// the screen tilts up) is cropped by the placement itself.
+	fileprivate nonisolated static let headTopAnchor: CGFloat = 0.05
+
+	/// Head heights beyond this fraction of the frame stop growing the
+	/// canvas; bounds the allocation when the face fills the frame.
+	fileprivate nonisolated static let maximumHeadFraction: CGFloat = 0.45
+
+	/// Exponential smoothing weight of each new face box, so the canvas
+	/// geometry follows the head without jittering frame to frame.
+	fileprivate nonisolated static let faceSmoothing: CGFloat = 0.3
+
+	/// A missed face (a turned head) keeps the last box this long before
+	/// the adaptive pipeline starts reporting no face.
+	fileprivate nonisolated static let faceMemory = CMTime(value: 5, timescale: 1)
+
+	/// Adaptive canvas dimensions round up to this multiple, so the buffer
+	/// is not reallocated every time the smoothed head box breathes.
+	fileprivate nonisolated static let canvasQuantum = 128
 
 	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.narcissism", category: "Posture")
 
@@ -239,8 +277,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var lastAnalysisTime = CMTime.invalid
 	fileprivate nonisolated(unsafe) var windowStartTime = CMTime.invalid
 	fileprivate nonisolated(unsafe) var windowFrameCount = 0
-	fileprivate nonisolated(unsafe) var plainWindow = WindowAccumulator()
 	fileprivate nonisolated(unsafe) var paddedWindow = WindowAccumulator()
+	fileprivate nonisolated(unsafe) var adaptiveWindow = WindowAccumulator()
 
 	// Issue debounce state. Touched only on the (serial) analysis queue.
 	// An issue is voiced only after being active this many windows (~1/s);
@@ -256,10 +294,13 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			let elapsed = timestamp - self.lastAnalysisTime
 			if elapsed < .zero {
 				// The timeline restarted (camera switch); drop the partial
-				// window and every issue episode with it.
+				// window and every issue episode with it. The face box's
+				// timestamp lives on the old timeline, so it goes too.
 				self.resetWindow()
 				self.issueTrackers = [:]
 				self.notVisibleWindows = 0
+				self.smoothedFaceBox = nil
+				self.lastFaceTime = .invalid
 			} else if elapsed < Self.minimumAnalysisInterval {
 				return
 			}
@@ -273,22 +314,31 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		}
 		self.windowFrameCount += 1
 
-		let plainResult = Self.analyzeShoulders(in: pixelBuffer, frameFraction: 1)
-		self.plainWindow.merge(plainResult)
+		// The face box drives the adaptive canvas geometry; refresh it first.
+		self.updateFaceBox(from: pixelBuffer, at: timestamp)
+
 		var paddedResult: ShoulderAnalysis?
 		if let canvas = self.paddedCanvasFilled(from: pixelBuffer) {
-			let result = Self.analyzeShoulders(in: canvas, frameFraction: 1 / Self.paddingFactor)
+			let result = Self.analyzeShoulders(in: canvas, frameRect: Self.paddedFrameRect)
 			self.paddedWindow.merge(result)
 			paddedResult = result
 		}
+		var adaptiveResult = ShoulderAnalysis.noFace
+		if
+			let faceBox = self.smoothedFaceBox,
+			let (canvas, frameRect) = self.adaptiveCanvasFilled(from: pixelBuffer, faceBox: faceBox)
+		{
+			adaptiveResult = Self.analyzeShoulders(in: canvas, frameRect: frameRect)
+		}
+		self.adaptiveWindow.merge(adaptiveResult)
 
-		// Per-frame feed, padded pipeline preferred (the one that works).
-		// Sent for every analyzed frame, usable or not: calibration counts
-		// frame events.
+		// Per-frame feed, adaptive pipeline preferred, fixed canvas as
+		// fallback. Sent for every analyzed frame, usable or not:
+		// calibration counts frame events.
 		var best: ShoulderMeasurement?
-		if case .measured(let measurement)? = paddedResult {
+		if case .measured(let measurement) = adaptiveResult {
 			best = measurement
-		} else if case .measured(let measurement) = plainResult {
+		} else if case .measured(let measurement)? = paddedResult {
 			best = measurement
 		}
 		let sample = SRPostureFrameSample(
@@ -309,10 +359,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	}
 
 	/// Runs on the analysis queue: one line per finished window with both
-	/// pipelines side by side, so the padded variant's lift over the plain
-	/// one is readable off identical frames.
+	/// pipelines side by side, so the adaptive variant's lift over the fixed
+	/// canvas is readable off identical frames.
 	fileprivate nonisolated func logWindow() {
-		Self.logger.log("Shoulder distance: plain [\(self.plainWindow.summary, privacy: .public)] padded [\(self.paddedWindow.summary, privacy: .public)] (\(self.windowFrameCount, privacy: .public) frames)")
+		Self.logger.log("Shoulder distance: padded [\(self.paddedWindow.summary, privacy: .public)] adaptive [\(self.adaptiveWindow.summary, privacy: .public)] (\(self.windowFrameCount, privacy: .public) frames)")
 
 		// Muted while uncalibrated (nothing to judge against) or while the
 		// calibration window is open (no nagging mid-calibration). Trackers
@@ -325,12 +375,12 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			return
 		}
 
-		// Slouch alert, evaluated on whichever pipeline measured (padded is
-		// the one that works at laptop framing; plain is the fallback). One
-		// evaluation per window, no debounce yet: immediate per-second
-		// feedback is the point of the current experiment.
+		// Slouch alert, evaluated on whichever pipeline measured (adaptive
+		// preferred, fixed canvas as fallback). One evaluation per window,
+		// no debounce yet: immediate per-second feedback is the point of the
+		// current experiment.
 		if
-			let ratio = self.paddedWindow.bestMeasurement?.slouchRatio ?? self.plainWindow.bestMeasurement?.slouchRatio,
+			let ratio = self.adaptiveWindow.bestMeasurement?.slouchRatio ?? self.paddedWindow.bestMeasurement?.slouchRatio,
 			ratio < baseline * (1 - Self.slouchTolerance)
 		{
 			let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
@@ -341,7 +391,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// Positive tilt means the subject's anatomical left shoulder is the
 		// higher one, so it is the one to lower.
 		if
-			let tilt = self.paddedWindow.bestMeasurement?.shoulderTiltDegrees ?? self.plainWindow.bestMeasurement?.shoulderTiltDegrees,
+			let tilt = self.adaptiveWindow.bestMeasurement?.shoulderTiltDegrees ?? self.paddedWindow.bestMeasurement?.shoulderTiltDegrees,
 			abs(tilt) > Self.maximumLevelShoulderTiltDegrees
 		{
 			let higherShoulder = tilt > 0 ? "left" : "right"
@@ -356,7 +406,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// recovery is one-sided per issue, so overcorrecting a left-high
 		// tilt into a right-high one clears the left issue immediately.
 		let status: SRPostureStatus
-		if let measurement = self.paddedWindow.bestMeasurement ?? self.plainWindow.bestMeasurement {
+		if let measurement = self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement {
 			self.notVisibleWindows = 0
 
 			let slouchObservation: SRIssueObservation
@@ -418,8 +468,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated func resetWindow() {
 		self.windowStartTime = .invalid
 		self.windowFrameCount = 0
-		self.plainWindow = WindowAccumulator()
 		self.paddedWindow = WindowAccumulator()
+		self.adaptiveWindow = WindowAccumulator()
 	}
 
 	//: ## The zoom-out canvas
@@ -432,7 +482,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 	/// Copies the frame into the top of the reusable canvas and returns it.
 	/// Pixels are 1:1 with the source, so distances measured on the canvas
-	/// are directly comparable with the plain pipeline.
+	/// are directly comparable across pipelines.
 	fileprivate nonisolated func paddedCanvasFilled(from source: CVPixelBuffer) -> CVPixelBuffer? {
 		let width = CVPixelBufferGetWidth(source)
 		let height = CVPixelBufferGetHeight(source)
@@ -484,19 +534,164 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		return canvas
 	}
 
+	//: ## The head-adaptive canvas
+
+	/// The smoothed face box (frame-normalized, Vision bottom-left origin)
+	/// and when a face was last actually seen. Touched only on the analysis
+	/// queue.
+	fileprivate nonisolated(unsafe) var smoothedFaceBox: CGRect?
+	fileprivate nonisolated(unsafe) var lastFaceTime = CMTime.invalid
+	fileprivate nonisolated(unsafe) var adaptiveCanvas: CVPixelBuffer?
+	fileprivate nonisolated(unsafe) var didLogAdaptiveCanvasFailure = false
+	fileprivate nonisolated(unsafe) var didLogFaceFailure = false
+
+	/// Face detection on the raw frame, feeding the adaptive canvas
+	/// geometry. The face detector stays reliable at close range and odd
+	/// screen angles where the pose model gives up, which breaks the
+	/// circularity of "pad based on how big the user looks". The box is
+	/// exponentially smoothed so the canvas does not jitter, and a missed
+	/// frame (a turned head) keeps the last box for faceMemory before the
+	/// pipeline goes honest about having no face.
+	fileprivate nonisolated func updateFaceBox(from pixelBuffer: CVPixelBuffer, at timestamp: CMTime) {
+		let request = VNDetectFaceRectanglesRequest()
+		let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+		do {
+			try handler.perform([request])
+		} catch {
+			if !self.didLogFaceFailure {
+				self.didLogFaceFailure = true
+				Self.logger.error("Face detection failed: \(error.localizedDescription, privacy: .public)")
+			}
+			return
+		}
+
+		// Largest face wins; a passerby in the background must not shrink
+		// the canvas under the person at the desk.
+		guard let face = request.results?.max(by: { $0.boundingBox.height < $1.boundingBox.height })?.boundingBox else {
+			if self.lastFaceTime.isValid, timestamp - self.lastFaceTime > Self.faceMemory {
+				self.smoothedFaceBox = nil
+			}
+			return
+		}
+
+		if let previous = self.smoothedFaceBox {
+			let alpha = Self.faceSmoothing
+			self.smoothedFaceBox = CGRect(
+				x: previous.minX + (face.minX - previous.minX) * alpha,
+				y: previous.minY + (face.minY - previous.minY) * alpha,
+				width: previous.width + (face.width - previous.width) * alpha,
+				height: previous.height + (face.height - previous.height) * alpha
+			)
+		} else {
+			self.smoothedFaceBox = face
+		}
+		self.lastFaceTime = timestamp
+	}
+
+	/// Copies the frame onto the head-adaptive canvas: black, sized in
+	/// head-heights (never smaller than the frame, so a distant sitter gets
+	/// little or no padding), with the estimated head top anchored just
+	/// below the canvas top and the head centered horizontally. Frame
+	/// content that falls outside the canvas is cropped by the placement
+	/// itself. Pixels stay 1:1 with the source; the canvas is re-blacked
+	/// every fill because the placement shifts with the head and stale
+	/// pixels must not ghost around the frame. Returns the canvas plus the
+	/// frame's placement rect in Vision-normalized canvas coordinates (it
+	/// can extend past the unit square when the frame is partially cropped)
+	/// for remapping results back into frame coordinates.
+	fileprivate nonisolated func adaptiveCanvasFilled(from source: CVPixelBuffer, faceBox: CGRect) -> (canvas: CVPixelBuffer, frameRect: CGRect)? {
+		let width = CVPixelBufferGetWidth(source)
+		let height = CVPixelBufferGetHeight(source)
+
+		let headHeight = min(Self.headInflation * faceBox.height, Self.maximumHeadFraction) * CGFloat(height)
+		// Deliberately unclamped: with the forehead clipped by the frame the
+		// estimated head top lies above the frame edge (a negative row), and
+		// the placement below must know that.
+		let headTopRow = CGFloat(height) * (1 - (faceBox.maxY + (Self.headInflation - 1) * faceBox.height))
+		let headCenterColumn = faceBox.midX * CGFloat(width)
+
+		func quantized(_ ideal: CGFloat, atLeast floor: Int) -> Int {
+			let needed = max(Int(ideal.rounded(.up)), floor)
+			return (needed + Self.canvasQuantum - 1) / Self.canvasQuantum * Self.canvasQuantum
+		}
+		let canvasWidth = quantized(Self.adaptiveWidthInHeads * headHeight, atLeast: width)
+		let canvasHeight = quantized(Self.adaptiveHeightInHeads * headHeight, atLeast: height)
+
+		if self.adaptiveCanvas == nil
+			|| CVPixelBufferGetWidth(self.adaptiveCanvas!) != canvasWidth
+			|| CVPixelBufferGetHeight(self.adaptiveCanvas!) != canvasHeight {
+			var canvas: CVPixelBuffer?
+			CVPixelBufferCreate(kCFAllocatorDefault, canvasWidth, canvasHeight, kCVPixelFormatType_32BGRA, nil, &canvas)
+			self.adaptiveCanvas = canvas
+		}
+		guard let canvas = self.adaptiveCanvas else {
+			if !self.didLogAdaptiveCanvasFailure {
+				self.didLogAdaptiveCanvasFailure = true
+				Self.logger.error("Could not allocate the adaptive canvas; the adaptive pipeline is off")
+			}
+			return nil
+		}
+
+		// Head top at the anchor; the frame's top row lands wherever that
+		// puts it, negative meaning the rows above (the ceiling) are cropped.
+		// Capped at flush: when the head top sits at or above the frame edge
+		// (the user so close the forehead is clipped), the frame goes flush
+		// with the canvas top. A head cropped by the image edge is ordinary
+		// photography; a head ending mid-image under a black gap is not.
+		let destinationTop = min(Int((Self.headTopAnchor * CGFloat(canvasHeight) - headTopRow).rounded()), 0)
+		let destinationLeft = max(0, min(Int((CGFloat(canvasWidth) / 2 - headCenterColumn).rounded()), canvasWidth - width))
+
+		CVPixelBufferLockBaseAddress(source, .readOnly)
+		CVPixelBufferLockBaseAddress(canvas, [])
+		defer {
+			CVPixelBufferUnlockBaseAddress(canvas, [])
+			CVPixelBufferUnlockBaseAddress(source, .readOnly)
+		}
+		guard
+			let sourceBase = CVPixelBufferGetBaseAddress(source),
+			let canvasBase = CVPixelBufferGetBaseAddress(canvas)
+		else { return nil }
+
+		// Opaque black, as on the fixed canvas.
+		var black: [UInt8] = [0, 0, 0, 255]
+		memset_pattern4(canvasBase, &black, CVPixelBufferGetDataSize(canvas))
+
+		let sourceBytesPerRow = CVPixelBufferGetBytesPerRow(source)
+		let canvasBytesPerRow = CVPixelBufferGetBytesPerRow(canvas)
+		let rowBytes = min(sourceBytesPerRow, canvasBytesPerRow - destinationLeft * 4, width * 4)
+		let firstRow = max(0, -destinationTop)
+		let lastRow = min(height, canvasHeight - destinationTop)
+		guard firstRow < lastRow, rowBytes > 0 else { return nil }
+		for row in firstRow..<lastRow {
+			memcpy(
+				canvasBase + (destinationTop + row) * canvasBytesPerRow + destinationLeft * 4,
+				sourceBase + row * sourceBytesPerRow,
+				rowBytes
+			)
+		}
+
+		let frameRect = CGRect(
+			x: CGFloat(destinationLeft) / CGFloat(canvasWidth),
+			y: CGFloat(canvasHeight - destinationTop - height) / CGFloat(canvasHeight),
+			width: CGFloat(width) / CGFloat(canvasWidth),
+			height: CGFloat(height) / CGFloat(canvasHeight)
+		)
+		return (canvas, frameRect)
+	}
+
 	//: ## Detection
 
 	/// Runs on the analysis queue. Detects the body pose and measures the
 	/// shoulder distance, aspect-correct, in pixels and as a fraction of the
 	/// frame width (the scale-invariant form the VISION.md metrics build on),
 	/// plus the average eye height when the eye joints clear the confidence
-	/// floor. Works on the raw frame and the zoom-out canvas alike; the
-	/// reported width x height reveals which one produced a measurement.
-	/// `frameFraction` is the portion of the analyzed image's height, at the
-	/// top, that the real camera frame occupies (1 for the raw frame); eye
-	/// heights are remapped through it into frame coordinates so both
-	/// pipelines report comparable values.
-	fileprivate nonisolated static func analyzeShoulders(in pixelBuffer: CVPixelBuffer, frameFraction: CGFloat) -> ShoulderAnalysis {
+	/// floor. Works on either canvas; the reported width x height reveals
+	/// which one produced a measurement. `frameRect` is the camera frame's
+	/// placement within the analyzed image, Vision-normalized (it can extend
+	/// past the unit square when the frame is partially cropped); results
+	/// are remapped through it into frame coordinates so both pipelines
+	/// report comparable, frame-relative values.
+	fileprivate nonisolated static func analyzeShoulders(in pixelBuffer: CVPixelBuffer, frameRect: CGRect) -> ShoulderAnalysis {
 		let request = VNDetectHumanBodyPoseRequest()
 		let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
 		do {
@@ -539,16 +734,16 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		) * 180 / .pi
 
 		// Frame-normalized joint positions for the TEMPORARY dots overlay:
-		// x is unchanged (the canvas only adds height), y rescales around
-		// the top edge, the same remap the eye height uses below.
+		// both axes rescale through the frame's placement rect.
 		func remapToFrame(_ point: VNRecognizedPoint) -> CGPoint {
-			return CGPoint(x: point.x, y: (point.y - (1 - frameFraction)) / frameFraction)
+			return CGPoint(
+				x: (point.x - frameRect.minX) / frameRect.width,
+				y: (point.y - frameRect.minY) / frameRect.height
+			)
 		}
 
 		// Average eye height, reported relative to the camera frame (0 =
-		// frame bottom, 1 = frame top). The frame is the top `frameFraction`
-		// of the analyzed image, so image y rescales around the top edge;
-		// on the raw frame the remap is the identity.
+		// frame bottom, 1 = frame top), remapped through the placement rect.
 		var eyeHeightFraction: CGFloat?
 		var eyeHeightPixels: CGFloat?
 		var slouchRatio: CGFloat?
@@ -563,28 +758,30 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		{
 			leftEyePoint = remapToFrame(leftEye)
 			rightEyePoint = remapToFrame(rightEye)
-			let fraction = ((leftEye.y + rightEye.y) / 2 - (1 - frameFraction)) / frameFraction
+			let fraction = ((leftEye.y + rightEye.y) / 2 - frameRect.minY) / frameRect.height
 			eyeHeightFraction = fraction
-			eyeHeightPixels = fraction * height * frameFraction
+			eyeHeightPixels = fraction * height * frameRect.height
 
 			// The slouch ratio from VISION.md: the vertical drop from eye
 			// level to shoulder level, over shoulder width. Heights are
 			// vertical only, so head tilt does not pollute it, and the
 			// division makes it scale-invariant: chair and laptop moves
 			// cancel out. Smaller means more slouch.
-			let shoulderHeightPixels = ((left.y + right.y) / 2 - (1 - frameFraction)) * height
+			let shoulderHeightPixels = ((left.y + right.y) / 2 - frameRect.minY) * height
 			slouchRatio = (eyeHeightPixels! - shoulderHeightPixels) / distanceInPixels
 
 			// Rough frame occupancy: the body runs off the frame's bottom
 			// edge, so the occupied share is frame bottom to head top. The
 			// head top is not a joint; estimate it as half the eye-to-
 			// shoulder drop above the eyes.
-			let shoulderFraction = ((left.y + right.y) / 2 - (1 - frameFraction)) / frameFraction
+			let shoulderFraction = ((left.y + right.y) / 2 - frameRect.minY) / frameRect.height
 			personHeightFraction = min(1, fraction + (fraction - shoulderFraction) / 2)
 		}
 
 		return .measured(ShoulderMeasurement(
-			fractionOfWidth: distanceInPixels / width,
+			// Fraction of the camera frame's width, not the canvas's, so the
+			// value stays meaningful when the canvas adds side padding.
+			fractionOfWidth: distanceInPixels / (width * frameRect.width),
 			distanceInPixels: distanceInPixels,
 			width: Int(width),
 			height: Int(height),
@@ -653,6 +850,8 @@ fileprivate enum ShoulderAnalysis {
 	case lowConfidence(left: Float, right: Float)
 	case noBody
 	case failed
+	/// Adaptive pipeline only: no face box to build the canvas from.
+	case noFace
 }
 
 
@@ -782,6 +981,7 @@ struct SRPostureFrameSample: Sendable {
 fileprivate struct WindowAccumulator {
 	var bestMeasurement: ShoulderMeasurement?
 	var bestLowConfidence: (left: Float, right: Float)?
+	var sawNoFace = false
 
 	mutating func merge(_ analysis: ShoulderAnalysis) {
 		switch analysis {
@@ -793,6 +993,8 @@ fileprivate struct WindowAccumulator {
 			if min(left, right) > (self.bestLowConfidence.map { min($0.left, $0.right) } ?? -1) {
 				self.bestLowConfidence = (left, right)
 			}
+		case .noFace:
+			self.sawNoFace = true
 		case .noBody, .failed:
 			break
 		}
@@ -821,6 +1023,6 @@ fileprivate struct WindowAccumulator {
 		if let low = self.bestLowConfidence {
 			return String(format: "low confidence, best L %.2f R %.2f", low.left, low.right)
 		}
-		return "no body"
+		return self.sawNoFace ? "no face" : "no body"
 	}
 }

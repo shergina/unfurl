@@ -58,21 +58,52 @@ Notifications page (see UI/Settings/spec.md).
   rate sits inside the 2-5 fps envelope VISION.md sets for live tracking.
 - Each analyzed frame runs VNDetectHumanBodyPoseRequest (Apple Vision,
   on-device) on the probe's serial analysis queue, never on the main thread.
-- Zoom-out experiment (temporary): the body-pose model is trained on
-  full-body imagery and mostly fails on laptop framing, where a head and
-  shoulders fill the frame. To measure whether that is fixable by
-  preprocessing alone, each analyzed frame is measured twice: once raw, and
-  once composited at the top of a reusable black canvas 2.5x the frame
-  height, so the upper body becomes a small figure near the top of a mostly
-  empty image, closer to the training distribution. Canvas pixels are 1:1
-  with the frame, so distances from both pipelines are directly comparable.
-  Each log line reports both ("plain [...] padded [...]"); the reported
-  width x height shows which pipeline a measurement came from. The doubled
-  Vision cost (8 inferences/s) is accepted for the experiment's duration.
-  Exit condition: after enough normal-use data, either the padded pipeline
-  clearly rescues detection (adopt it, delete the plain path) or it does
-  not (delete it and pursue the segmentation approach in VISION.md); the
-  losing path is deleted, not kept.
+- Zoom-out experiment (temporary), round one, settled: the body-pose model
+  is trained on full-body imagery and mostly fails on laptop framing,
+  where a head and shoulders fill the frame. Each frame was measured raw
+  ("plain") and composited at the top of a black canvas 2.5x the frame
+  height ("padded"). Three days of normal use through 2026-07-30 (1994
+  windows) met the exit condition decisively: of 1215 windows with any
+  measurement, padded was the sole provider in 1171 and plain in 15, so
+  the plain path was deleted per the losing-path-is-deleted rule. Known
+  remaining failure: padded detection dies when the user leans in close
+  (observed live: works at ~95 percent frame-height occupancy, gone at
+  100), which round two targets.
+- Zoom-out experiment, round two (temporary): the fixed 2.5x canvas stays
+  as the control; the candidate is a head-adaptive canvas that keeps the
+  implied figure plausibly proportioned at any sitting distance and screen
+  tilt. VNDetectFaceRectanglesRequest runs on each analyzed raw frame (the
+  face detector stays reliable up close and at odd angles where the pose
+  model fails, which breaks the circularity of sizing padding by how big
+  the user looks). The largest face box is exponentially smoothed (weight
+  0.3) and remembered ~5 s across missed frames, then inflated to a full
+  head (x1.3, growth upward; the box covers eyebrows to chin). The canvas
+  is sized in head-heights - 7.5 tall, 5.5 wide, per the 7-8-heads figure
+  rule - never smaller than the frame (a distant sitter gets little or no
+  padding), head growth capped at 0.45 of the frame height to bound the
+  allocation, dimensions quantized up to 128 px so the buffer is not
+  reallocated as the smoothed box breathes. The frame is placed with the
+  estimated head top anchored 5 percent below the canvas top and the head
+  centered horizontally. The anchor never opens a black gap above the
+  frame's top edge: when the estimated head top lies at or above the frame
+  edge (the user so close the forehead is clipped), the frame sits flush
+  with the canvas top instead, so the composite reads as a photo cropped
+  at the forehead (ordinary) rather than a head ending mid-image under
+  black (impossible). Content falling outside the canvas (the ceiling
+  band when the screen tilts up) is cropped by the placement itself, and
+  the canvas is re-blacked every fill so the moving placement leaves no
+  ghosts. Pixels stay 1:1; joint positions and metrics are remapped
+  through the frame's placement rect (both axes now), and the shoulder
+  width fraction divides by the frame's width, not the canvas's, so both
+  pipelines report frame-relative, comparable values. Each log line
+  reports both ("padded [...] adaptive [...]"; "no face" marks windows
+  where the face detector never fed the candidate). Live status prefers
+  adaptive, padded as fallback. Cost: 8 pose + 4 face inferences/s,
+  accepted for the experiment's duration. Exit condition: same rule -
+  the losing canvas is deleted, not kept. Open question: at extreme
+  lean-in the slouch ratio drifts with lens perspective even when
+  detection holds; very-close windows may deserve low trust for the
+  ratio.
 - The measurement is the distance between the left and right shoulder
   joints. Vision returns frame-normalized points, so the components are
   scaled to pixels first (aspect-correct); the log reports the distance in
@@ -81,8 +112,9 @@ Notifications page (see UI/Settings/spec.md).
 - Alongside the shoulders, each measurement reports the average height of
   the two eye joints from the same observation, as a fraction of the frame
   height (0 = frame bottom, 1 = frame top) and in pixels from the frame's
-  bottom edge. On the padded pipeline the value is remapped from canvas to
-  frame coordinates, so both pipelines report comparable numbers. Slouching
+  bottom edge. Values are remapped from canvas to frame coordinates
+  through the frame's placement rect, so both pipelines report comparable
+  numbers. Slouching
   reads as the value dropping. If either eye joint is at or below the
   confidence floor the line says "eyes n/a" instead. This is an exploratory
   input for the slouch ratio in VISION.md; note the raw eye height is not
@@ -109,7 +141,7 @@ Notifications page (see UI/Settings/spec.md).
   to inform the zoom-out framing questions (how much of the frame the
   visible person actually fills); rough by design, not a posture metric.
 - Slouch alert (experimental, log-only): each window's best available
-  slouch ratio (padded pipeline preferred, plain as fallback) is compared
+  slouch ratio (adaptive pipeline preferred, padded as fallback) is compared
   against the user's calibrated baseline: the PostureBaselineSlouchRatio
   preference, mirrored onto the analysis queue, written by the
   calibration window (see Calibration below). A window more than 5
@@ -278,8 +310,9 @@ Notifications page (see UI/Settings/spec.md).
   and tracking continues on the old value. Unchecking Track Posture
   while the window is open closes it.
 - Dots overlay: the service publishes each analyzed frame's readings
-  (shoulder width fraction, slouch ratio, joints; padded pipeline
-  preferred, frame-normalized) on the main actor via onFrameSample. The
+  (shoulder width fraction, slouch ratio, joints; adaptive pipeline
+  preferred, padded as fallback, frame-normalized) on the main actor via
+  onFrameSample. The
   calibration window renders the joints permanently as dots over its
   preview (shoulders red, eyes yellow, hidden when detection drops),
   positioned via layerPointConverted so aspect-fill cropping and
