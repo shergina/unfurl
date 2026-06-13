@@ -162,6 +162,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 					self.issueTrackers = [:]
 					self.notVisibleWindows = 0
 					self.lastLoggedStatus = nil
+					self.lastEvaluatedStatus = nil
 					self.smoothedFaceBox = nil
 					self.lastFaceTime = .invalid
 					continuation.resume()
@@ -247,6 +248,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	// windows (or instantly on a strong recovery past half the tolerance
 	// band). Brief dips at the threshold neither report nor reset.
 	nonisolated static let issueClearWindows = 2
+	// A brief detection dropout (a turned head, a stretch, one blurred
+	// window) coasts on the last evaluated status; only this many
+	// consecutive empty windows say "can't see you" out loud.
+	fileprivate nonisolated static let notVisibleGraceWindows = 3
 	// After this many consecutive can't-see-you windows every episode
 	// resets: whoever returns to the desk starts from a clean slate.
 	fileprivate nonisolated static let notVisibleResetWindows = 5
@@ -287,6 +292,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var issueTrackers: [SRPostureIssue: SRIssueTracker] = [:]
 	fileprivate nonisolated(unsafe) var notVisibleWindows = 0
 	fileprivate nonisolated(unsafe) var lastLoggedStatus: SRPostureStatus?
+	/// The last status computed from a real measurement, coasted on while a
+	/// dropout is within the grace. Touched only on the analysis queue.
+	fileprivate nonisolated(unsafe) var lastEvaluatedStatus: SRPostureStatus?
 
 	nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
 		let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
@@ -299,6 +307,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				self.resetWindow()
 				self.issueTrackers = [:]
 				self.notVisibleWindows = 0
+				self.lastEvaluatedStatus = nil
 				self.smoothedFaceBox = nil
 				self.lastFaceTime = .invalid
 			} else if elapsed < Self.minimumAnalysisInterval {
@@ -371,6 +380,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			self.issueTrackers = [:]
 			self.notVisibleWindows = 0
 			self.lastLoggedStatus = nil
+			self.lastEvaluatedStatus = nil
 			Task { @MainActor in self.onPostureStatus.send(nil) }
 			return
 		}
@@ -405,7 +415,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// an instant strong recovery past half the tolerance band. Strong
 		// recovery is one-sided per issue, so overcorrecting a left-high
 		// tilt into a right-high one clears the left issue immediately.
-		let status: SRPostureStatus
+		let status: SRPostureStatus?
 		if let measurement = self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement {
 			self.notVisibleWindows = 0
 
@@ -442,6 +452,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			// Stable declaration order, so the note's lines never reshuffle.
 			let reported = SRPostureIssue.allCases.filter { self.issueTrackers[$0]?.isReported(after: self.issueReportWindows) ?? false }
 			status = .evaluated(issues: reported)
+			self.lastEvaluatedStatus = status
 		} else {
 			self.notVisibleWindows += 1
 			if self.notVisibleWindows >= Self.notVisibleResetWindows {
@@ -449,10 +460,19 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			}
 			let sample = SRPostureWindowSample.notVisible(at: Date.now)
 			Task { @MainActor [sample] in self.onWindowSample.send(sample) }
-			status = .notVisible
+			if self.notVisibleWindows < Self.notVisibleGraceWindows {
+				// A dropout inside the grace coasts on the last evaluated
+				// status instead of flashing "can't see you" (nil during
+				// the camera's warm-up, keeping the note blank). Trackers
+				// stay frozen and the history sample above stays honest.
+				status = self.lastEvaluatedStatus
+			} else {
+				self.lastEvaluatedStatus = nil
+				status = .notVisible
+			}
 		}
 
-		if status != self.lastLoggedStatus {
+		if let status, status != self.lastLoggedStatus {
 			self.lastLoggedStatus = status
 			Self.logger.log("Posture status: \(status.logDescription, privacy: .public)")
 		}

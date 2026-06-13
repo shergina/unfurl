@@ -194,7 +194,11 @@ Notifications page (see UI/Settings/spec.md).
   still the issue) and ends only via the dual-path clear: ~2 consecutive
   clean windows, or instantly on one strongly recovered window - so a
   decisive correction is rewarded immediately while a marginal one must
-  hold. Five
+  hold. A detection dropout shorter than 3 consecutive windows coasts:
+  the last evaluated status stays published (nil during the camera's
+  warm-up, so startup never flashes the note), trackers freeze, and the
+  history samples stay honestly not-visible; only the 3rd consecutive
+  empty window publishes "can't see you" (added 2026-07-30). Five
   consecutive not-visible windows, or a capture timeline restart, reset
   every episode. The per-window warning lines in the log stay raw and
   undebounced on purpose: they are tuning telemetry; the note is the
