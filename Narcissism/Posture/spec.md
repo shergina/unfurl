@@ -144,10 +144,17 @@ Notifications page (see UI/Settings/spec.md).
   slouch ratio (adaptive pipeline preferred, padded as fallback) is compared
   against the user's calibrated baseline: the PostureBaselineSlouchRatio
   preference, mirrored onto the analysis queue, written by the
-  calibration window (see Calibration below). A window more than 5
-  percent below baseline logs a warning-level "Slouching:" line naming
-  the ratio and the deviation; ratios above baseline mean sitting tall
-  and never alert. While no baseline is stored (<= 0 sentinel) the
+  calibration window (see Calibration below). A window more than the
+  slouch tolerance below baseline logs a warning-level "Slouching:"
+  line naming the ratio and the deviation; ratios above baseline mean
+  sitting tall and never alert. The tolerance is the
+  PostureSlouchTolerance preference (default 0.10), set by the
+  strictness slider on the Settings window's Posture page over five
+  stops - 15, 12.5, 10, 7.5, 5 percent, relaxed to strict - and
+  mirrored onto the analysis queue like the baseline. (The value was a
+  hardcoded 5 percent through 2026-07-31; live testing found that too
+  strict as a default, hence the ladder ending there.) While no
+  baseline is stored (<= 0 sentinel) the
   slouch alert, the issue tracking, and the corner note are all
   suppressed - nil status, trackers cleared - because there is nothing
   to judge against and nothing may pop over the calibration window.
@@ -158,12 +165,19 @@ Notifications page (see UI/Settings/spec.md).
   below, not here.
 - Shoulder alignment alert (experimental, log-only): same cadence and
   pipeline preference as the slouch alert. A window whose tilt magnitude
-  exceeds 3 degrees off level logs a warning-level "Shoulders misaligned:"
-  line with the signed tilt and which shoulder to lower (positive tilt =
-  the subject's anatomical left shoulder is higher, so lower the left).
-  Unlike the slouch alert this needs no per-user baseline - level is level
-  - though the 3 degree band is a tuning choice (tried 5 and 2 before
-  settling here on 2026-07-22).
+  exceeds the shoulder tolerance logs a warning-level "Shoulders
+  misaligned:" line with the signed tilt and which shoulder to lower
+  (positive tilt = the subject's anatomical left shoulder is higher, so
+  lower the left). Unlike the slouch alert this needs no per-user
+  baseline - level is level. The tolerance is the
+  PostureShoulderTolerance preference, stored as a slope (the height
+  difference between the shoulder joints over their separation) with
+  five slider stops - 5, 4, 3, 2, 1 percent, relaxed to strict, default
+  5 - and converted to degrees (atan) when mirrored onto the analysis
+  queue, since the evaluation compares degrees. The default 5 percent
+  is ~2.9 degrees, keeping the feel of the hardcoded 3-degree band it
+  replaced on 2026-07-31 (that band was itself tuned from 5 and 2 on
+  2026-07-22).
 - Output goes to the unified log: subsystem com.shergin.narcissism, category
   Posture. Watch it with:
       log stream --predicate 'subsystem == "com.shergin.narcissism"'
@@ -334,6 +348,12 @@ Notifications page (see UI/Settings/spec.md).
   not, slouch measurable or not (the eyes), and the un-debounced breach
   verdict per issue. Muted windows (no baseline, calibration window open)
   publish nothing, so posing during calibration is never recorded.
+  The breach verdicts use the same strictness preferences as the nudges
+  (a recorded decision, 2026-07-31: one notion of "bad posture" for both
+  surfaces beats explaining two). History is recorded, never recomputed:
+  changing strictness changes only future verdicts, and days tracked
+  under a different strictness keep theirs - the same way a fitness
+  tracker keeps old workouts when a goal changes.
 - SRPostureHistoryService (a composition-root service, AppServices) folds
   those samples into per-day, per-hour buckets of five counters, all in
   seconds: measured, slouch-measurable, slouching, left shoulder high,
@@ -353,10 +373,12 @@ Notifications page (see UI/Settings/spec.md).
   it - reaching for a cup or stretching must not count, while those same
   seconds still count as measured (denominator) time, which is exactly
   how a user reads a coffee sip: fine.
-- The constants are measurement constants, deliberately independent of
-  the notification machinery (nudge delay, clear hysteresis): changing
-  notification preferences must never rewrite history. Nudges may fire
-  at one threshold while statistics require another; different jobs.
+- The qualify and gap constants are measurement constants, deliberately
+  independent of the notification machinery (nudge delay, clear
+  hysteresis): changing how nudges are delivered must never change what
+  gets recorded. The breach thresholds are the exception by design -
+  the shared strictness preferences above define what counts as an
+  issue for both surfaces at once.
 - A pause between samples longer than 5 s resets every run (probe
   stopped: toggle, snooze, sleep, camera loss); whatever follows is a
   fresh sitting.

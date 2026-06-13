@@ -73,6 +73,11 @@
 "settings.posture.baseline.calibrated" = "Calibrated %@";
 "settings.posture.baseline.none" = "Not calibrated";
 "settings.posture.calibrate" = "Calibrate Posture…";
+"settings.posture.strictness.header" = "Tracking strictness";
+"settings.posture.slouch-strictness.label" = "Slouch:";
+"settings.posture.shoulder-strictness.label" = "Shoulder tilt:";
+"settings.posture.strictness.relaxed" = "Relaxed";
+"settings.posture.strictness.strict" = "Strict";
 "settings.notifications.delay.label" = "Notify after:";
 "settings.notifications.delay.5-seconds" = "5 Seconds";
 "settings.notifications.delay.10-seconds" = "10 Seconds";

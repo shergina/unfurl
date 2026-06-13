@@ -89,6 +89,21 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				self.analysisQueue.async { self.issueReportWindows = windows }
 			}
 			.store(in: &self.cancellables)
+
+		// And for the strictness preferences. The shoulder tolerance is
+		// stored as a slope (height difference over shoulder separation);
+		// the evaluation compares degrees, so convert once here.
+		SRSettings.sharedInstance.postureSlouchTolerance.publisher
+			.sink { [unowned self] tolerance in
+				self.analysisQueue.async { self.slouchTolerance = tolerance }
+			}
+			.store(in: &self.cancellables)
+		SRSettings.sharedInstance.postureShoulderTolerance.publisher
+			.sink { [unowned self] slope in
+				let degrees = atan(slope) * 180 / .pi
+				self.analysisQueue.async { self.maximumLevelShoulderTiltDegrees = degrees }
+			}
+			.store(in: &self.cancellables)
 	}
 
 	/// Attaches a video data output to the shared session and begins the
@@ -234,16 +249,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// admits are usable or noise; revisit with the accuracy question.
 	fileprivate nonisolated static let minimumJointConfidence: Float = 0.2
 
-	/// Windows whose slouch ratio drops more than this fraction below the
-	/// baseline log a slouching warning (tightened from the ~10 percent
-	/// starting band in VISION.md). Ratios above baseline are sitting tall,
-	/// never an alert.
-	fileprivate nonisolated static let slouchTolerance: CGFloat = 0.05
-
-	/// Tilt magnitudes beyond this many degrees off level are called out as
-	/// misaligned shoulders, naming the higher shoulder for correction.
-	fileprivate nonisolated static let maximumLevelShoulderTiltDegrees: CGFloat = 3.0
-
 	// An active episode ends only after this many consecutive clean
 	// windows (or instantly on a strong recovery past half the tolerance
 	// band). Brief dips at the threshold neither report nor reset.
@@ -260,6 +265,15 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// calibrated, which suppresses the whole per-window evaluation.
 	/// Touched only on the (serial) analysis queue.
 	fileprivate nonisolated(unsafe) var baselineSlouchRatio: CGFloat?
+
+	/// Mirrors of the strictness preferences (see init): how far below
+	/// baseline the slouch ratio may drift, and how far off level the
+	/// shoulder line may tilt (in degrees, converted from the stored
+	/// slope). Ratios above baseline are sitting tall, never an alert.
+	/// Touched only on the analysis queue; the literals match the
+	/// preference defaults and are overwritten by the replay in init.
+	fileprivate nonisolated(unsafe) var slouchTolerance: CGFloat = 0.10
+	fileprivate nonisolated(unsafe) var maximumLevelShoulderTiltDegrees: CGFloat = 2.9
 
 	/// Mirror of calibrationWindowOpen. Touched only on the analysis queue.
 	fileprivate nonisolated(unsafe) var suppressedForCalibration = false
@@ -391,7 +405,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// current experiment.
 		if
 			let ratio = self.adaptiveWindow.bestMeasurement?.slouchRatio ?? self.paddedWindow.bestMeasurement?.slouchRatio,
-			ratio < baseline * (1 - Self.slouchTolerance)
+			ratio < baseline * (1 - self.slouchTolerance)
 		{
 			let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
 			Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
@@ -402,7 +416,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// higher one, so it is the one to lower.
 		if
 			let tilt = self.adaptiveWindow.bestMeasurement?.shoulderTiltDegrees ?? self.paddedWindow.bestMeasurement?.shoulderTiltDegrees,
-			abs(tilt) > Self.maximumLevelShoulderTiltDegrees
+			abs(tilt) > self.maximumLevelShoulderTiltDegrees
 		{
 			let higherShoulder = tilt > 0 ? "left" : "right"
 			Self.logger.warning("Shoulders misaligned: tilt \(String(format: "%+.1f", tilt), privacy: .public) deg - lower your \(higherShoulder, privacy: .public) shoulder")
@@ -421,8 +435,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 			let slouchObservation: SRIssueObservation
 			if let ratio = measurement.slouchRatio {
-				let breachFloor = baseline * (1 - Self.slouchTolerance)
-				let strongFloor = baseline * (1 - Self.slouchTolerance / 2)
+				let breachFloor = baseline * (1 - self.slouchTolerance)
+				let strongFloor = baseline * (1 - self.slouchTolerance / 2)
 				slouchObservation = ratio < breachFloor ? .breaching : (ratio >= strongFloor ? .stronglyRecovered : .clean)
 			} else {
 				// Eyes not measurable this window: freeze the tracker
@@ -431,7 +445,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			}
 
 			let tilt = measurement.shoulderTiltDegrees
-			let limit = Self.maximumLevelShoulderTiltDegrees
+			let limit = self.maximumLevelShoulderTiltDegrees
 			let leftObservation: SRIssueObservation = tilt > limit ? .breaching : (tilt <= limit / 2 ? .stronglyRecovered : .clean)
 			let rightObservation: SRIssueObservation = -tilt > limit ? .breaching : (-tilt <= limit / 2 ? .stronglyRecovered : .clean)
 

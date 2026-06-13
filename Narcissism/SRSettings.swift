@@ -95,6 +95,13 @@ final class SRSettings {
 	// How long (seconds) an issue must persist before it is voiced; drives
 	// the report debounce in the analysis service.
 	let postureNudgeDelay: Preference<CGFloat>
+	// Strictness: how far a metric may drift before it counts as an issue,
+	// for both the nudges and the recorded statistics. Slouch: fraction
+	// below the baseline ratio (0.15 relaxed ... 0.05 strict). Shoulders:
+	// the height difference between the shoulders as a fraction of their
+	// separation, i.e. the tilt's slope (0.05 relaxed ... 0.01 strict).
+	let postureSlouchTolerance: Preference<CGFloat>
+	let postureShoulderTolerance: Preference<CGFloat>
 	// The nudge channels: the corner note, a beep, and the status-item
 	// tint. Independent; all off means tracking runs silently.
 	let postureNoteEnabled: Preference<Bool>
@@ -132,6 +139,8 @@ final class SRSettings {
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
+		self.postureSlouchTolerance = Preference("PostureSlouchTolerance", default: 0.10, defaults: defaults)
+		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.05, defaults: defaults)
 		self.postureNoteEnabled = Preference("PostureNoteEnabled", default: true, defaults: defaults)
 		self.postureNoteGhost = Preference("PostureNoteGhost", default: true, defaults: defaults)
 		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)
