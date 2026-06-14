@@ -144,14 +144,14 @@ final class SRSettingsPostureViewController: NSViewController {
 		addStrictnessRow(
 			labelKey: "settings.posture.slouch-strictness.label",
 			slider: SRPreferenceStepSlider(
-				stops: [0.15, 0.125, 0.10, 0.075, 0.05],
+				stops: [0.12, 0.10, 0.08, 0.06, 0.04],
 				preference: self.settings.postureSlouchTolerance
 			)
 		)
 		addStrictnessRow(
 			labelKey: "settings.posture.shoulder-strictness.label",
 			slider: SRPreferenceStepSlider(
-				stops: [0.05, 0.04, 0.03, 0.02, 0.01],
+				stops: [0.09, 0.07, 0.05, 0.03, 0.02],
 				preference: self.settings.postureShoulderTolerance
 			)
 		)

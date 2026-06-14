@@ -97,9 +97,9 @@ final class SRSettings {
 	let postureNudgeDelay: Preference<CGFloat>
 	// Strictness: how far a metric may drift before it counts as an issue,
 	// for both the nudges and the recorded statistics. Slouch: fraction
-	// below the baseline ratio (0.15 relaxed ... 0.05 strict). Shoulders:
+	// below the baseline ratio (0.12 relaxed ... 0.04 strict). Shoulders:
 	// the height difference between the shoulders as a fraction of their
-	// separation, i.e. the tilt's slope (0.05 relaxed ... 0.01 strict).
+	// separation, i.e. the tilt's slope (0.09 relaxed ... 0.02 strict).
 	let postureSlouchTolerance: Preference<CGFloat>
 	let postureShoulderTolerance: Preference<CGFloat>
 	// The nudge channels: the corner note, a beep, and the status-item
@@ -139,8 +139,8 @@ final class SRSettings {
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
-		self.postureSlouchTolerance = Preference("PostureSlouchTolerance", default: 0.10, defaults: defaults)
-		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.05, defaults: defaults)
+		self.postureSlouchTolerance = Preference("PostureSlouchTolerance", default: 0.06, defaults: defaults)
+		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.07, defaults: defaults)
 		self.postureNoteEnabled = Preference("PostureNoteEnabled", default: true, defaults: defaults)
 		self.postureNoteGhost = Preference("PostureNoteGhost", default: true, defaults: defaults)
 		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)

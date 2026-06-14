@@ -148,12 +148,14 @@ Notifications page (see UI/Settings/spec.md).
   slouch tolerance below baseline logs a warning-level "Slouching:"
   line naming the ratio and the deviation; ratios above baseline mean
   sitting tall and never alert. The tolerance is the
-  PostureSlouchTolerance preference (default 0.10), set by the
+  PostureSlouchTolerance preference (default 0.06), set by the
   strictness slider on the Settings window's Posture page over five
-  stops - 15, 12.5, 10, 7.5, 5 percent, relaxed to strict - and
-  mirrored onto the analysis queue like the baseline. (The value was a
-  hardcoded 5 percent through 2026-07-31; live testing found that too
-  strict as a default, hence the ladder ending there.) While no
+  stops - 12, 10, 8, 6, 4 percent, relaxed to strict - and
+  mirrored onto the analysis queue like the baseline. (History: a
+  hardcoded 5 percent through 2026-07-31, then a 15...5 percent ladder
+  at default 10; live testing that day found the whole ladder too loose,
+  real slouching going unflagged, so it was tightened to 12...4 at
+  default 6.) While no
   baseline is stored (<= 0 sentinel) the
   slouch alert, the issue tracking, and the corner note are all
   suppressed - nil status, trackers cleared - because there is nothing
@@ -172,12 +174,14 @@ Notifications page (see UI/Settings/spec.md).
   baseline - level is level. The tolerance is the
   PostureShoulderTolerance preference, stored as a slope (the height
   difference between the shoulder joints over their separation) with
-  five slider stops - 5, 4, 3, 2, 1 percent, relaxed to strict, default
-  5 - and converted to degrees (atan) when mirrored onto the analysis
-  queue, since the evaluation compares degrees. The default 5 percent
-  is ~2.9 degrees, keeping the feel of the hardcoded 3-degree band it
-  replaced on 2026-07-31 (that band was itself tuned from 5 and 2 on
-  2026-07-22).
+  five slider stops - 9, 7, 5, 3, 2 percent, relaxed to strict, default
+  7 - and converted to degrees (atan) when mirrored onto the analysis
+  queue, since the evaluation compares degrees. The default 7 percent
+  is ~4.0 degrees. (History: a hardcoded 3-degree band, tuned from 5 and
+  2 on 2026-07-22, then a 5...1 percent ladder at default ~2.9 degrees;
+  live testing on 2026-07-31 found even the relaxed end too strict, a
+  barely-visible tilt nagging, so the ladder was raised to 9...2 percent,
+  ~5.1 to ~1.1 degrees, at default ~4.0.)
 - Output goes to the unified log: subsystem com.shergin.narcissism, category
   Posture. Watch it with:
       log stream --predicate 'subsystem == "com.shergin.narcissism"'
