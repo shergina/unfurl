@@ -51,7 +51,7 @@ final class SRSettingsGeneralViewController: NSViewController {
 		// keeps the rows together at the top instead of stretching them apart.
 		NSLayoutConstraint.activate([
 			grid.topAnchor.constraint(equalTo: view.topAnchor, constant: 20.0),
-			grid.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -20.0),
+			grid.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -28.0),
 			grid.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 			grid.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20.0),
 		])
@@ -60,7 +60,7 @@ final class SRSettingsGeneralViewController: NSViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		self.preferredContentSize = CGSize(width: 540.0, height: max(240.0, self.view.fittingSize.height))
+		self.preferredContentSize = CGSize(width: 540.0, height: self.view.fittingSize.height)
 	}
 
 }

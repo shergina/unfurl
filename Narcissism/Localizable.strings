@@ -88,9 +88,7 @@
 "settings.notifications.channel.note" = "On-screen note";
 "settings.notifications.channel.sound" = "Sound";
 "settings.notifications.channel.status-item" = "Menu bar icon lights up";
-"settings.notifications.note.label" = "On-screen note:";
 "settings.notifications.note-ghost" = "Fade under the pointer";
-"settings.notifications.sound.label" = "Sound:";
 "settings.notifications.snooze.label" = "Snooze:";
 "settings.notifications.snooze.off" = "Off";
 "settings.notifications.snooze.until" = "Until %@";

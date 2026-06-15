@@ -93,19 +93,25 @@ final class SRSettingsNotificationsViewController: NSViewController {
 		self.delayPopup = delayPopup
 		addRow("settings.notifications.delay.label", delayPopup)
 
-		// The channels; all independent, all off means silent tracking.
-		addRow(
-			"settings.notifications.channels.label",
-			SRPreferenceCheckbox(titleKey: "settings.notifications.channel.note", preference: self.settings.postureNoteEnabled)
-		)
-		grid.addRow(with: [
-			NSGridCell.emptyContentView,
-			SRPreferenceCheckbox(titleKey: "settings.notifications.channel.sound", preference: self.settings.postureSoundEnabled),
-		])
-		grid.addRow(with: [
-			NSGridCell.emptyContentView,
-			SRPreferenceCheckbox(titleKey: "settings.notifications.channel.status-item", preference: self.settings.postureStatusItemTint),
-		])
+		// The channels, each an independent toggle (all off means silent
+		// tracking), stacked in the control column with a channel's own
+		// sub-option nested one indent under it, so the dependency reads at a
+		// glance: the note's ghost mode under the note, the sound picker under
+		// the sound. The status-item tint has no sub-option. This replaces the
+		// old flat list where those options were sibling rows repeating the
+		// channel name; the checkbox above now names them. The "Notify with"
+		// label baseline-aligns to the first checkbox.
+		func indented(_ view: NSView) -> NSView {
+			let spacer = NSView()
+			spacer.translatesAutoresizingMaskIntoConstraints = false
+			spacer.widthAnchor.constraint(equalToConstant: 18.0).isActive = true
+			let row = NSStackView(views: [spacer, view])
+			row.orientation = .horizontal
+			row.spacing = 0.0
+			return row
+		}
+
+		let noteCheckbox = SRPreferenceCheckbox(titleKey: "settings.notifications.channel.note", preference: self.settings.postureNoteEnabled)
 
 		// The note's ghost mode; only meaningful while the note channel is
 		// on, so it disables with it (the sound picker pattern).
@@ -113,8 +119,12 @@ final class SRSettingsNotificationsViewController: NSViewController {
 		self.settings.postureNoteEnabled.publisher
 			.sink { [weak ghostCheckbox] enabled in ghostCheckbox?.isEnabled = enabled }
 			.store(in: &self.cancellables)
-		addRow("settings.notifications.note.label", ghostCheckbox)
 
+		let soundCheckbox = SRPreferenceCheckbox(titleKey: "settings.notifications.channel.sound", preference: self.settings.postureSoundEnabled)
+
+		// The sound picker sits bare under the Sound checkbox: the checkbox
+		// above already says Sound, so no repeated label. Disabled with the
+		// sound channel; selecting persists the name and previews it once.
 		let soundPopup = NSPopUpButton()
 		for name in SRPostureSoundController.soundNames {
 			// System sound names are proper nouns; not localized.
@@ -129,7 +139,41 @@ final class SRSettingsNotificationsViewController: NSViewController {
 			.sink { [weak soundPopup] enabled in soundPopup?.isEnabled = enabled }
 			.store(in: &self.cancellables)
 		self.soundPopup = soundPopup
-		addRow("settings.notifications.sound.label", soundPopup)
+
+		let statusItemCheckbox = SRPreferenceCheckbox(titleKey: "settings.notifications.channel.status-item", preference: self.settings.postureStatusItemTint)
+
+		let channelsStack = NSStackView(views: [
+			noteCheckbox,
+			indented(ghostCheckbox),
+			soundCheckbox,
+			indented(soundPopup),
+			statusItemCheckbox,
+		])
+		channelsStack.orientation = .vertical
+		channelsStack.alignment = .leading
+		channelsStack.spacing = 8.0
+		let channelsLabel = NSTextField(labelWithString: NSLocalizedString("settings.notifications.channels.label", comment: ""))
+		let channelsRow = grid.addRow(with: [channelsLabel, channelsStack])
+		channelsRow.rowAlignment = .firstBaseline
+
+		// A rule sets Snooze apart from the delivery settings above: it is a
+		// temporary pause, not configuration of how a nudge arrives. Same
+		// group-sized gap and full-width fill as the Posture tab's rule, so
+		// the two tabs group the same way.
+		let snoozeSeparator = NSBox()
+		snoozeSeparator.boxType = .separator
+		snoozeSeparator.translatesAutoresizingMaskIntoConstraints = false
+		let snoozeSeparatorContainer = NSView()
+		snoozeSeparatorContainer.addSubview(snoozeSeparator)
+		NSLayoutConstraint.activate([
+			snoozeSeparator.leadingAnchor.constraint(equalTo: snoozeSeparatorContainer.leadingAnchor),
+			snoozeSeparator.trailingAnchor.constraint(equalTo: snoozeSeparatorContainer.trailingAnchor),
+			snoozeSeparator.centerYAnchor.constraint(equalTo: snoozeSeparatorContainer.centerYAnchor),
+			snoozeSeparatorContainer.heightAnchor.constraint(equalToConstant: 20.0),
+		])
+		let snoozeSeparatorRow = grid.addRow(with: [snoozeSeparatorContainer])
+		snoozeSeparatorRow.mergeCells(in: NSRange(location: 0, length: 2))
+		snoozeSeparatorRow.cell(at: 0).xPlacement = .fill
 
 		// Snooze: the menu's durations as a popup, rebuilt on every deadline
 		// change so it mirrors the menu's states - "Off" when idle, and while
@@ -157,7 +201,7 @@ final class SRSettingsNotificationsViewController: NSViewController {
 		// keeps the rows together at the top instead of stretching them apart.
 		NSLayoutConstraint.activate([
 			grid.topAnchor.constraint(equalTo: view.topAnchor, constant: 20.0),
-			grid.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -20.0),
+			grid.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -28.0),
 			grid.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 			grid.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20.0),
 		])
@@ -166,7 +210,7 @@ final class SRSettingsNotificationsViewController: NSViewController {
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		self.preferredContentSize = CGSize(width: 540.0, height: max(300.0, self.view.fittingSize.height))
+		self.preferredContentSize = CGSize(width: 540.0, height: self.view.fittingSize.height)
 	}
 
 	@objc fileprivate func handleDelayChange(_ sender: Any?) {
