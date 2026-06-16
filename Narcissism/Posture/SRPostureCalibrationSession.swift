@@ -7,12 +7,18 @@
 
 import Cocoa
 import Combine
+import os
 
 
 /// The calibration state machine, no AppKit: eats the probe's per-frame
 /// samples, publishes the phase the window renders. Flow: position ->
-/// Begin -> 3-2-1 -> 5 s of sampling (pauses when you vanish, 10 s hard
-/// cap) -> quality gates -> the median becomes the baseline. See spec.md.
+/// Begin -> 3-2-1 -> 5 s of upright sampling (pauses when you vanish,
+/// 10 s hard cap) -> quality gates -> the upright median is reported
+/// (onUprightCaptured, saved right away) -> the slouch pose: instruction
+/// with an auto 3-2-1, the same 5 s capture and gates plus the span
+/// gates -> done carries both medians. A failed slouch capture rests at
+/// slouchReady (Begin re-arms it) so an absent user never loops. See
+/// spec.md.
 @MainActor
 final class SRPostureCalibrationSession {
 
@@ -26,14 +32,31 @@ final class SRPostureCalibrationSession {
 	enum Failure: Equatable {
 		case timedOut          // the wall-clock cap elapsed mid-capture
 		case unstableReadings  // too few samples, too much spread, or nonsense
+		case notSlouched       // the slouch capture read at or above upright
+	}
+
+	enum Pose: Equatable {
+		case upright
+		case slouched
 	}
 
 	enum Phase: Equatable {
 		case positioning(guidance: Guidance, failure: Failure?)
-		case countingDown(remaining: Int)
-		case capturing(sampledSeconds: Double, paused: Bool)
-		case done(baseline: CGFloat)
+		case slouchReady(failure: Failure?)
+		case countingDown(pose: Pose, remaining: Int)
+		case capturing(pose: Pose, sampledSeconds: Double, paused: Bool)
+		case done(baseline: CGFloat, slouched: CGFloat)
 	}
+
+	/// Fires the moment the upright capture passes its gates, before the
+	/// slouch pose runs; the owner saves it right away (a flow abandoned
+	/// mid-slouch still keeps a valid single-point baseline).
+	var onUprightCaptured: ((CGFloat) -> Void)?
+
+	/// Calibration outcomes are tuning telemetry (the span floor and the
+	/// depth ladder are tuned from these lines), same category as the
+	/// probe's per-window log.
+	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.narcissism", category: "Posture")
 
 	let onPhase = CurrentValueSubject<Phase, Never>(.positioning(guidance: .notVisible, failure: nil))
 
@@ -54,6 +77,16 @@ final class SRPostureCalibrationSession {
 	fileprivate static let minimumSampleCount = 12
 	fileprivate static let maximumSampleStandardDeviation: CGFloat = 0.04
 	fileprivate static let sanityRange: ClosedRange<CGFloat> = 0.2...1.5
+	/// The slouched median must sit at least this far below the upright
+	/// one. The gate's only job is "did you move at all", not "was it a
+	/// big slouch": both sides are medians of 12+ samples, far tighter
+	/// than the per-frame stddev gate, so this comfortably clears noise
+	/// while accepting a low-gain camera's honest slouch. (History: 0.08
+	/// on day one - "twice the stddev gate" - rejected real slouches on
+	/// the laptop camera, whose whole span is ~0.05-0.10 precisely
+	/// because its gain is low; a fixed floor sized for the monitor's
+	/// gain repeated the per-camera mistake the span exists to fix.)
+	fileprivate static let minimumSlouchSpan: CGFloat = 0.04
 	/// Narrower shoulders than this fraction of the frame = too far away.
 	fileprivate static let minimumShoulderWidthFraction: CGFloat = 0.15
 
@@ -62,6 +95,8 @@ final class SRPostureCalibrationSession {
 	fileprivate var consecutiveUnusable = 0
 	fileprivate var consecutiveUsable = 0
 	fileprivate var paused = false
+	fileprivate var capturePose: Pose = .upright
+	fileprivate var uprightMedian: CGFloat?
 	fileprivate var countdownTimer: Timer?
 	fileprivate var capTimer: Timer?
 
@@ -72,23 +107,32 @@ final class SRPostureCalibrationSession {
 			self.onPhase.send(.positioning(guidance: Self.guidance(for: sample), failure: failure))
 		case .capturing:
 			self.ingestWhileCapturing(sample)
-		case .countingDown, .done:
+		case .countingDown, .done, .slouchReady:
 			// The countdown ignores detection loss; capture pauses right
-			// away if the user is still gone.
+			// away if the user is still gone. slouchReady waits for Begin -
+			// framing was already established by the upright capture.
 			break
 		}
 	}
 
-	/// Only honored while positioned well; the Begin button mirrors this.
+	/// Honored while positioned well (starts the upright pass; the Begin
+	/// button mirrors this) and at slouchReady (re-arms the slouch pass).
 	func begin() {
-		guard case .positioning(guidance: .good, _) = self.onPhase.value else { return }
-		self.startCountdown()
+		switch self.onPhase.value {
+		case .positioning(guidance: .good, _):
+			self.startCountdown(pose: .upright)
+		case .slouchReady:
+			self.startCountdown(pose: .slouched)
+		default:
+			break
+		}
 	}
 
-	/// Back to positioning for another pass; only honored in done.
+	/// Back to positioning for a full two-pose pass; only honored in done.
 	func redo() {
 		guard case .done = self.onPhase.value else { return }
 		self.samples = []
+		self.uprightMedian = nil
 		self.onPhase.send(.positioning(guidance: .notVisible, failure: nil))
 	}
 
@@ -109,8 +153,9 @@ final class SRPostureCalibrationSession {
 
 	//: ## Countdown
 
-	fileprivate func startCountdown() {
-		self.onPhase.send(.countingDown(remaining: Self.countdownSeconds))
+	fileprivate func startCountdown(pose: Pose) {
+		self.capturePose = pose
+		self.onPhase.send(.countingDown(pose: pose, remaining: Self.countdownSeconds))
 		let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
 			Task { @MainActor [weak self] in self?.tickCountdown() }
 		}
@@ -119,9 +164,9 @@ final class SRPostureCalibrationSession {
 	}
 
 	fileprivate func tickCountdown() {
-		guard case .countingDown(let remaining) = self.onPhase.value else { return }
+		guard case .countingDown(let pose, let remaining) = self.onPhase.value else { return }
 		if remaining > 1 {
-			self.onPhase.send(.countingDown(remaining: remaining - 1))
+			self.onPhase.send(.countingDown(pose: pose, remaining: remaining - 1))
 		} else {
 			self.countdownTimer?.invalidate()
 			self.countdownTimer = nil
@@ -137,7 +182,7 @@ final class SRPostureCalibrationSession {
 		self.consecutiveUnusable = 0
 		self.consecutiveUsable = 0
 		self.paused = false
-		self.onPhase.send(.capturing(sampledSeconds: 0, paused: false))
+		self.onPhase.send(.capturing(pose: self.capturePose, sampledSeconds: 0, paused: false))
 
 		let timer = Timer(timeInterval: Self.captureWallClockCap, repeats: false) { [weak self] _ in
 			Task { @MainActor [weak self] in self?.abortCapture(with: .timedOut) }
@@ -159,7 +204,7 @@ final class SRPostureCalibrationSession {
 		if self.paused {
 			if self.consecutiveUsable >= Self.resumeAfterConsecutiveUsable {
 				self.paused = false
-				self.onPhase.send(.capturing(sampledSeconds: self.sampledSeconds, paused: false))
+				self.onPhase.send(.capturing(pose: self.capturePose, sampledSeconds: self.sampledSeconds, paused: false))
 			}
 			return
 		}
@@ -169,7 +214,7 @@ final class SRPostureCalibrationSession {
 			// ticked the clock while the user was already gone.
 			self.paused = true
 			self.sampledSeconds = max(0, self.sampledSeconds - Double(Self.pauseAfterConsecutiveUnusable - 1) * Self.secondsPerFrame)
-			self.onPhase.send(.capturing(sampledSeconds: self.sampledSeconds, paused: true))
+			self.onPhase.send(.capturing(pose: self.capturePose, sampledSeconds: self.sampledSeconds, paused: true))
 			return
 		}
 
@@ -180,18 +225,26 @@ final class SRPostureCalibrationSession {
 
 		// Publish the final value too, so the bar gets its "full" target
 		// before the done phase lands.
-		self.onPhase.send(.capturing(sampledSeconds: self.sampledSeconds, paused: false))
+		self.onPhase.send(.capturing(pose: self.capturePose, sampledSeconds: self.sampledSeconds, paused: false))
 		if self.sampledSeconds >= Self.requiredSampledSeconds {
 			self.finishCapture()
 		}
 	}
 
+	/// A failed capture rests at the failed pose: positioning for upright,
+	/// slouchReady for slouched (a good upright capture is never discarded,
+	/// and slouchReady requires Begin, so an absent user never loops).
 	fileprivate func abortCapture(with failure: Failure) {
 		guard case .capturing = self.onPhase.value else { return }
 		self.invalidate()
 		self.samples = []
-		// The guidance refreshes on the very next ingested frame.
-		self.onPhase.send(.positioning(guidance: .notVisible, failure: failure))
+		switch self.capturePose {
+		case .upright:
+			// The guidance refreshes on the very next ingested frame.
+			self.onPhase.send(.positioning(guidance: .notVisible, failure: failure))
+		case .slouched:
+			self.onPhase.send(.slouchReady(failure: failure))
+		}
 	}
 
 	fileprivate func finishCapture() {
@@ -201,7 +254,7 @@ final class SRPostureCalibrationSession {
 		let sorted = self.samples.sorted()
 		let count = sorted.count
 		guard count >= Self.minimumSampleCount else {
-			self.abortFinishedCapture()
+			self.abortFinishedCapture(with: .unstableReadings)
 			return
 		}
 
@@ -214,17 +267,44 @@ final class SRPostureCalibrationSession {
 		let mean = sorted.reduce(0, +) / CGFloat(count)
 		let variance = sorted.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / CGFloat(count)
 		guard variance.squareRoot() <= Self.maximumSampleStandardDeviation, Self.sanityRange.contains(median) else {
-			self.abortFinishedCapture()
+			self.abortFinishedCapture(with: .unstableReadings)
 			return
 		}
 
-		self.onPhase.send(.done(baseline: median))
+		switch self.capturePose {
+		case .upright:
+			// Reported (and saved) right away, then straight into the slouch
+			// pose: the instruction shows during the auto countdown, which is
+			// plenty to settle into a slouch. The user is present - they just
+			// finished a capture - so the auto-start cannot loop unattended.
+			self.uprightMedian = median
+			Self.logger.log("Calibration upright captured: median \(String(format: "%.3f", median), privacy: .public) (\(count, privacy: .public) samples)")
+			self.onUprightCaptured?(median)
+			self.startCountdown(pose: .slouched)
+
+		case .slouched:
+			// The span gates: a "slouch" at or above upright, or closer to it
+			// than measurement noise, is not a slouch.
+			guard let upright = self.uprightMedian, upright - median >= Self.minimumSlouchSpan else {
+				let upright = self.uprightMedian ?? 0
+				Self.logger.warning("Calibration slouch rejected: median \(String(format: "%.3f", median), privacy: .public) vs upright \(String(format: "%.3f", upright), privacy: .public), span \(String(format: "%.3f", upright - median), privacy: .public) under floor \(String(format: "%.3f", Self.minimumSlouchSpan), privacy: .public)")
+				self.abortFinishedCapture(with: .notSlouched)
+				return
+			}
+			Self.logger.log("Calibration finished: upright \(String(format: "%.3f", upright), privacy: .public), slouched \(String(format: "%.3f", median), privacy: .public), span \(String(format: "%.3f", upright - median), privacy: .public)")
+			self.onPhase.send(.done(baseline: upright, slouched: median))
+		}
 	}
 
 	/// A capture that reached its 5 seconds but failed the quality gates.
-	fileprivate func abortFinishedCapture() {
+	fileprivate func abortFinishedCapture(with failure: Failure) {
 		self.samples = []
-		self.onPhase.send(.positioning(guidance: .notVisible, failure: .unstableReadings))
+		switch self.capturePose {
+		case .upright:
+			self.onPhase.send(.positioning(guidance: .notVisible, failure: failure))
+		case .slouched:
+			self.onPhase.send(.slouchReady(failure: failure))
+		}
 	}
 
 }

@@ -73,8 +73,11 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 	}
 
 	fileprivate func reconcile(prefer: Bool, tracking: Bool, baselines: [String: PostureBaseline], devices: [CameraDevice]) {
+		// Blocked = the gate would not let this external take over: no
+		// baseline at all, or a single-point one without the measured
+		// slouch span (see the gate in the composition root).
 		let blocked = (prefer && tracking)
-			? devices.filter { $0.isExternal && baselines[$0.id] == nil }
+			? devices.filter { $0.isExternal && baselines[$0.id]?.slouchedRatio == nil }
 			: []
 
 		// Withdraw a delivered nudge once its reason is gone (calibrated,
@@ -90,13 +93,28 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 
 		for device in blocked where !self.nudgedDeviceIDs.contains(device.id) {
 			self.nudgedDeviceIDs.insert(device.id)
-			self.post(for: device)
+			self.post(for: device, hasBaseline: baselines[device.id] != nil)
 		}
+	}
+
+	/// The wording names what calibrating buys: a switch when the camera is
+	/// not active ("New camera detected"), resumed tracking when it is
+	/// active but uncalibrated (the clamshell last resort), better accuracy
+	/// when it is active on a single-point baseline running the
+	/// nominal-span rule.
+	fileprivate func notificationKeys(for device: CameraDevice, hasBaseline: Bool) -> (title: String, body: String) {
+		let isActive = self.services.camera.onSelectedDeviceID.value == device.id
+		if !isActive { return ("posture.nudge.title", "posture.nudge.body") }
+		return (
+			"posture.nudge.title.active",
+			hasBaseline ? "posture.nudge.body.improve" : "posture.nudge.body.resume"
+		)
 	}
 
 	/// Authorization is requested lazily, on the first nudge that actually
 	/// needs it, never at launch. Denial is logged, not silent.
-	fileprivate func post(for device: CameraDevice) {
+	fileprivate func post(for device: CameraDevice, hasBaseline: Bool) {
+		let keys = self.notificationKeys(for: device, hasBaseline: hasBaseline)
 		UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
 			if let error {
 				Self.logger.error("Calibration nudge authorization error: \(error.localizedDescription)")
@@ -106,8 +124,8 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 				return
 			}
 			let content = UNMutableNotificationContent()
-			content.title = NSLocalizedString("posture.nudge.title", comment: "")
-			content.body = String(format: NSLocalizedString("posture.nudge.body", comment: ""), device.name)
+			content.title = NSLocalizedString(keys.title, comment: "")
+			content.body = String(format: NSLocalizedString(keys.body, comment: ""), device.name)
 			content.categoryIdentifier = Self.categoryIdentifier
 			content.userInfo = [Self.deviceIDKey: device.id]
 			UNUserNotificationCenter.current().add(UNNotificationRequest(

@@ -17,12 +17,23 @@ protocol PreferenceValue {
 }
 
 
-/// One camera's good-posture calibration: the slouch ratio and when it was
-/// measured. Stored per-camera (see SRSettings.postureBaselines) because each
-/// camera's angle changes what an upright posture measures.
+/// One camera's good-posture calibration: the upright slouch ratio, the
+/// demonstrated-slouch ratio (nil on a single-point entry - calibrated
+/// before the two-pose flow, or the flow was abandoned after the upright
+/// capture), and when it was measured. Stored per-camera (see
+/// SRSettings.postureBaselines) because each camera's angle changes both
+/// what an upright posture measures and how fast the ratio moves per unit
+/// of real slouch - the span calibrates that second part, the gain.
 struct PostureBaseline: Equatable, Sendable {
 	var slouchRatio: CGFloat
+	var slouchedRatio: CGFloat?
 	var date: Date
+
+	/// How far the ratio travels from upright to this user's own slouch on
+	/// this camera; nil while only the upright pose was measured.
+	var span: CGFloat? {
+		return self.slouchedRatio.map { self.slouchRatio - $0 }
+	}
 }
 
 
@@ -114,12 +125,19 @@ final class SRSettings {
 	// the report debounce in the analysis service.
 	let postureNudgeDelay: Preference<CGFloat>
 	// Strictness: how far a metric may drift before it counts as an issue,
-	// for both the nudges and the recorded statistics. Slouch: fraction
-	// below the baseline ratio (0.12 relaxed ... 0.04 strict). Shoulders:
-	// the height difference between the shoulders as a fraction of their
-	// separation, i.e. the tilt's slope (0.09 relaxed ... 0.02 strict).
-	let postureSlouchTolerance: Preference<CGFloat>
+	// for both the nudges and the recorded statistics. Slouch: the depth
+	// tolerance - the fraction of the calibrated slouch span (upright to
+	// demonstrated slouch) the ratio may sink (0.6 relaxed ... 0.2 strict);
+	// a camera without a measured span falls back to a nominal span of
+	// nominalSlouchSpanFraction of its baseline, which reproduces the old
+	// percent-of-baseline ladder exactly. Shoulders: the height difference
+	// between the shoulders as a fraction of their separation, i.e. the
+	// tilt's slope (0.09 relaxed ... 0.02 strict).
+	let postureSlouchDepthTolerance: Preference<CGFloat>
 	let postureShoulderTolerance: Preference<CGFloat>
+	// Legacy slouch tolerance (fraction below baseline), read once to seed
+	// the depth tolerance; never written again.
+	let postureSlouchTolerance: Preference<CGFloat>
 	// The nudge channels: the corner note, a beep, and the status-item
 	// tint. Independent; all off means tracking runs silently.
 	let postureNoteEnabled: Preference<Bool>
@@ -133,6 +151,13 @@ final class SRSettings {
 	// The first-run gate: false until the welcome window is dismissed once
 	// (any path counts); the composition root shows it only while false.
 	let hasCompletedOnboarding: Preference<Bool>
+
+	// A camera without a measured slouch span is judged against this nominal
+	// span (a fraction of its baseline). 0.2 is chosen so the depth ladder
+	// (0.6...0.2) reproduces the pre-span percent-of-baseline ladder
+	// (12...4 percent) stop for stop - the fallback IS the old behavior.
+	// nonisolated: also read on the posture analysis queue.
+	nonisolated static let nominalSlouchSpanFraction: CGFloat = 0.2
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
     // The camera's menu-bar width is session-only (never persisted): it always
@@ -159,8 +184,18 @@ final class SRSettings {
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
+		self.postureSlouchDepthTolerance = Preference("PostureSlouchDepthTolerance", default: 0.30, defaults: defaults)
 		self.postureSlouchTolerance = Preference("PostureSlouchTolerance", default: 0.06, defaults: defaults)
 		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.07, defaults: defaults)
+
+		// One-time: a pre-depth install stored the slouch tolerance as a
+		// fraction of baseline; dividing by the nominal span fraction gives
+		// the equivalent depth stop - exact on every ladder stop (0.06 ->
+		// 0.30), so a customized strictness carries over unchanged.
+		if defaults.object(forKey: "PostureSlouchDepthTolerance") == nil
+			&& defaults.object(forKey: "PostureSlouchTolerance") != nil {
+			self.postureSlouchDepthTolerance.value = self.postureSlouchTolerance.value / SRSettings.nominalSlouchSpanFraction
+		}
 		self.postureNoteEnabled = Preference("PostureNoteEnabled", default: true, defaults: defaults)
 		self.postureNoteGhost = Preference("PostureNoteGhost", default: true, defaults: defaults)
 		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)
@@ -191,7 +226,10 @@ final class SRSettings {
 		let ratio = self.postureBaselineSlouchRatio.value
 		guard ratio > 0 else { return }
 		if self.postureBaselines.value[deviceID] == nil {
-			self.setPostureBaseline(PostureBaseline(slouchRatio: ratio, date: self.postureBaselineDate.value), for: deviceID)
+			self.setPostureBaseline(
+				PostureBaseline(slouchRatio: ratio, slouchedRatio: nil, date: self.postureBaselineDate.value),
+				for: deviceID
+			)
 		}
 		self.postureBaselineSlouchRatio.value = 0
 		self.postureBaselineDate.value = .distantPast
@@ -256,7 +294,8 @@ extension Date: PreferenceValue {
 }
 
 /// The per-camera baselines persist as a plist-native nested dictionary:
-/// uniqueID -> ["ratio": Double, "date": epoch seconds]. A malformed entry is
+/// uniqueID -> ["ratio": Double, "slouched": Double?, "date": epoch seconds];
+/// "slouched" is absent on a single-point entry. A malformed entry is
 /// dropped rather than failing the whole read.
 extension Dictionary: PreferenceValue where Key == String, Value == PostureBaseline {
 	static func read(from defaults: UserDefaults, key: String) -> [String: PostureBaseline]? {
@@ -264,7 +303,11 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 		var result: [String: PostureBaseline] = [:]
 		for (id, fields) in raw {
 			guard let ratio = fields["ratio"], let date = fields["date"] else { continue }
-			result[id] = PostureBaseline(slouchRatio: CGFloat(ratio), date: Date(timeIntervalSince1970: date))
+			result[id] = PostureBaseline(
+				slouchRatio: CGFloat(ratio),
+				slouchedRatio: fields["slouched"].map { CGFloat($0) },
+				date: Date(timeIntervalSince1970: date)
+			)
 		}
 		return result
 	}
@@ -272,7 +315,11 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 	func write(to defaults: UserDefaults, key: String) {
 		var raw: [String: [String: Double]] = [:]
 		for (id, baseline) in self {
-			raw[id] = ["ratio": Double(baseline.slouchRatio), "date": baseline.date.timeIntervalSince1970]
+			var fields = ["ratio": Double(baseline.slouchRatio), "date": baseline.date.timeIntervalSince1970]
+			if let slouched = baseline.slouchedRatio {
+				fields["slouched"] = Double(slouched)
+			}
+			raw[id] = fields
 		}
 		defaults.set(raw, forKey: key)
 	}

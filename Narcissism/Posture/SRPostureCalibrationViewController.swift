@@ -118,6 +118,11 @@ final class SRPostureCalibrationViewController: NSViewController {
 			.sink { [weak self] sample in self?.session.ingest(sample) }
 			.store(in: &self.cancellables)
 
+		// The upright median is saved the moment its capture passes the
+		// gates, before the slouch pose runs: a flow abandoned mid-slouch
+		// keeps a valid single-point baseline (the pre-span behavior).
+		self.session.onUprightCaptured = { [weak self] baseline in self?.saveUpright(baseline) }
+
 		self.session.onPhase
 			.sink { [weak self] phase in self?.apply(phase) }
 			.store(in: &self.cancellables)
@@ -204,31 +209,47 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.beginButton.isEnabled = (guidance == .good)
 			self.guidanceLabel.stringValue = Self.text(for: guidance, failure: failure)
 
-		case .countingDown(let remaining):
+		case .slouchReady(let failure):
+			// The slouch pose's resting state after a failed capture; Begin
+			// re-arms. Framing was established by the upright capture, so
+			// the button is not gated on guidance here.
+			self.countdownLabel.isHidden = true
+			self.progressIndicator.isHidden = true
+			self.progressIndicator.doubleValue = 0
+			self.beginButton.isHidden = !self.showsActionButtons
+			self.beginButton.isEnabled = true
+			self.guidanceLabel.stringValue = Self.slouchText(failure: failure)
+
+		case .countingDown(let pose, let remaining):
 			self.countdownLabel.isHidden = false
 			self.countdownLabel.stringValue = "\(remaining)"
 			self.progressIndicator.isHidden = true
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = true
-			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.capturing", comment: "")
+			// The slouch countdown carries the instruction: those three
+			// seconds are the time to settle into the pose.
+			self.guidanceLabel.stringValue = NSLocalizedString(
+				pose == .slouched ? "posture.calibration.slouch-instruction" : "posture.calibration.capturing",
+				comment: ""
+			)
 
-		case .capturing(let sampledSeconds, let paused):
+		case .capturing(let pose, let sampledSeconds, let paused):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = sampledSeconds
 			self.beginButton.isHidden = true
-			self.guidanceLabel.stringValue = NSLocalizedString(
-				paused ? "posture.calibration.paused" : "posture.calibration.capturing",
-				comment: ""
-			)
+			let key = paused
+				? "posture.calibration.paused"
+				: (pose == .slouched ? "posture.calibration.slouch-capturing" : "posture.calibration.capturing")
+			self.guidanceLabel.stringValue = NSLocalizedString(key, comment: "")
 
-		case .done(let baseline):
+		case .done(let baseline, let slouched):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = self.progressIndicator.maxValue
 			self.beginButton.isHidden = true
 			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.finished", comment: "")
-			self.save(baseline)
+			self.save(baseline: baseline, slouched: slouched)
 
 			// The bar animates its fill at its own (undocumented) pace;
 			// give it a generous beat to land before the buttons show up.
@@ -240,6 +261,24 @@ final class SRPostureCalibrationViewController: NSViewController {
 		}
 	}
 
+	/// The slouch pose's guidance: failure explanation first, then the
+	/// instruction, mirroring the positioning text.
+	fileprivate static func slouchText(failure: SRPostureCalibrationSession.Failure?) -> String {
+		var lines: [String] = []
+		switch failure {
+		case .timedOut:
+			lines.append(NSLocalizedString("posture.calibration.failed.timeout", comment: ""))
+		case .unstableReadings:
+			lines.append(NSLocalizedString("posture.calibration.failed.unstable", comment: ""))
+		case .notSlouched:
+			lines.append(NSLocalizedString("posture.calibration.failed.not-slouched", comment: ""))
+		case nil:
+			break
+		}
+		lines.append(NSLocalizedString("posture.calibration.slouch-instruction", comment: ""))
+		return lines.joined(separator: "\n")
+	}
+
 	/// Failure explanation first, live guidance on the next line.
 	fileprivate static func text(for guidance: SRPostureCalibrationSession.Guidance, failure: SRPostureCalibrationSession.Failure?) -> String {
 		var lines: [String] = []
@@ -248,6 +287,10 @@ final class SRPostureCalibrationViewController: NSViewController {
 			lines.append(NSLocalizedString("posture.calibration.failed.timeout", comment: ""))
 		case .unstableReadings:
 			lines.append(NSLocalizedString("posture.calibration.failed.unstable", comment: ""))
+		case .notSlouched:
+			// Slouch-phase failures land at slouchReady, not here; carried
+			// for exhaustiveness.
+			lines.append(NSLocalizedString("posture.calibration.failed.not-slouched", comment: ""))
 		case nil:
 			break
 		}
@@ -264,14 +307,27 @@ final class SRPostureCalibrationViewController: NSViewController {
 		return lines.joined(separator: "\n")
 	}
 
-	/// Saved the moment a capture passes the gates; a Try Again result
-	/// overwrites. Stored against the camera in use, so each camera keeps its
-	/// own baseline. All calibration ever persists: the ratio and its date.
-	fileprivate func save(_ baseline: CGFloat) {
+	/// Saved the moment the upright capture passes its gates, clearing any
+	/// stored slouched value: a new baseline must never pair with an old
+	/// slouch (recalibrating after moving the screen would mix geometries).
+	/// A flow abandoned after this point leaves a valid single-point entry.
+	fileprivate func saveUpright(_ baseline: CGFloat) {
 		self.completed = true
 		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
 		SRSettings.sharedInstance.setPostureBaseline(
-			PostureBaseline(slouchRatio: baseline, date: .now),
+			PostureBaseline(slouchRatio: baseline, slouchedRatio: nil, date: .now),
+			for: deviceID
+		)
+	}
+
+	/// The full two-pose result; a Try Again result overwrites. Stored
+	/// against the camera in use, so each camera keeps its own pair. All
+	/// calibration ever persists: the two ratios and the date.
+	fileprivate func save(baseline: CGFloat, slouched: CGFloat) {
+		self.completed = true
+		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
+		SRSettings.sharedInstance.setPostureBaseline(
+			PostureBaseline(slouchRatio: baseline, slouchedRatio: slouched, date: .now),
 			for: deviceID
 		)
 	}

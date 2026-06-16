@@ -146,18 +146,46 @@ Notifications page (see UI/Settings/spec.md).
   PostureBaselines map's entry for the active AVCaptureDevice.uniqueID,
   mirrored onto the analysis queue (the map combined with the camera
   service's onSelectedDeviceID, so a camera switch swaps the baseline),
-  written by the calibration window (see Calibration below). A window more than the
-  slouch tolerance below baseline logs a warning-level "Slouching:"
-  line naming the ratio and the deviation; ratios above baseline mean
-  sitting tall and never alert. The tolerance is the
-  PostureSlouchTolerance preference (default 0.06), set by the
+  written by the calibration window (see Calibration below). The breach
+  test is slouch depth (added 2026-08-02): the drop below baseline as a
+  fraction of the camera's calibrated span (upright ratio minus the
+  demonstrated-slouch ratio, see Calibration). A window deeper than the
+  depth tolerance logs a warning-level "Slouching:" line naming the ratio
+  and the depth percent; ratios above baseline mean sitting tall and
+  never alert. Rationale: the ratio's sensitivity to a given physical
+  slouch (the gain) depends on the camera's height - an elevated monitor
+  camera converts the forward-lean component of a slouch into apparent
+  vertical drop, reading 2-3x stronger than a laptop camera - so a
+  percent-of-baseline threshold tuned on one camera is wildly miscalibrated
+  on another; the span measures each camera's gain directly and makes one
+  strictness setting mean the same thing everywhere. The tolerance is the
+  PostureSlouchDepthTolerance preference (default 0.30), set by the
   strictness slider on the Settings window's Posture page over five
-  stops - 12, 10, 8, 6, 4 percent, relaxed to strict - and
-  mirrored onto the analysis queue like the baseline. (History: a
+  stops - 0.6, 0.5, 0.4, 0.3, 0.2 of the span, relaxed to strict - and
+  mirrored onto the analysis queue like the baseline. The resulting
+  breach drop is floored at 0.03 absolute (added 2026-08-02): a smaller
+  drop is indistinguishable from per-window noise and natural settling,
+  so no span may make the evaluation hair-trigger (observed same day: a
+  measured span of 0.041 put every ladder stop inside noise and flagged
+  a genuinely good posture 0.021 below baseline). Noise is a property of
+  the measurement pipeline, so the floor is absolute and
+  camera-independent; it only clips ladder stops that a small span would
+  push into noise. A camera without a
+  measured span (calibrated before the two-pose flow, or the flow was
+  abandoned mid-slouch) is judged against a nominal span of 0.2 x its
+  baseline (SRSettings.nominalSlouchSpanFraction); the 0.2 is chosen so
+  the depth ladder reproduces the previous percent-of-baseline ladder
+  (12, 10, 8, 6, 4 percent) stop for stop - the fallback IS the old
+  behavior, and the old PostureSlouchTolerance preference migrates once
+  by dividing by 0.2 (exact on every stop), then is never written again.
+  Its log line keeps the old percent-below-baseline phrasing so the two
+  regimes are tellable apart. (History: a
   hardcoded 5 percent through 2026-07-31, then a 15...5 percent ladder
   at default 10; live testing that day found the whole ladder too loose,
   real slouching going unflagged, so it was tightened to 12...4 at
-  default 6.) While the active camera has no
+  default 6; 2026-08-02 replaced percent-of-baseline with depth after
+  monitor testing showed the same slight slouch reading 25 percent below
+  baseline on an elevated camera.) While the active camera has no
   baseline stored (no map entry) the
   slouch alert, the issue tracking, and the corner note are all
   suppressed - nil status, trackers cleared - because there is nothing
@@ -324,27 +352,61 @@ Notifications page (see UI/Settings/spec.md).
   window is open the per-window evaluation is muted exactly as when
   uncalibrated, so the corner note never nags mid-calibration; trackers
   restart clean after it closes.
-- Calibration capture: Begin starts a 3-2-1 countdown (which ignores
-  detection loss), then collects the per-frame slouch ratio until 5
-  seconds of sampling at the 4/s analysis rate (~20 samples). One
-  unusable frame contributes nothing but does not pause; ~1 s of
-  consecutive loss pauses the clock with "can't see you" (the lead-in
-  frames are refunded), and resuming costs ~1 s of continuous detection,
-  deliberately unsampled - whoever comes back is still settling in. A
-  10 s wall-clock cap from capture start aborts back to positioning
-  (also the guaranteed exit if frames stop arriving entirely).
-  Completion gates: at least 12 usable samples, sample standard
-  deviation at most 0.04, median inside 0.2...1.5; a failed gate returns
-  to positioning with an explanation. The stored baseline is the median
-  of the samples (robust to Vision's outlier frames), written into the
-  PostureBaselines map under the active camera's AVCaptureDevice.uniqueID
-  (ratio plus the moment), leaving every other camera's baseline untouched;
-  nothing else is ever persisted - no frames, no files. The baseline is
-  saved the moment the capture passes the gates; the finished screen
-  ("Calibration finished.") then offers Looks Good, which closes the
-  window, and Try Again, which returns to positioning for another pass
-  whose result overwrites. Closing the window in the finished state is
-  the same as Looks Good - the result is already saved.
+- Calibration capture (two poses since 2026-08-02, measuring the offset
+  and the gain): Begin starts a 3-2-1 countdown (which ignores detection
+  loss), then collects the per-frame slouch ratio until 5 seconds of
+  sampling at the 4/s analysis rate (~20 samples). One unusable frame
+  contributes nothing but does not pause; ~1 s of consecutive loss pauses
+  the clock with "can't see you" (the lead-in frames are refunded), and
+  resuming costs ~1 s of continuous detection, deliberately unsampled -
+  whoever comes back is still settling in. A 10 s wall-clock cap from
+  capture start aborts the pose (also the guaranteed exit if frames stop
+  arriving entirely). Completion gates per capture: at least 12 usable
+  samples, sample standard deviation at most 0.04, median inside
+  0.2...1.5. The upright capture runs first; the moment it passes its
+  gates the median is saved as the baseline (overwriting, and clearing
+  any stored slouched value: a new baseline must never pair with an old
+  slouch - recalibrating after moving the screen would mix geometries).
+  Then the slouch pose: "Now slouch the way you normally do", with an
+  auto-started 3-2-1 (the countdown is
+  the time to settle into the pose; the user is present, having just
+  finished a capture, so the auto-start cannot loop unattended) and the
+  same 5 s
+  capture and gates, plus the span gate: the slouched median must sit at
+  least 0.04 below the upright one. The gate's only job is "did you move
+  at all", not "was it a big slouch": both sides are medians of 12+
+  samples, far tighter than the per-frame stddev gate, so 0.04 clears
+  noise comfortably while accepting a low-gain camera's honest slouch.
+  (History: 0.08 on day one rejected real slouches on the laptop camera,
+  whose whole span is ~0.05-0.10 precisely because its gain is low - a
+  fixed absolute floor sized for monitor-camera gains repeated the
+  per-camera mistake the span exists to fix; lowered the same day. The
+  instruction went through three wordings in a day: "the way you
+  actually sit when tired - don't exaggerate" yielded a span of 0.041,
+  so small the whole depth ladder fell inside measurement noise; "sink
+  into your deepest slouch" was tried to anchor a larger span, then
+  dropped because "deep" and "exaggerated" are subjective - people's
+  imagined extremes vary far more than their habits. "The way you
+  normally do" anchors to actual habit, the least ambiguous reference;
+  the evaluation's absolute noise floor, not the instruction, is what
+  defends against a small span now, at the recorded cost that on
+  low-gain cameras the stricter ladder stops may flatten onto that
+  floor.)
+  Captured medians, the resulting span, and rejections are logged as
+  tuning telemetry. A failed
+  upright capture returns to positioning with an explanation; a failed
+  slouch capture rests at slouchReady - instruction plus failure line,
+  Begin re-arms it, deliberately not auto-retrying so an absent user
+  never loops, and the good upright capture is never discarded. Closing
+  mid-slouch keeps the single-point baseline (the pre-span behavior).
+  The full result - upright ratio, slouched ratio, the moment - is
+  written into the PostureBaselines map under the active camera's
+  AVCaptureDevice.uniqueID, leaving every other camera's entry untouched;
+  nothing else is ever persisted - no frames, no files. The finished
+  screen ("Calibration finished.") then offers Looks Good, which closes
+  the window, and Try Again, which returns to positioning for another
+  full two-pose pass whose result overwrites. Closing the window in the
+  finished state is the same as Looks Good - the result is already saved.
 - Calibration cancel: closing the window while nothing is calibrated
   anywhere (empty baselines map) reverts Track Posture to off (no
   baseline, no tracking); with any baseline on file closing just closes
@@ -353,9 +415,11 @@ Notifications page (see UI/Settings/spec.md).
   camera override, if any, is cleared before the check runs. Unchecking
   Track Posture while the window is open closes it.
 - Per-camera baselines: the baseline is stored per camera because each
-  camera's angle changes what an upright posture measures (a laptop cam
-  looks up from below, a monitor cam is roughly level). PostureBaselines
-  keys PostureBaseline (ratio, date) by the active AVCaptureDevice.uniqueID,
+  camera's angle changes both what an upright posture measures (the
+  offset) and how fast the ratio moves per unit of real slouch (the gain;
+  see the slouch-depth rationale above). PostureBaselines keys
+  PostureBaseline (upright ratio, optional slouched ratio, date) by the
+  active AVCaptureDevice.uniqueID,
   which is stable enough for the built-in and a fixed display camera to be
   re-recognized across dock/undock. An install that predates this stored a
   single global baseline; it is migrated once, on the first launch after
@@ -364,22 +428,41 @@ Notifications page (see UI/Settings/spec.md).
   cleared. Migration targets the built-in specifically so a user docked at
   the moment of upgrade does not get the built-in's baseline stamped onto
   the monitor camera.
-- Calibration gate (added 2026-08-01): the external-camera takeover
-  (Tools/spec.md) is gated on calibration. Automatic prefers an external
-  camera only when the preference allows it AND (tracking is off OR that
-  camera has a baseline): tracking off is pure mirror use, nothing to
-  break; tracking on must never auto-switch onto a camera it would go
-  quiet on. The composition root pushes the rule's inputs into the camera
-  service ahead of time - tracking on maps to the set of calibrated
+- Calibration gate (added 2026-08-01; tightened to full calibration
+  2026-08-02): the external-camera takeover (Tools/spec.md) is gated on
+  calibration. Automatic prefers an external camera only when the
+  preference allows it AND (tracking is off OR that camera has a full
+  two-pose calibration - baseline plus measured span): tracking off is
+  pure mirror use, nothing to break; tracking on must never auto-switch
+  onto a camera that would go quiet (no baseline) or run knowingly
+  miscalibrated (a single-point baseline uses the nominal span, which is
+  fitted to laptop-height geometry and demonstrably too strict on exactly
+  the elevated monitor cameras takeover is about - while the laptop
+  itself stays trustworthy on single-point, because that is the tested
+  status quo). In clamshell the built-in vanishes from discovery and the
+  monitor is used regardless as the last resort: with a single-point
+  baseline it tracks on the nominal-span rule (honest, degraded, and only
+  when there is no alternative), with none it tracks quiet. The
+  composition root pushes the rule's inputs into the camera
+  service ahead of time - tracking on maps to the set of fully calibrated
   uniqueIDs, tracking off to no restriction - so a hot-plugged camera is
   judged against the already-current set with no race. An explicit user
-  pick is never gated (intent wins), and the snooze state deliberately
-  does not lift the gate: snoozed tracking will resume, and it must
-  resume on a calibrated camera.
+  pick is never gated (intent wins; the escape hatch for whoever wants
+  monitor tracking without recalibrating), and the snooze state
+  deliberately does not lift the gate: snoozed tracking will resume, and
+  it must resume on a calibrated camera. Deliberate update-time behavior
+  change: a monitor that took over yesterday on a single-point baseline
+  stops taking over until recalibrated with the slouch pose; the nudge
+  explains it, and tracking meanwhile continues on the laptop.
 - New-camera nudge (SRPostureCalibrationNudgeController, added
   2026-08-01): when the gate blocks a takeover - an external camera is
   present, the takeover preference is on, tracking is on, and that camera
-  has no baseline - a system notification offers to calibrate it. A real
+  lacks a full calibration (no entry, or single-point without the span) -
+  a system notification offers to calibrate it. The wording names what
+  calibrating buys: "New camera detected ... to switch to it" when the
+  camera is not active, "to resume tracking" when it is active without a
+  baseline (the clamshell last resort), "to keep slouch detection
+  accurate" when it is active on a single-point baseline. A real
   UNUserNotificationCenter notification, not the corner-note style, on
   purpose: the corner note is click-through by design and this nudge
   needs a button, and a rare, actionable, fine-to-wait-in-Notification-
@@ -494,3 +577,27 @@ Notifications page (see UI/Settings/spec.md).
   and an undock falling back onto an uncalibrated built-in (possible when
   onboarding ran docked, so only the monitor got calibrated). Whether
   those deserve the same notification treatment is open.
+- Small spans vs per-window noise: decided same day it was recorded -
+  live testing hit it immediately (span 0.041, good posture flagged at
+  0.021 below baseline), so the breach drop now has the 0.03 absolute
+  noise floor (above). Still open: whether 0.03 is the right floor, and
+  how much of the depth ladder flattens onto it on low-gain cameras
+  under the normal-slouch instruction (a flattened ladder makes the
+  strictness slider near-inert there) - tune from the logged spans and
+  depth lines.
+- Face pitch as a staleness detector (idea recorded 2026-08-02, not
+  built). The face detector already running for the adaptive canvas can
+  report roll/yaw/pitch; pitch approximates the camera's elevation
+  relative to the user's head. Too coarse and too confounded to correct
+  the slouch gain analytically (the gain is cos(pitch) + k*sin(pitch)
+  where k, the personal forward-lean-to-drop ratio, dominates and is
+  unobservable - which is why the two-pose calibration measures the gain
+  instead), but plenty accurate for change detection: record the smoothed
+  face pitch at calibration time in the per-camera entry, and when the
+  runtime pitch in good windows drifts far from it (screen re-tilted,
+  monitor raised, chair changed), that camera's baseline is stale - the
+  missing trigger for the staleness heuristic above. Secondary use:
+  sanity-check the demonstrated slouch span during calibration (near-zero
+  pitch with an enormous span smells like a hammed slouch). Cheap first
+  step when picked up: store the calibration-time pitch from day one and
+  tune the drift threshold on logged data.

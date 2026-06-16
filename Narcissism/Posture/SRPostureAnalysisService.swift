@@ -71,17 +71,23 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	override init() {
 		super.init()
 
-		// Mirror the active camera's baseline onto the analysis queue, where it
-		// is consumed. Keyed by the device actually in use, so switching cameras
-		// swaps the baseline (an uncalibrated camera reads nil, which suppresses
-		// the slouch alert exactly as before calibration). Worst case a frame
-		// races the initial push, sees nil, and one window goes unevaluated.
+		// Mirror the active camera's baseline and slouch span onto the
+		// analysis queue, where they are consumed. Keyed by the device
+		// actually in use, so switching cameras swaps both (an uncalibrated
+		// camera reads nil, which suppresses the slouch alert exactly as
+		// before calibration; a single-point camera reads a nil span and is
+		// judged against the nominal one). Worst case a frame races the
+		// initial push, sees nil, and one window goes unevaluated.
 		SRSettings.sharedInstance.postureBaselines.publisher
 			.combineLatest(self.cameraService.onSelectedDeviceID)
 			.sink { [unowned self] baselines, deviceID in
-				let ratio = baselines[deviceID]?.slouchRatio
-				let baseline: CGFloat? = (ratio ?? 0) > 0 ? ratio : nil
-				self.analysisQueue.async { self.baselineSlouchRatio = baseline }
+				let entry = baselines[deviceID]
+				let baseline: CGFloat? = (entry?.slouchRatio ?? 0) > 0 ? entry?.slouchRatio : nil
+				let span = baseline != nil ? entry?.span : nil
+				self.analysisQueue.async {
+					self.baselineSlouchRatio = baseline
+					self.baselineSlouchSpan = span
+				}
 			}
 			.store(in: &self.cancellables)
 
@@ -94,12 +100,14 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			}
 			.store(in: &self.cancellables)
 
-		// And for the strictness preferences. The shoulder tolerance is
-		// stored as a slope (height difference over shoulder separation);
-		// the evaluation compares degrees, so convert once here.
-		SRSettings.sharedInstance.postureSlouchTolerance.publisher
+		// And for the strictness preferences. The slouch strictness is the
+		// depth tolerance: the fraction of the calibrated slouch span the
+		// ratio may sink. The shoulder tolerance is stored as a slope
+		// (height difference over shoulder separation); the evaluation
+		// compares degrees, so convert once here.
+		SRSettings.sharedInstance.postureSlouchDepthTolerance.publisher
 			.sink { [unowned self] tolerance in
-				self.analysisQueue.async { self.slouchTolerance = tolerance }
+				self.analysisQueue.async { self.slouchDepthTolerance = tolerance }
 			}
 			.store(in: &self.cancellables)
 		SRSettings.sharedInstance.postureShoulderTolerance.publisher
@@ -266,18 +274,40 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated static let notVisibleResetWindows = 5
 
 	/// The calibrated good-posture slouch ratio (see init); nil until
-	/// calibrated, which suppresses the whole per-window evaluation.
-	/// Touched only on the (serial) analysis queue.
+	/// calibrated, which suppresses the whole per-window evaluation. The
+	/// span is the measured upright-to-slouched travel; nil on a
+	/// single-point calibration, which falls back to the nominal span
+	/// (SRSettings.nominalSlouchSpanFraction of baseline - exactly the old
+	/// percent-of-baseline behavior). Touched only on the (serial)
+	/// analysis queue.
 	fileprivate nonisolated(unsafe) var baselineSlouchRatio: CGFloat?
+	fileprivate nonisolated(unsafe) var baselineSlouchSpan: CGFloat?
 
-	/// Mirrors of the strictness preferences (see init): how far below
-	/// baseline the slouch ratio may drift, and how far off level the
+	/// Mirrors of the strictness preferences (see init): the fraction of
+	/// the slouch span the ratio may sink, and how far off level the
 	/// shoulder line may tilt (in degrees, converted from the stored
 	/// slope). Ratios above baseline are sitting tall, never an alert.
 	/// Touched only on the analysis queue; the literals match the
 	/// preference defaults and are overwritten by the replay in init.
-	fileprivate nonisolated(unsafe) var slouchTolerance: CGFloat = 0.10
+	fileprivate nonisolated(unsafe) var slouchDepthTolerance: CGFloat = 0.30
 	fileprivate nonisolated(unsafe) var maximumLevelShoulderTiltDegrees: CGFloat = 2.9
+
+	/// No breach drop may be smaller than this, regardless of how small a
+	/// span calibration measured: a drop this size is indistinguishable
+	/// from per-window measurement noise and natural settling (observed
+	/// 2026-08-02: span 0.041 put every ladder stop inside noise, flagging
+	/// a genuinely good posture 0.021 below baseline). Noise is a property
+	/// of the pipeline, so the floor is absolute, camera-independent.
+	fileprivate nonisolated static let minimumBreachDrop: CGFloat = 0.03
+
+	/// The absolute ratio drop that counts as a breach: the depth tolerance
+	/// applied to the measured span, or to the nominal one while this
+	/// camera has only a single-point calibration, never below the noise
+	/// floor. Analysis queue only.
+	fileprivate nonisolated func slouchBreachDrop(baseline: CGFloat) -> CGFloat {
+		let span = self.baselineSlouchSpan ?? (SRSettings.nominalSlouchSpanFraction * baseline)
+		return max(self.slouchDepthTolerance * span, Self.minimumBreachDrop)
+	}
 
 	/// Mirror of calibrationWindowOpen. Touched only on the analysis queue.
 	fileprivate nonisolated(unsafe) var suppressedForCalibration = false
@@ -406,13 +436,20 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// Slouch alert, evaluated on whichever pipeline measured (adaptive
 		// preferred, fixed canvas as fallback). One evaluation per window,
 		// no debounce yet: immediate per-second feedback is the point of the
-		// current experiment.
+		// current experiment. The line reports slouch depth (the fraction
+		// of the calibrated span the ratio has sunk) when the span was
+		// measured, the old percent-below-baseline form otherwise.
 		if
 			let ratio = self.adaptiveWindow.bestMeasurement?.slouchRatio ?? self.paddedWindow.bestMeasurement?.slouchRatio,
-			ratio < baseline * (1 - self.slouchTolerance)
+			ratio < baseline - self.slouchBreachDrop(baseline: baseline)
 		{
-			let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
-			Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
+			if let span = self.baselineSlouchSpan {
+				let depthPercent = Int(((baseline - ratio) / span * 100).rounded())
+				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(depthPercent, privacy: .public) percent of your slouch depth (baseline \(String(format: "%.3f", baseline), privacy: .public), span \(String(format: "%.3f", span), privacy: .public))")
+			} else {
+				let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
+				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
+			}
 		}
 
 		// Shoulder alignment alert, same cadence and pipeline preference.
@@ -439,8 +476,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 			let slouchObservation: SRIssueObservation
 			if let ratio = measurement.slouchRatio {
-				let breachFloor = baseline * (1 - self.slouchTolerance)
-				let strongFloor = baseline * (1 - self.slouchTolerance / 2)
+				let breachDrop = self.slouchBreachDrop(baseline: baseline)
+				let breachFloor = baseline - breachDrop
+				let strongFloor = baseline - breachDrop / 2
 				slouchObservation = ratio < breachFloor ? .breaching : (ratio >= strongFloor ? .stronglyRecovered : .clean)
 			} else {
 				// Eyes not measurable this window: freeze the tracker

@@ -46,7 +46,10 @@ final class SRSettingsPostureViewController: NSViewController {
 		// The stored baseline, named by when it was measured; the ratio
 		// itself is a meaningless number to a user, the date is not.
 		// Shows the baseline of the camera in use (each camera keeps its own),
-		// so it follows both a recalibration and a camera switch.
+		// so it follows both a recalibration and a camera switch. A
+		// single-point entry (no measured slouch span) reads as partially
+		// calibrated: it works on the nominal-span rule but will not take
+		// over as an external until fully calibrated.
 		let baselineLabel = NSTextField(labelWithString: "")
 		self.settings.postureBaselines.publisher
 			.combineLatest(SRCameraService.sharedInstance.onSelectedDeviceID)
@@ -54,7 +57,12 @@ final class SRSettingsPostureViewController: NSViewController {
 				let baseline = baselines[deviceID]
 				baselineLabel?.stringValue = baseline.map {
 					String(
-						format: NSLocalizedString("settings.posture.baseline.calibrated", comment: ""),
+						format: NSLocalizedString(
+							$0.slouchedRatio != nil
+								? "settings.posture.baseline.calibrated"
+								: "settings.posture.baseline.partial",
+							comment: ""
+						),
 						Self.baselineDateFormatter.string(from: $0.date)
 					)
 				} ?? NSLocalizedString("settings.posture.baseline.none", comment: "")
@@ -144,11 +152,15 @@ final class SRSettingsPostureViewController: NSViewController {
 			let row = grid.addRow(with: [label, stack])
 			row.yPlacement = .center
 		}
+		// The slouch stops are depth fractions: how far along the calibrated
+		// upright-to-slouched span the ratio may sink. On a camera without a
+		// measured span they reproduce the old percent-of-baseline ladder
+		// exactly (see SRSettings.nominalSlouchSpanFraction).
 		addStrictnessRow(
 			labelKey: "settings.posture.slouch-strictness.label",
 			slider: SRPreferenceStepSlider(
-				stops: [0.12, 0.10, 0.08, 0.06, 0.04],
-				preference: self.settings.postureSlouchTolerance
+				stops: [0.60, 0.50, 0.40, 0.30, 0.20],
+				preference: self.settings.postureSlouchDepthTolerance
 			)
 		)
 		addStrictnessRow(

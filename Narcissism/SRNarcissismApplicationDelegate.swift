@@ -43,15 +43,21 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 			.store(in: &self.cancellables)
 
 		// The calibration gate on that takeover: while posture tracking is
-		// on, Automatic may only auto-prefer externals that have a baseline -
-		// switching to an uncalibrated camera would silently mute tracking.
+		// on, Automatic may only auto-prefer externals with a full two-pose
+		// calibration (baseline plus measured slouch span). No baseline
+		// would silently mute tracking; a single-point baseline runs on the
+		// nominal span, which is known to be badly miscalibrated exactly on
+		// elevated monitor cameras - the cameras takeover is about - so
+		// neither may take over on its own (in clamshell the monitor is the
+		// only camera and gets used regardless, single-point rule and all).
 		// Tracking off lifts the restriction (pure mirror use, nothing to
 		// break). The rule's inputs are pushed ahead of time, so a camera
 		// hot-plugged later is judged against the already-current set.
 		self.services.settings.postureTracking.publisher
 			.combineLatest(self.services.settings.postureBaselines.publisher)
 			.sink { [services] tracking, baselines in
-				services.camera.setAutoSwitchableExternalIDs(tracking ? Set(baselines.keys) : nil)
+				let fullyCalibrated = Set(baselines.filter { $0.value.slouchedRatio != nil }.keys)
+				services.camera.setAutoSwitchableExternalIDs(tracking ? fullyCalibrated : nil)
 			}
 			.store(in: &self.cancellables)
 
