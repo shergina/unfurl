@@ -8,6 +8,7 @@
 
 import Cocoa
 import Combine
+import AVFoundation
 
 
 @MainActor
@@ -25,6 +26,7 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 	fileprivate var hotKeyController: SRHotKeyController!
 	fileprivate var postureNoteController: SRPostureNoteController!
 	fileprivate var postureSoundController: SRPostureSoundController!
+	fileprivate var postureCalibrationNudgeController: SRPostureCalibrationNudgeController!
 	fileprivate var postureSnoozeTimer: Timer?
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
@@ -32,6 +34,45 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		// into a live device switch (replays the persisted value on launch).
 		self.services.settings.selectedCameraDeviceID.publisher
 			.sink { [services] id in services.camera.selectDevice(id: id) }
+			.store(in: &self.cancellables)
+
+		// Automatic's default-camera policy: prefer the monitor's camera when
+		// docked. The camera service re-resolves the active device on change.
+		self.services.settings.preferExternalCamera.publisher
+			.sink { [services] prefer in services.camera.setPreferExternalCamera(prefer) }
+			.store(in: &self.cancellables)
+
+		// The calibration gate on that takeover: while posture tracking is
+		// on, Automatic may only auto-prefer externals that have a baseline -
+		// switching to an uncalibrated camera would silently mute tracking.
+		// Tracking off lifts the restriction (pure mirror use, nothing to
+		// break). The rule's inputs are pushed ahead of time, so a camera
+		// hot-plugged later is judged against the already-current set.
+		self.services.settings.postureTracking.publisher
+			.combineLatest(self.services.settings.postureBaselines.publisher)
+			.sink { [services] tracking, baselines in
+				services.camera.setAutoSwitchableExternalIDs(tracking ? Set(baselines.keys) : nil)
+			}
+			.store(in: &self.cancellables)
+
+		// One-time: fold a pre-per-camera install's single baseline into the
+		// built-in camera's slot (where Automatic always measured it). Waits
+		// for a real device to resolve so authorization has settled and the
+		// built-in default exists; runs once, then the legacy keys are cleared.
+		self.services.camera.onSelectedDeviceID
+			.filter { !$0.isEmpty }
+			.first()
+			.sink { [services] _ in
+				// The built-in explicitly, not AVCaptureDevice.default (macOS
+				// points that at a nearby iPhone), so the old baseline lands on
+				// the camera Automatic actually measured it on.
+				let builtInID = AVCaptureDevice.DiscoverySession(
+					deviceTypes: [.builtInWideAngleCamera],
+					mediaType: .video,
+					position: .unspecified
+				).devices.first?.uniqueID ?? ""
+				services.settings.migrateLegacyBaselineIfNeeded(deviceID: builtInID)
+			}
 			.store(in: &self.cancellables)
 
 		// Global shortcuts, bound to the same preferences and commands the menu
@@ -68,6 +109,11 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		// controller is the beep channel next to it.
 		self.postureNoteController = SRPostureNoteController(services: self.services)
 		self.postureSoundController = SRPostureSoundController(services: self.services)
+
+		// The calibration nudge: when the gate above blocks a takeover (an
+		// uncalibrated monitor camera appeared while tracking is on), a
+		// system notification offers to calibrate it.
+		self.postureCalibrationNudgeController = SRPostureCalibrationNudgeController(services: self.services)
 
 		// Welcome window: first launch only. Dismissing it (any path) flips
 		// the flag, so the flow shows until the user has closed it once
@@ -111,10 +157,15 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 		} else {
 			self.services.posture.start()
 
-			// No baseline yet -> open calibration instead of tracking
-			// blind. Covers toggle-on, launch replay, and snooze expiry;
-			// re-emissions land on idempotent calls.
-			if self.services.settings.postureBaselineSlouchRatio.value <= 0 {
+			// Never calibrated anywhere -> open calibration instead of
+			// tracking blind. Covers the fresh toggle-on, launch replay, and
+			// snooze expiry; re-emissions land on idempotent calls. The check
+			// is the whole map, not the active camera: toggling tracking on
+			// also flips the calibration gate, which may still be switching
+			// the camera underneath us, and any camera the gate settles on is
+			// calibrated whenever one baseline exists. An uncalibrated camera
+			// the user picked explicitly tracks quiet instead (Posture spec).
+			if self.services.settings.postureBaselines.value.isEmpty {
 				self.services.menu.showPostureCalibration()
 			}
 		}

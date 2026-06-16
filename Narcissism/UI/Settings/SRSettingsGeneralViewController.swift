@@ -43,6 +43,7 @@ final class SRSettingsGeneralViewController: NSViewController {
 		addRow("settings.general.track-posture", SRPreferenceSwitch(preference: self.settings.postureTracking))
 		addRow("settings.general.show-camera-panel", SRPreferenceSwitch(preference: self.settings.cameraPanelPinned))
 		addRow("settings.general.show-camera-on-status-bar", SRPreferenceSwitch(preference: self.settings.showCameraOnStatusBar))
+		addRow("settings.general.prefer-external-camera", SRPreferenceSwitch(preference: self.settings.preferExternalCamera))
 		addRow("settings.general.launch-at-login", SRPreferenceSwitch(preference: self.settings.launchAtLogin))
 
 		let view = NSView()

@@ -27,9 +27,12 @@ enum SRCameraState: Equatable {
 
 
 /// A selectable camera, identified by its stable `AVCaptureDevice.uniqueID`.
+/// `isExternal` marks monitor cameras and USB webcams (device type
+/// `.external`), the ones Automatic may prefer over the built-in.
 struct CameraDevice: Equatable, Sendable {
 	let id: String
 	let name: String
+	let isExternal: Bool
 }
 
 
@@ -48,6 +51,18 @@ protocol CameraProviding: AnyObject, Sendable {
 	var onSelectedDeviceID: CurrentValueSubject<String, Never> { get }
 	/// Switch the active device by `uniqueID`; "" means the system default.
 	func selectDevice(id: String)
+	/// While Automatic, prefer an external (display) camera over the built-in
+	/// when one is present. Re-resolves the active device.
+	func setPreferExternalCamera(_ prefer: Bool)
+	/// While non-nil, Automatic may auto-prefer only these external cameras;
+	/// nil means no restriction. The policy behind the set lives upstream
+	/// (posture's calibration gate, wired by the composition root); the
+	/// service just applies it. An explicit pick is never restricted.
+	func setAutoSwitchableExternalIDs(_ ids: Set<String>?)
+	/// Session-only override of the resolved device, for a flow that must
+	/// look through a camera the policy would not pick (calibrating a
+	/// not-yet-active camera). Never persisted; nil clears it.
+	func setTemporaryDeviceOverride(id: String?)
 
 	@discardableResult func attachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Error>
 	@discardableResult func detachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never>
@@ -73,6 +88,23 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 	// selectedCameraDeviceID preference, wired by the composition root.
 	// Touched only on `sessionQueue`.
 	fileprivate var desiredDeviceID: String = ""
+
+	// Whether Automatic prefers an external (display) camera. Mirrors the
+	// preferExternalCamera preference; touched only on `sessionQueue`. Default
+	// matches the preference default so pre-wiring resolution behaves the same.
+	fileprivate var preferExternalCamera: Bool = true
+
+	// While non-nil, the only externals Automatic may auto-prefer (posture's
+	// calibration gate, pushed by the composition root). Kept as mirrored
+	// state rather than queried at resolve time so a hot-plugged camera is
+	// judged against the already-current rule, with no race against the
+	// upstream recomputation. Touched only on `sessionQueue`.
+	fileprivate var autoSwitchableExternalIDs: Set<String>? = nil
+
+	// Session-only device override (the calibration flow). Beats every other
+	// resolution rule while set; never persisted, so a crash mid-calibration
+	// self-heals on relaunch. Touched only on `sessionQueue`.
+	fileprivate var temporaryDeviceOverrideID: String? = nil
 
 
     fileprivate let sessionQueue: DispatchQueue = DispatchQueue(label: "narcissism.camera")
@@ -121,9 +153,11 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 			}
 			.store(in: &self.cancellables)
 
-		// Keep the device list current across hot-plug (external webcams,
-		// Continuity Camera). A (dis)connect may also make the desired device
-		// (re)appear or vanish, so re-resolve the active device on each change.
+		// Keep the device list current across hot-plug (monitor cameras, USB
+		// webcams; a Continuity connect fires this too, but the enumeration
+		// filter drops the phone). A (dis)connect may also make the desired
+		// device (re)appear or vanish, so re-resolve the active device on
+		// each change.
 		Publishers.Merge(
 			NotificationCenter.default.publisher(for: .AVCaptureDeviceWasConnected),
 			NotificationCenter.default.publisher(for: .AVCaptureDeviceWasDisconnected)
@@ -139,31 +173,95 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 
 	//: ## Device enumeration and selection
 
+	/// Only fixed, user-facing cameras: the built-in and external ones
+	/// (monitor cameras, USB webcams). Continuity and Desk View are not
+	/// cameras of this app - a phone cannot serve a mirror-plus-posture
+	/// app - and the exclusion filters on the isContinuityCamera property,
+	/// not device type alone, because a nearby iPhone can enumerate as an
+	/// `.external` device and slip past a type check.
 	fileprivate func discoveredDevices() -> [AVCaptureDevice] {
 		return AVCaptureDevice.DiscoverySession(
+			deviceTypes: [.builtInWideAngleCamera, .external],
+			mediaType: .video,
+			position: .unspecified
+		).devices.filter { !$0.isContinuityCamera }
+	}
+
+	fileprivate func refreshDevices() {
+		// Log the raw enumeration, pre-filter, so how a device presents
+		// itself - notably an iPhone claiming `.external` - is observable
+		// on real hardware. Fires only on init and hot-plug, so it is cheap.
+		let raw = AVCaptureDevice.DiscoverySession(
 			deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera, .deskViewCamera],
 			mediaType: .video,
 			position: .unspecified
 		).devices
-	}
+		for device in raw {
+			NSLog(
+				"SRCameraService discovered: %@ type=%@ continuity=%d",
+				device.localizedName, device.deviceType.rawValue, device.isContinuityCamera ? 1 : 0
+			)
+		}
 
-	fileprivate func refreshDevices() {
-		let devices = self.discoveredDevices().map { CameraDevice(id: $0.uniqueID, name: $0.localizedName) }
+		let devices = self.discoveredDevices().map {
+			CameraDevice(id: $0.uniqueID, name: $0.localizedName, isExternal: $0.deviceType == .external)
+		}
 		DispatchQueue.main.async { self.onDevices.send(devices) }
 	}
 
-	/// Resolves the desired id to a device: the exact match if present,
-	/// otherwise the system default.
+	/// Resolves the desired id to a device, always within the filtered
+	/// enumeration. The temporary override (a live calibration looking
+	/// through its target camera) beats everything; then an explicit pick;
+	/// then (Automatic, or a pick that has been unplugged) an external
+	/// camera when the preference asks for it and the auto-switch set
+	/// allows it; else the built-in, else whatever eligible camera remains.
+	/// Deliberately never `AVCaptureDevice.default`: macOS points that at a
+	/// nearby Continuity Camera, the exact takeover this app bans. A Mac
+	/// with no eligible camera resolves nil and reads as unavailable rather
+	/// than adopting a phone.
 	fileprivate func resolveDevice(id: String) -> AVCaptureDevice? {
-		if !id.isEmpty, let device = self.discoveredDevices().first(where: { $0.uniqueID == id }) {
+		let devices = self.discoveredDevices()
+		if let overrideID = self.temporaryDeviceOverrideID,
+			let device = devices.first(where: { $0.uniqueID == overrideID }) {
 			return device
 		}
-		return AVCaptureDevice.default(for: .video)
+		if !id.isEmpty, let device = devices.first(where: { $0.uniqueID == id }) {
+			return device
+		}
+		if self.preferExternalCamera,
+			let external = devices.first(where: { device in
+				device.deviceType == .external
+					&& (self.autoSwitchableExternalIDs?.contains(device.uniqueID) ?? true)
+			}) {
+			return external
+		}
+		return devices.first(where: { $0.deviceType == .builtInWideAngleCamera }) ?? devices.first
 	}
 
 	func selectDevice(id: String) {
 		self.sessionQueue.async {
 			self.desiredDeviceID = id
+			self.applyDesiredDevice()
+		}
+	}
+
+	func setPreferExternalCamera(_ prefer: Bool) {
+		self.sessionQueue.async {
+			self.preferExternalCamera = prefer
+			self.applyDesiredDevice()
+		}
+	}
+
+	func setAutoSwitchableExternalIDs(_ ids: Set<String>?) {
+		self.sessionQueue.async {
+			self.autoSwitchableExternalIDs = ids
+			self.applyDesiredDevice()
+		}
+	}
+
+	func setTemporaryDeviceOverride(id: String?) {
+		self.sessionQueue.async {
+			self.temporaryDeviceOverrideID = id
 			self.applyDesiredDevice()
 		}
 	}

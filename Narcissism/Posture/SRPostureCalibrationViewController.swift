@@ -265,11 +265,15 @@ final class SRPostureCalibrationViewController: NSViewController {
 	}
 
 	/// Saved the moment a capture passes the gates; a Try Again result
-	/// overwrites. All calibration ever persists: the ratio and its date.
+	/// overwrites. Stored against the camera in use, so each camera keeps its
+	/// own baseline. All calibration ever persists: the ratio and its date.
 	fileprivate func save(_ baseline: CGFloat) {
 		self.completed = true
-		SRSettings.sharedInstance.postureBaselineSlouchRatio.value = baseline
-		SRSettings.sharedInstance.postureBaselineDate.value = Date.now
+		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
+		SRSettings.sharedInstance.setPostureBaseline(
+			PostureBaseline(slouchRatio: baseline, date: .now),
+			for: deviceID
+		)
 	}
 
 }

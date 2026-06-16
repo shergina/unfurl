@@ -45,16 +45,19 @@ final class SRSettingsPostureViewController: NSViewController {
 
 		// The stored baseline, named by when it was measured; the ratio
 		// itself is a meaningless number to a user, the date is not.
+		// Shows the baseline of the camera in use (each camera keeps its own),
+		// so it follows both a recalibration and a camera switch.
 		let baselineLabel = NSTextField(labelWithString: "")
-		self.settings.postureBaselineSlouchRatio.publisher
-			.combineLatest(self.settings.postureBaselineDate.publisher)
-			.sink { [weak baselineLabel] ratio, date in
-				baselineLabel?.stringValue = ratio > 0
-					? String(
+		self.settings.postureBaselines.publisher
+			.combineLatest(SRCameraService.sharedInstance.onSelectedDeviceID)
+			.sink { [weak baselineLabel] baselines, deviceID in
+				let baseline = baselines[deviceID]
+				baselineLabel?.stringValue = baseline.map {
+					String(
 						format: NSLocalizedString("settings.posture.baseline.calibrated", comment: ""),
-						Self.baselineDateFormatter.string(from: date)
+						Self.baselineDateFormatter.string(from: $0.date)
 					)
-					: NSLocalizedString("settings.posture.baseline.none", comment: "")
+				} ?? NSLocalizedString("settings.posture.baseline.none", comment: "")
 			}
 			.store(in: &self.cancellables)
 		// Baseline rides the shared label column like every other row: the

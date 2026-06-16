@@ -68,6 +68,7 @@
 "settings.general.track-posture" = "Track Posture";
 "settings.general.show-camera-panel" = "Show Camera Panel";
 "settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
+"settings.general.prefer-external-camera" = "Prefer External Display Camera";
 "settings.general.launch-at-login" = "Open at Login";
 "settings.posture.baseline.label" = "Baseline:";
 "settings.posture.baseline.calibrated" = "Calibrated %@";
@@ -175,3 +176,8 @@
 "posture.calibration.finished" = "Calibration finished.";
 "posture.calibration.accept" = "Looks Good";
 "posture.calibration.redo" = "Try Again";
+
+// New-camera calibration nudge (system notification)
+"posture.nudge.title" = "New camera detected";
+"posture.nudge.body" = "Calibrate posture for \"%@\" to switch to it.";
+"posture.nudge.action" = "Calibrate…";

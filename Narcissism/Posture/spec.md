@@ -142,9 +142,11 @@ Notifications page (see UI/Settings/spec.md).
   visible person actually fills); rough by design, not a posture metric.
 - Slouch alert (experimental, log-only): each window's best available
   slouch ratio (adaptive pipeline preferred, padded as fallback) is compared
-  against the user's calibrated baseline: the PostureBaselineSlouchRatio
-  preference, mirrored onto the analysis queue, written by the
-  calibration window (see Calibration below). A window more than the
+  against the user's calibrated baseline for the camera in use: the
+  PostureBaselines map's entry for the active AVCaptureDevice.uniqueID,
+  mirrored onto the analysis queue (the map combined with the camera
+  service's onSelectedDeviceID, so a camera switch swaps the baseline),
+  written by the calibration window (see Calibration below). A window more than the
   slouch tolerance below baseline logs a warning-level "Slouching:"
   line naming the ratio and the deviation; ratios above baseline mean
   sitting tall and never alert. The tolerance is the
@@ -155,11 +157,15 @@ Notifications page (see UI/Settings/spec.md).
   hardcoded 5 percent through 2026-07-31, then a 15...5 percent ladder
   at default 10; live testing that day found the whole ladder too loose,
   real slouching going unflagged, so it was tightened to 12...4 at
-  default 6.) While no
-  baseline is stored (<= 0 sentinel) the
+  default 6.) While the active camera has no
+  baseline stored (no map entry) the
   slouch alert, the issue tracking, and the corner note are all
   suppressed - nil status, trackers cleared - because there is nothing
-  to judge against and nothing may pop over the calibration window.
+  to judge against and nothing may pop over the calibration window. This
+  is also the state while an uncalibrated camera the user picked
+  explicitly is active: the switch goes quiet until calibrated (the
+  calibration gate below keeps Automatic from ever landing here on its
+  own).
   Decision (2026-07-24): the hardcoded 0.692 baseline of 2026-07-22 is
   retired; the preference is the only source. Deliberately no debounce
   or hysteresis on the log line: per-window feedback is what the
@@ -279,10 +285,22 @@ Notifications page (see UI/Settings/spec.md).
   ambient state per VISION.md, never load-bearing (the item can be
   hidden by the notch or a crowded bar). See the Status Item spec.
 - Calibration window: opens whenever the probe would start (tracking on,
-  not snoozed) and no baseline is stored - covering the fresh toggle-on
-  and the launch replay of an install that predates calibration - and on
+  not snoozed) and nothing is calibrated anywhere (the baselines map is
+  empty) - covering the fresh toggle-on and the launch replay of an
+  install that predates calibration - and on
   demand from the menu's "Calibrate Posture..." item (visible exactly
   when Snooze is; choosing it clears any snooze, a deliberate resume).
+  The auto-open checks the whole map, not the active camera, because
+  toggling tracking on also flips the calibration gate, which may still
+  be switching the camera underneath; whenever any baseline exists, the
+  camera the gate settles on is a calibrated one. The window can also be
+  opened targeted at a camera that is not active (the new-camera nudge
+  below): the target is applied as the camera service's temporary device
+  override for the window's lifetime - the user calibrates looking
+  through the camera being calibrated - and cleared on close, never
+  persisted, so a declined calibration (or a crash mid-way) settles back
+  onto the policy-resolved camera by itself. An already-open window
+  keeps its own target.
   Both entry points funnel through SRMenuController, which owns the one
   window, so a second can never appear. The welcome flow's posture page
   (UI/Welcome/spec.md) embeds the same SRPostureCalibrationViewController
@@ -318,19 +336,67 @@ Notifications page (see UI/Settings/spec.md).
   Completion gates: at least 12 usable samples, sample standard
   deviation at most 0.04, median inside 0.2...1.5; a failed gate returns
   to positioning with an explanation. The stored baseline is the median
-  of the samples (robust to Vision's outlier frames), written to
-  PostureBaselineSlouchRatio with the moment in PostureBaselineDate;
+  of the samples (robust to Vision's outlier frames), written into the
+  PostureBaselines map under the active camera's AVCaptureDevice.uniqueID
+  (ratio plus the moment), leaving every other camera's baseline untouched;
   nothing else is ever persisted - no frames, no files. The baseline is
   saved the moment the capture passes the gates; the finished screen
   ("Calibration finished.") then offers Looks Good, which closes the
   window, and Try Again, which returns to positioning for another pass
   whose result overwrites. Closing the window in the finished state is
   the same as Looks Good - the result is already saved.
-- Calibration cancel: closing the window while no baseline is stored
-  reverts Track Posture to off (no baseline, no tracking); with a
-  previous baseline on file (the recalibrate path) closing just closes
-  and tracking continues on the old value. Unchecking Track Posture
-  while the window is open closes it.
+- Calibration cancel: closing the window while nothing is calibrated
+  anywhere (empty baselines map) reverts Track Posture to off (no
+  baseline, no tracking); with any baseline on file closing just closes
+  and tracking continues on a calibrated camera - declining the
+  new-camera nudge's calibration must not kill a working setup. The
+  camera override, if any, is cleared before the check runs. Unchecking
+  Track Posture while the window is open closes it.
+- Per-camera baselines: the baseline is stored per camera because each
+  camera's angle changes what an upright posture measures (a laptop cam
+  looks up from below, a monitor cam is roughly level). PostureBaselines
+  keys PostureBaseline (ratio, date) by the active AVCaptureDevice.uniqueID,
+  which is stable enough for the built-in and a fixed display camera to be
+  re-recognized across dock/undock. An install that predates this stored a
+  single global baseline; it is migrated once, on the first launch after
+  the update when a real device resolves, into the built-in camera's slot
+  (where Automatic always measured it before), then the legacy keys are
+  cleared. Migration targets the built-in specifically so a user docked at
+  the moment of upgrade does not get the built-in's baseline stamped onto
+  the monitor camera.
+- Calibration gate (added 2026-08-01): the external-camera takeover
+  (Tools/spec.md) is gated on calibration. Automatic prefers an external
+  camera only when the preference allows it AND (tracking is off OR that
+  camera has a baseline): tracking off is pure mirror use, nothing to
+  break; tracking on must never auto-switch onto a camera it would go
+  quiet on. The composition root pushes the rule's inputs into the camera
+  service ahead of time - tracking on maps to the set of calibrated
+  uniqueIDs, tracking off to no restriction - so a hot-plugged camera is
+  judged against the already-current set with no race. An explicit user
+  pick is never gated (intent wins), and the snooze state deliberately
+  does not lift the gate: snoozed tracking will resume, and it must
+  resume on a calibrated camera.
+- New-camera nudge (SRPostureCalibrationNudgeController, added
+  2026-08-01): when the gate blocks a takeover - an external camera is
+  present, the takeover preference is on, tracking is on, and that camera
+  has no baseline - a system notification offers to calibrate it. A real
+  UNUserNotificationCenter notification, not the corner-note style, on
+  purpose: the corner note is click-through by design and this nudge
+  needs a button, and a rare, actionable, fine-to-wait-in-Notification-
+  Center event is what the system primitive is for. Notification
+  authorization is requested lazily, on the first nudge that needs it,
+  never at launch; denial is logged, not silent. Clicking the
+  notification or its Calibrate action clears any snooze (the same
+  deliberate resume the menu's Calibrate item makes) and opens the shared
+  calibration window targeted at the new camera via the temporary device
+  override; a completed calibration stores the baseline, which reopens
+  the gate and lets the takeover happen on its own. At most one nudge per
+  camera per app session (a dismissed nudge must not return on every
+  replug); a delivered nudge is withdrawn once its reason is gone
+  (calibrated, unplugged, or tracking turned off). If the takeover
+  preference is off there is no nudge: the user said no automatic
+  switching, and a nudge to enable a switch they disabled would argue
+  with them.
 - Dots overlay: the service publishes each analyzed frame's readings
   (shoulder width fraction, slouch ratio, joints; adaptive pipeline
   preferred, padded as fallback, frame-normalized) on the main actor via
@@ -416,8 +482,15 @@ Notifications page (see UI/Settings/spec.md).
 
 - Whether the per-second measurement log survives once real metrics land,
   and at what log level it should ship.
-- Baseline staleness: the baseline is per-user and per-camera-placement,
-  and moving the laptop or switching cameras silently invalidates it.
-  Recalibrating by hand is the only remedy today; PostureBaselineDate is
-  the hook for a future staleness heuristic (prompt on camera change?
-  shoulder-width drift?).
+- Baseline staleness: baselines are now per-camera (switching cameras
+  looks up the right one instead of reusing a wrong one), but each is still
+  per-placement - tilting the same laptop screen or moving to a different
+  desk silently invalidates that camera's baseline. Recalibrating by hand
+  is the only remedy today; the stored date is the hook for a future
+  staleness heuristic (shoulder-width drift?).
+- The new-camera nudge covers the gate-blocked external only. Two quiet
+  states remain unnudged: an uncalibrated camera the user picked
+  explicitly (tracking silently muted until they calibrate via the menu),
+  and an undock falling back onto an uncalibrated built-in (possible when
+  onboarding ran docked, so only the monitor got calibrated). Whether
+  those deserve the same notification treatment is open.

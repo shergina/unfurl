@@ -17,6 +17,15 @@ protocol PreferenceValue {
 }
 
 
+/// One camera's good-posture calibration: the slouch ratio and when it was
+/// measured. Stored per-camera (see SRSettings.postureBaselines) because each
+/// camera's angle changes what an upright posture measures.
+struct PostureBaseline: Equatable, Sendable {
+	var slouchRatio: CGFloat
+	var date: Date
+}
+
+
 /// One strongly-typed user preference: UserDefaults-backed, observable.
 /// `value` reads/writes synchronously; `publisher` replays the current
 /// value and then every change. This replaces the old `Any`-typed subject
@@ -80,6 +89,10 @@ final class SRSettings {
 	let launchAtLogin: Preference<Bool>
 	// The selected camera's AVCaptureDevice.uniqueID; "" means system default.
 	let selectedCameraDeviceID: Preference<String>
+	// While Automatic (selectedCameraDeviceID == ""), prefer an external
+	// (display) camera over the built-in when one is present - plugging into
+	// a monitor makes its camera take over. Off pins Automatic to the built-in.
+	let preferExternalCamera: Preference<Bool>
 	// While on, the posture probe runs (holding the camera) and the corner
 	// note can appear; off detaches the probe entirely. Opt-in by default.
 	let postureTracking: Preference<Bool>
@@ -87,9 +100,14 @@ final class SRSettings {
 	// this moment, then resumes on its own. distantPast means not snoozed.
 	// Persisted, so a relaunch mid-snooze honors the remaining time.
 	let postureSnoozeUntil: Preference<Date>
-	// The calibration output: the good-posture slouch ratio and when it
-	// was measured. <= 0 / distantPast = not calibrated. Only these two
+	// The calibration output, one baseline per camera keyed by the active
+	// AVCaptureDevice.uniqueID: the good-posture slouch ratio and when it
+	// was measured. A camera absent from the map is uncalibrated. Only these
 	// values persist, never imagery.
+	let postureBaselines: Preference<[String: PostureBaseline]>
+	// Legacy single-baseline preferences, kept only to migrate a pre-per-camera
+	// install into postureBaselines once (see migrateLegacyBaselineIfNeeded);
+	// cleared after, never written again.
 	let postureBaselineSlouchRatio: Preference<CGFloat>
 	let postureBaselineDate: Preference<Date>
 	// How long (seconds) an issue must persist before it is voiced; drives
@@ -134,8 +152,10 @@ final class SRSettings {
 		self.cameraPanelGhostMode = Preference("CameraPanelGhostMode", default: false, defaults: defaults)
 		self.launchAtLogin = Preference("LaunchAtLogin", default: false, defaults: defaults)
 		self.selectedCameraDeviceID = Preference("SelectedCameraDeviceID", default: "", defaults: defaults)
+		self.preferExternalCamera = Preference("PreferExternalCamera", default: true, defaults: defaults)
 		self.postureTracking = Preference("PostureTracking", default: false, defaults: defaults)
 		self.postureSnoozeUntil = Preference("PostureSnoozeUntil", default: .distantPast, defaults: defaults)
+		self.postureBaselines = Preference("PostureBaselines", default: [:], defaults: defaults)
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
@@ -147,6 +167,34 @@ final class SRSettings {
 		self.postureSoundName = Preference("PostureSoundName", default: "Ping", defaults: defaults)
 		self.postureStatusItemTint = Preference("PostureStatusItemTint", default: false, defaults: defaults)
 		self.hasCompletedOnboarding = Preference("HasCompletedOnboarding", default: false, defaults: defaults)
+	}
+
+	/// The stored baseline for one camera, or nil if it was never calibrated.
+	func postureBaseline(for deviceID: String) -> PostureBaseline? {
+		return self.postureBaselines.value[deviceID]
+	}
+
+	/// Store (or, with nil, clear) one camera's baseline, leaving the others
+	/// untouched. Writing the whole map republishes it for the observers.
+	func setPostureBaseline(_ baseline: PostureBaseline?, for deviceID: String) {
+		var all = self.postureBaselines.value
+		all[deviceID] = baseline
+		self.postureBaselines.value = all
+	}
+
+	/// One-time migration: an install that predates per-camera baselines stored
+	/// one global baseline that Automatic always measured on the built-in
+	/// camera. Fold it into that camera's slot (unless already set), then clear
+	/// the legacy keys so this never runs again and never leaks onto a second
+	/// camera. Call once a real device has resolved.
+	func migrateLegacyBaselineIfNeeded(deviceID: String) {
+		let ratio = self.postureBaselineSlouchRatio.value
+		guard ratio > 0 else { return }
+		if self.postureBaselines.value[deviceID] == nil {
+			self.setPostureBaseline(PostureBaseline(slouchRatio: ratio, date: self.postureBaselineDate.value), for: deviceID)
+		}
+		self.postureBaselineSlouchRatio.value = 0
+		self.postureBaselineDate.value = .distantPast
 	}
 }
 
@@ -204,6 +252,29 @@ extension Date: PreferenceValue {
 
 	func write(to defaults: UserDefaults, key: String) {
 		defaults.set(self.timeIntervalSince1970, forKey: key)
+	}
+}
+
+/// The per-camera baselines persist as a plist-native nested dictionary:
+/// uniqueID -> ["ratio": Double, "date": epoch seconds]. A malformed entry is
+/// dropped rather than failing the whole read.
+extension Dictionary: PreferenceValue where Key == String, Value == PostureBaseline {
+	static func read(from defaults: UserDefaults, key: String) -> [String: PostureBaseline]? {
+		guard let raw = defaults.dictionary(forKey: key) as? [String: [String: Double]] else { return nil }
+		var result: [String: PostureBaseline] = [:]
+		for (id, fields) in raw {
+			guard let ratio = fields["ratio"], let date = fields["date"] else { continue }
+			result[id] = PostureBaseline(slouchRatio: CGFloat(ratio), date: Date(timeIntervalSince1970: date))
+		}
+		return result
+	}
+
+	func write(to defaults: UserDefaults, key: String) {
+		var raw: [String: [String: Double]] = [:]
+		for (id, baseline) in self {
+			raw[id] = ["ratio": Double(baseline.slouchRatio), "date": baseline.date.timeIntervalSince1970]
+		}
+		defaults.set(raw, forKey: key)
 	}
 }
 

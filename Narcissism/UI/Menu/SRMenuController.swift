@@ -395,10 +395,15 @@ class SRMenuController: NSObject {
 		}
 	}
 
-	/// Presents the calibration window; re-fronts if already open. Both
-	/// entry points (menu item, no-baseline auto-open) funnel through here,
-	/// so there is never a second window.
-	func showPostureCalibration() {
+	/// Presents the calibration window; re-fronts if already open. Every
+	/// entry point (menu item, no-baseline auto-open, the new-camera nudge)
+	/// funnels through here, so there is never a second window.
+	/// `forDeviceID` targets a camera that is not active (the nudge's
+	/// calibrate-the-new-monitor path): the window looks through it for its
+	/// lifetime via the camera service's temporary override. An already-open
+	/// window keeps its own target; the nudge stays delivered, so the user
+	/// can come back to it.
+	func showPostureCalibration(forDeviceID deviceID: String? = nil) {
 		// While the welcome flow's posture page is up, that page is the one
 		// calibration surface: re-front it instead of opening a second.
 		if let welcome = self.welcomeWindowController, welcome.isShowingPostureCalibration {
@@ -411,6 +416,7 @@ class SRMenuController: NSObject {
 			return
 		}
 		let controller = SRPostureCalibrationWindowController(windowNibName: "")
+		controller.cameraOverrideDeviceID = deviceID
 		controller.onClose = { [weak self] in self?.postureCalibrationWindowController = nil }
 		self.postureCalibrationWindowController = controller
 		controller.showWindow(self)

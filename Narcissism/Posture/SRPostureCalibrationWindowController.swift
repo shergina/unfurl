@@ -11,14 +11,21 @@ import Combine
 
 /// The calibration window: titled, closable, centered, floating. A fresh
 /// controller per presentation; SRMenuController owns the single live
-/// instance. Closing it with no baseline stored means cancel: Track
-/// Posture goes back off. With an older baseline on file, closing just
-/// closes.
+/// instance. Closing it while nothing is calibrated anywhere means cancel:
+/// Track Posture goes back off. With any baseline on file, closing just
+/// closes and tracking continues on a calibrated camera.
 @MainActor
 final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDelegate {
 
 	/// The owner's hook to drop its reference once the window closes.
 	var onClose: (() -> Void)?
+
+	/// Set before showing to calibrate a camera that is not active (the
+	/// new-camera nudge): applied as the camera service's temporary override
+	/// for the window's lifetime, cleared on close, never persisted - so a
+	/// declined calibration (or a crash) settles back onto the policy camera
+	/// by itself.
+	var cameraOverrideDeviceID: String?
 
 	fileprivate var calibrationViewController: SRPostureCalibrationViewController!
 	fileprivate var isClosing = false
@@ -55,6 +62,12 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 			window.setFrame(CGRect(x: x, y: y, width: window.frame.width, height: window.frame.height), display: true)
 		}
 
+		// Calibrating a not-yet-active camera: look through it while the
+		// window lives.
+		if let overrideID = self.cameraOverrideDeviceID {
+			SRCameraService.sharedInstance.setTemporaryDeviceOverride(id: overrideID)
+		}
+
 		// No posture notes while calibrating.
 		SRPostureAnalysisService.sharedInstance.setCalibrationWindowOpen(true)
 
@@ -83,12 +96,23 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		self.calibrationViewController.session.invalidate()
 		SRPostureAnalysisService.sharedInstance.setCalibrationWindowOpen(false)
 
-		// Closing while uncalibrated is a cancel: revert the toggle (the
-		// composition root then stops the probe). isClosing keeps the
-		// toggle subscription above from re-entering close on this write.
+		// Drop the camera override first, so the app settles back onto the
+		// policy-resolved camera - after a completed calibration the new
+		// baseline lets the gate keep this very camera; after a declined one
+		// it falls back to a calibrated one.
+		if self.cameraOverrideDeviceID != nil {
+			SRCameraService.sharedInstance.setTemporaryDeviceOverride(id: nil)
+		}
+
+		// Closing while nothing is calibrated anywhere is a cancel: revert
+		// the toggle (the composition root then stops the probe). Declining
+		// one camera's calibration while another holds a baseline keeps
+		// tracking on - it continues on the calibrated camera. isClosing
+		// keeps the toggle subscription above from re-entering close on
+		// this write.
 		let settings = SRSettings.sharedInstance
 		if !self.calibrationViewController.completed
-			&& settings.postureBaselineSlouchRatio.value <= 0
+			&& settings.postureBaselines.value.isEmpty
 			&& settings.postureTracking.value {
 			settings.postureTracking.value = false
 		}

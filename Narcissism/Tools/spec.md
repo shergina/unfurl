@@ -24,7 +24,7 @@
 
 - **Responsibilities**:
   - Request camera authorization on first use; resolve the selected (or default) video device.
-  - Enumerate connected cameras (built-in, external, Continuity, Desk View) and switch the active device on request, swapping the running session's input live.
+  - Enumerate the selectable cameras - the built-in and external ones (monitor cameras, USB webcams); Continuity and Desk View devices are excluded entirely (see the phone-ban decision) - and switch the active device on request, swapping the running session's input live.
   - Create/start the session lazily on first attach; stop/destroy it when the attached-object set empties.
   - Attach and detach preview layers (panel, status item) and outputs (Dock video-data output, photo output).
   - Publish `onCaptureDeviceAvailable`, `onState`, `onDevices`, and `onSelectedDeviceID`.
@@ -52,9 +52,9 @@
 
 ### Workflow 3: select a camera
 
-1. The composition root mirrors the `selectedCameraDeviceID` preference into `selectDevice(id:)` (replayed on launch, so the persisted choice is applied before any surface attaches).
-2. On the session queue, `applyDesiredDevice` resolves the id to a device (exact `uniqueID` match, else the system default). If it differs from the current device and the session is running, it removes the old input, adds the new one, re-pins `.hd1920x1080`, and commits.
-3. `onSelectedDeviceID` publishes the resulting active `uniqueID` on the main queue, driving the menu checkmark. Hot-plug (connect/disconnect) refreshes `onDevices` and re-runs `applyDesiredDevice`, so a preferred device reappearing is picked up and one vanishing falls back to the default.
+1. The composition root mirrors the `selectedCameraDeviceID` preference into `selectDevice(id:)` and the `preferExternalCamera` preference into `setPreferExternalCamera(_:)` (both replayed on launch, so the persisted choices are applied before any surface attaches).
+2. On the session queue, `applyDesiredDevice` resolves the id to a device, always within the filtered enumeration: the temporary device override wins when set (a live calibration looking through its target camera; `setTemporaryDeviceOverride`, session-only, never persisted); then an exact `uniqueID` match; otherwise (Automatic, or a pick that has been unplugged) an `.external` camera is chosen when one exists, `preferExternalCamera` is on, and the auto-switch set allows it (`setAutoSwitchableExternalIDs`: while non-nil, only these externals may be auto-preferred - posture's calibration gate, pushed by the composition root; the policy lives upstream, the service just applies it); else the built-in, else whatever eligible camera remains. `AVCaptureDevice.default(for: .video)` is never consulted - macOS points it at a nearby Continuity Camera (see the phone-ban decision) - so a Mac with no eligible camera resolves nil and reads as unavailable rather than adopting a phone. If the resolved device differs from the current one and the session is running, it removes the old input, adds the new one, re-pins `.hd1920x1080`, and commits.
+3. `onSelectedDeviceID` publishes the resulting active `uniqueID` on the main queue, driving the menu checkmark. Hot-plug (connect/disconnect) refreshes `onDevices` and re-runs `applyDesiredDevice`, so plugging into a monitor makes its camera take over by default (unless the preference is off or the user picked a specific camera), and unplugging falls back to the built-in.
 
 ### Workflow 4: authorization and errors become state
 
@@ -113,6 +113,12 @@
 - **Decision**: the selected camera is a preference the composition root mirrors into the service, not a call the menu makes directly.
   - Context: device choice must persist across launches and be applied before any surface attaches, and the menu must not reach into the camera service.
   - Chosen: `selectedCameraDeviceID` (a `uniqueID`, "" = default) is the source of truth; the menu only writes it, and the app delegate subscribes it to `selectDevice(id:)`. The service resolves the id on its own queue and swaps the live input, so switching does not tear down the session or disturb attached outputs.
+- **Decision**: Automatic prefers an external (display) camera over the built-in.
+  - Context: a laptop docked to a monitor has two cameras at different angles; the monitor's is usually the one the user is facing, and it should take over on plug-in without a manual pick.
+  - Chosen: a `preferExternalCamera` preference (default on) that only shapes the Automatic resolution inside `resolveDevice` - an explicit pick still wins, and turning it off pins Automatic to the built-in. The takeover is additionally gated by the auto-switch set while posture tracking is on (see `Narcissism/Posture/spec.md`, "Calibration gate"); the set's semantics are deliberately opaque to this service - it restricts which externals Automatic may adopt, nothing more - so the camera layer stays free of posture knowledge. The rule's inputs are mirrored onto the session queue ahead of time, so a hot-plugged camera is judged against the already-current rule instead of racing an upstream recomputation.
+- **Decision** (2026-08-01): phone-backed cameras (Continuity Camera, Desk View) are not cameras of this app at all - not enumerated, not selectable, never resolved.
+  - Context: a mirror-plus-posture app needs fixed, user-facing cameras; a phone appears and vanishes with proximity and moves when picked up, and the posture pipeline cannot use a Desk View feed at all. In practice the iPhone kept seizing the session through two back doors: `AVCaptureDevice.default(for:)` is biased toward a nearby Continuity Camera, and a Continuity device can enumerate as `.external`, slipping past device-type checks.
+  - Chosen: discovery is limited to `.builtInWideAngleCamera` and `.external` and additionally filters out `isContinuityCamera` (the property catches the `.external` masquerade the type check misses); resolution never consults `AVCaptureDevice.default`. One camera concept for the whole app - the mirror and the posture probe always share the active device - was picked over per-feature camera selections, which would have needed a second simultaneous session and two cameras running at once. Restoring the phones someday is a one-line filter change. `refreshDevices` logs the raw pre-filter enumeration with each device's type and continuity flag, so how a phone presents itself stays observable on real hardware.
 - **Decision**: surface errors as state instead of returning them to callers.
   - Context: the four `attach*` call sites discarded their `Task`, so setup and runtime errors vanished and a failed camera looked like an eternal placeholder.
   - Chosen: `attachObject` is the one chokepoint; it records `.failed` centrally, and `onState` is the single error surface.

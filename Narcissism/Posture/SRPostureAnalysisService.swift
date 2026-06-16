@@ -71,12 +71,16 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	override init() {
 		super.init()
 
-		// Mirror the baseline preference onto the analysis queue, where it
-		// is consumed. Worst case a frame races the initial push, sees nil,
-		// and one window goes unevaluated.
-		SRSettings.sharedInstance.postureBaselineSlouchRatio.publisher
-			.sink { [unowned self] value in
-				let baseline: CGFloat? = value > 0 ? value : nil
+		// Mirror the active camera's baseline onto the analysis queue, where it
+		// is consumed. Keyed by the device actually in use, so switching cameras
+		// swaps the baseline (an uncalibrated camera reads nil, which suppresses
+		// the slouch alert exactly as before calibration). Worst case a frame
+		// races the initial push, sees nil, and one window goes unevaluated.
+		SRSettings.sharedInstance.postureBaselines.publisher
+			.combineLatest(self.cameraService.onSelectedDeviceID)
+			.sink { [unowned self] baselines, deviceID in
+				let ratio = baselines[deviceID]?.slouchRatio
+				let baseline: CGFloat? = (ratio ?? 0) > 0 ? ratio : nil
 				self.analysisQueue.async { self.baselineSlouchRatio = baseline }
 			}
 			.store(in: &self.cancellables)
