@@ -148,8 +148,9 @@ Notifications page (see UI/Settings/spec.md).
   service's onSelectedDeviceID, so a camera switch swaps the baseline),
   written by the calibration window (see Calibration below). The breach
   test is slouch depth (added 2026-08-02): the drop below baseline as a
-  fraction of the camera's calibrated span (upright ratio minus the
-  demonstrated-slouch ratio, see Calibration). A window deeper than the
+  fraction of the camera's slouch span - measured by demonstration on
+  the anchor calibration, derived from the geometry probe everywhere
+  else (see the anchor bullet). A window deeper than the
   depth tolerance logs a warning-level "Slouching:" line naming the ratio
   and the depth percent; ratios above baseline mean sitting tall and
   never alert. Rationale: the ratio's sensitivity to a given physical
@@ -352,8 +353,10 @@ Notifications page (see UI/Settings/spec.md).
   window is open the per-window evaluation is muted exactly as when
   uncalibrated, so the corner note never nags mid-calibration; trackers
   restart clean after it closes.
-- Calibration capture (two poses since 2026-08-02, measuring the offset
-  and the gain): Begin starts a 3-2-1 countdown (which ignores detection
+- Calibration capture (hybrid since 2026-08-03: the slouch pose runs
+  only while no anchor exists - exactly once, ever; every later
+  calibration is single-pose and derives its span, see the anchor bullet
+  below): Begin starts a 3-2-1 countdown (which ignores detection
   loss), then collects the per-frame slouch ratio until 5 seconds of
   sampling at the 4/s analysis rate (~20 samples). One unusable frame
   contributes nothing but does not pause; ~1 s of consecutive loss pauses
@@ -363,11 +366,18 @@ Notifications page (see UI/Settings/spec.md).
   capture start aborts the pose (also the guaranteed exit if frames stop
   arriving entirely). Completion gates per capture: at least 12 usable
   samples, sample standard deviation at most 0.04, median inside
-  0.2...1.5. The upright capture runs first; the moment it passes its
-  gates the median is saved as the baseline (overwriting, and clearing
+  0.2...1.5. The upright capture runs first and also collects the
+  per-frame eye:shoulder width ratio (rho, the geometry probe: eye
+  separation over shoulder separation, aspect-correct pixels; both
+  segments are horizontal in the world, so the ratio encodes anatomy
+  times perspective - which segment sits closer to the camera). The
+  moment the upright capture passes its gates, its median and the rho
+  median are saved as the entry (overwriting, and clearing
   any stored slouched value: a new baseline must never pair with an old
   slouch - recalibrating after moving the screen would mix geometries).
-  Then the slouch pose: "Now slouch the way you normally do", with an
+  A single-pose run is complete here and goes straight to the finished
+  screen. A two-pose run continues with
+  the slouch pose: "Now slouch the way you normally do", with an
   auto-started 3-2-1 (the countdown is
   the time to settle into the pose; the user is present, having just
   finished a capture, so the auto-start cannot loop unattended) and the
@@ -399,14 +409,52 @@ Notifications page (see UI/Settings/spec.md).
   Begin re-arms it, deliberately not auto-retrying so an absent user
   never loops, and the good upright capture is never discarded. Closing
   mid-slouch keeps the single-point baseline (the pre-span behavior).
-  The full result - upright ratio, slouched ratio, the moment - is
+  The full result - upright ratio, slouched ratio when the pose ran, rho,
+  the moment - is
   written into the PostureBaselines map under the active camera's
   AVCaptureDevice.uniqueID, leaving every other camera's entry untouched;
-  nothing else is ever persisted - no frames, no files. The finished
+  the first-ever two-pose completion also writes the anchor (below),
+  anchor before entry so observers of the map always see a current
+  anchor. Nothing else is ever persisted - no frames, no files. The
+  finished
   screen ("Calibration finished.") then offers Looks Good, which closes
   the window, and Try Again, which returns to positioning for another
-  full two-pose pass whose result overwrites. Closing the window in the
+  full pass whose result overwrites. Closing the window in the
   finished state is the same as Looks Good - the result is already saved.
+- The anchor and the derived span (the hybrid, added 2026-08-03): the
+  span - how far the ratio travels from upright to this user's own
+  slouch - is measured by demonstration exactly once, at the first-ever
+  calibration, together with that capture's rho. The pair persists as
+  PostureAnchorSpan and PostureAnchorEyeShoulderRatio: a unit
+  definition, deliberately not tied to a camera (it outlives the device
+  it was measured on; an anchor measured on any camera works, which is
+  what makes docked-first onboarding safe - the span self-normalizes, so
+  the default strictness lands right whatever the first camera's angle).
+  Every other entry's span is derived from its own rho:
+      span = anchor span x (rho / anchor rho) ^ exponent
+  with the exponent 6.0 and the scale clamped to 0.25...4. Rationale:
+  rho cancels the user's anatomy between cameras and encodes only the
+  camera's perspective geometry, which also drives the slouch gain - but
+  ~12-25 percent of rho change maps to ~2.5-3x of gain change, so the
+  exponent is steep, and it is a physics-informed initial guess (the
+  model brackets 4.5-10 across plausible desks; not derivable exactly -
+  height and distance are entangled in rho, and the personal
+  lean-to-drop mix is invisible to it), to be tuned from the calibration
+  log lines, which print every input of the formula. The clamp bounds
+  what a noisy rho can do, and the evaluation's absolute noise floor
+  still backstops the strict end. Evaluation precedence per entry:
+  measured span, else derived span, else the nominal fallback
+  (SRSettings.postureEffectiveSlouchSpan is the one shared rule; the
+  takeover gate, the nudge, and the Settings baseline label all treat
+  "usable span" as measured-or-derived). Migration: existing installs
+  have no anchor, so the next calibration runs two-pose and becomes it;
+  entries from before the probe (no rho) stay on the nominal fallback
+  until recalibrated once. (History: the plan on 2026-08-02 was to
+  instrument rho alongside two-pose everywhere and fit the exponent
+  before switching; decided 2026-08-03 to ship the hybrid directly -
+  per-camera slouch demonstrations cost the user too much and their
+  performance varies between sessions - accepting a guessed exponent
+  corrected from live logs instead.)
 - Calibration cancel: closing the window while nothing is calibrated
   anywhere (empty baselines map) reverts Track Posture to off (no
   baseline, no tracking); with any baseline on file closing just closes
@@ -428,36 +476,39 @@ Notifications page (see UI/Settings/spec.md).
   cleared. Migration targets the built-in specifically so a user docked at
   the moment of upgrade does not get the built-in's baseline stamped onto
   the monitor camera.
-- Calibration gate (added 2026-08-01; tightened to full calibration
-  2026-08-02): the external-camera takeover (Tools/spec.md) is gated on
+- Calibration gate (added 2026-08-01; tightened 2026-08-02; usable-span
+  form since 2026-08-03): the external-camera takeover (Tools/spec.md)
+  is gated on
   calibration. Automatic prefers an external camera only when the
-  preference allows it AND (tracking is off OR that camera has a full
-  two-pose calibration - baseline plus measured span): tracking off is
+  preference allows it AND (tracking is off OR that camera has a usable
+  slouch span - measured, or derived from the anchor): tracking off is
   pure mirror use, nothing to break; tracking on must never auto-switch
   onto a camera that would go quiet (no baseline) or run knowingly
-  miscalibrated (a single-point baseline uses the nominal span, which is
+  miscalibrated (an entry with no span at all uses the nominal rule,
+  which is
   fitted to laptop-height geometry and demonstrably too strict on exactly
   the elevated monitor cameras takeover is about - while the laptop
-  itself stays trustworthy on single-point, because that is the tested
+  itself stays trustworthy on it, because that is the tested
   status quo). In clamshell the built-in vanishes from discovery and the
-  monitor is used regardless as the last resort: with a single-point
+  monitor is used regardless as the last resort: with a span-less
   baseline it tracks on the nominal-span rule (honest, degraded, and only
   when there is no alternative), with none it tracks quiet. The
   composition root pushes the rule's inputs into the camera
-  service ahead of time - tracking on maps to the set of fully calibrated
+  service ahead of time - tracking on maps to the set of usable-span
   uniqueIDs, tracking off to no restriction - so a hot-plugged camera is
   judged against the already-current set with no race. An explicit user
   pick is never gated (intent wins; the escape hatch for whoever wants
   monitor tracking without recalibrating), and the snooze state
   deliberately does not lift the gate: snoozed tracking will resume, and
-  it must resume on a calibrated camera. Deliberate update-time behavior
-  change: a monitor that took over yesterday on a single-point baseline
-  stops taking over until recalibrated with the slouch pose; the nudge
-  explains it, and tracking meanwhile continues on the laptop.
+  it must resume on a calibrated camera. Under the hybrid, one
+  single-pose recalibration (~20 s) is all a camera needs to clear the
+  gate; the nudge explains it, and tracking meanwhile continues on a
+  calibrated camera.
 - New-camera nudge (SRPostureCalibrationNudgeController, added
   2026-08-01): when the gate blocks a takeover - an external camera is
   present, the takeover preference is on, tracking is on, and that camera
-  lacks a full calibration (no entry, or single-point without the span) -
+  lacks a usable span (no entry, or an entry with neither a measured nor
+  a derivable span) -
   a system notification offers to calibrate it. The wording names what
   calibrating buys: "New camera detected ... to switch to it" when the
   camera is not active, "to resume tracking" when it is active without a
@@ -585,6 +636,14 @@ Notifications page (see UI/Settings/spec.md).
   under the normal-slouch instruction (a flattened ladder makes the
   strictness slider near-inert there) - tune from the logged spans and
   depth lines.
+- The derived-span exponent (6.0) is unvalidated: it has never been
+  checked against a real measured-span pair, because the hybrid shipped
+  before any camera had both. First check: after the anchor calibration,
+  single-pose a second camera and compare how alerts feel (and what
+  derived span the calibration log prints) against expectation; the
+  exponent and the 0.25...4 clamp are one-line tunings. A future
+  recalibration of the anchor camera also yields a fresh
+  (span, rho) pair to sanity-check the formula against.
 - Face pitch as a staleness detector (idea recorded 2026-08-02, not
   built). The face detector already running for the adaptive canvas can
   report roll/yaw/pitch; pitch approximates the camera's elevation

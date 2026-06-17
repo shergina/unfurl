@@ -46,19 +46,21 @@ final class SRSettingsPostureViewController: NSViewController {
 		// The stored baseline, named by when it was measured; the ratio
 		// itself is a meaningless number to a user, the date is not.
 		// Shows the baseline of the camera in use (each camera keeps its own),
-		// so it follows both a recalibration and a camera switch. A
-		// single-point entry (no measured slouch span) reads as partially
-		// calibrated: it works on the nominal-span rule but will not take
-		// over as an external until fully calibrated.
+		// so it follows both a recalibration and a camera switch. An entry
+		// without a usable span (neither measured nor derivable from the
+		// anchor) reads as partially calibrated: it works on the
+		// nominal-span rule but will not take over as an external until
+		// recalibrated.
 		let baselineLabel = NSTextField(labelWithString: "")
 		self.settings.postureBaselines.publisher
 			.combineLatest(SRCameraService.sharedInstance.onSelectedDeviceID)
-			.sink { [weak baselineLabel] baselines, deviceID in
+			.sink { [weak self, weak baselineLabel] baselines, deviceID in
+				guard let self else { return }
 				let baseline = baselines[deviceID]
 				baselineLabel?.stringValue = baseline.map {
 					String(
 						format: NSLocalizedString(
-							$0.slouchedRatio != nil
+							self.settings.postureEffectiveSlouchSpan(for: $0) != nil
 								? "settings.posture.baseline.calibrated"
 								: "settings.posture.baseline.partial",
 							comment: ""

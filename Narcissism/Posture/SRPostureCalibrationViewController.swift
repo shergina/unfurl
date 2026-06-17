@@ -32,6 +32,10 @@ final class SRPostureCalibrationViewController: NSViewController {
 	/// Set before the view loads.
 	var showsActionButtons = true
 
+	/// The upright capture's eye:shoulder ratio, held between the upright
+	/// save and a two-pose completion (the anchor stores the pair together).
+	fileprivate var capturedRho: CGFloat?
+
 	fileprivate var didInstallConstraints = false
 	fileprivate var placeholderView: SRCameraPlaceholerView!
 	fileprivate var cameraView: SRPostureCalibrationCameraView!
@@ -118,10 +122,18 @@ final class SRPostureCalibrationViewController: NSViewController {
 			.sink { [weak self] sample in self?.session.ingest(sample) }
 			.store(in: &self.cancellables)
 
-		// The upright median is saved the moment its capture passes the
-		// gates, before the slouch pose runs: a flow abandoned mid-slouch
-		// keeps a valid single-point baseline (the pre-span behavior).
-		self.session.onUprightCaptured = { [weak self] baseline in self?.saveUpright(baseline) }
+		// Hybrid mode: the slouch pose runs only while no anchor exists -
+		// exactly once, ever. Every later calibration is single-pose; its
+		// span is derived from the anchor by the eye:shoulder ratio.
+		self.session.includesSlouchPose = (SRSettings.sharedInstance.postureAnchorSpan.value <= 0)
+
+		// The upright median (with its geometry probe) is saved the moment
+		// its capture passes the gates, before any slouch pose runs: a flow
+		// abandoned mid-slouch keeps a valid single-point baseline.
+		self.session.onUprightCaptured = { [weak self] baseline, rho in
+			self?.capturedRho = rho
+			self?.saveUpright(baseline, rho: rho)
+		}
 
 		self.session.onPhase
 			.sink { [weak self] phase in self?.apply(phase) }
@@ -249,7 +261,12 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.doubleValue = self.progressIndicator.maxValue
 			self.beginButton.isHidden = true
 			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.finished", comment: "")
-			self.save(baseline: baseline, slouched: slouched)
+			// A single-pose run (slouched == nil) was fully saved by
+			// saveUpright; a two-pose run saves the pair and, first time
+			// ever, establishes the anchor.
+			if let slouched {
+				self.save(baseline: baseline, slouched: slouched)
+			}
 
 			// The bar animates its fill at its own (undocumented) pace;
 			// give it a generous beat to land before the buttons show up.
@@ -307,27 +324,37 @@ final class SRPostureCalibrationViewController: NSViewController {
 		return lines.joined(separator: "\n")
 	}
 
-	/// Saved the moment the upright capture passes its gates, clearing any
-	/// stored slouched value: a new baseline must never pair with an old
-	/// slouch (recalibrating after moving the screen would mix geometries).
-	/// A flow abandoned after this point leaves a valid single-point entry.
-	fileprivate func saveUpright(_ baseline: CGFloat) {
+	/// Saved the moment the upright capture passes its gates, with the
+	/// geometry probe, clearing any stored slouched value: a new baseline
+	/// must never pair with an old slouch (recalibrating after moving the
+	/// screen would mix geometries). For a single-pose run this IS the
+	/// complete result; for a two-pose run, a flow abandoned after this
+	/// point leaves a valid single-point entry.
+	fileprivate func saveUpright(_ baseline: CGFloat, rho: CGFloat?) {
 		self.completed = true
 		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
 		SRSettings.sharedInstance.setPostureBaseline(
-			PostureBaseline(slouchRatio: baseline, slouchedRatio: nil, date: .now),
+			PostureBaseline(slouchRatio: baseline, slouchedRatio: nil, date: .now, eyeShoulderRatio: rho),
 			for: deviceID
 		)
 	}
 
 	/// The full two-pose result; a Try Again result overwrites. Stored
-	/// against the camera in use, so each camera keeps its own pair. All
-	/// calibration ever persists: the two ratios and the date.
+	/// against the camera in use, so each camera keeps its own pair. The
+	/// first-ever completion also establishes the anchor - the span and
+	/// geometry probe measured together, written before the entry so
+	/// observers of the baselines map always see a current anchor. All
+	/// calibration ever persists: numbers and a date.
 	fileprivate func save(baseline: CGFloat, slouched: CGFloat) {
 		self.completed = true
+		let settings = SRSettings.sharedInstance
+		if settings.postureAnchorSpan.value <= 0, let rho = self.capturedRho, rho > 0 {
+			settings.postureAnchorSpan.value = baseline - slouched
+			settings.postureAnchorEyeShoulderRatio.value = rho
+		}
 		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
-		SRSettings.sharedInstance.setPostureBaseline(
-			PostureBaseline(slouchRatio: baseline, slouchedRatio: slouched, date: .now),
+		settings.setPostureBaseline(
+			PostureBaseline(slouchRatio: baseline, slouchedRatio: slouched, date: .now, eyeShoulderRatio: self.capturedRho),
 			for: deviceID
 		)
 	}

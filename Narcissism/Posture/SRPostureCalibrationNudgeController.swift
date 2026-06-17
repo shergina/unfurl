@@ -74,10 +74,15 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 
 	fileprivate func reconcile(prefer: Bool, tracking: Bool, baselines: [String: PostureBaseline], devices: [CameraDevice]) {
 		// Blocked = the gate would not let this external take over: no
-		// baseline at all, or a single-point one without the measured
-		// slouch span (see the gate in the composition root).
+		// baseline at all, or one without a usable span - neither measured
+		// nor derivable from the anchor (see the gate in the composition
+		// root and SRSettings.postureEffectiveSlouchSpan).
+		let settings = self.services.settings
 		let blocked = (prefer && tracking)
-			? devices.filter { $0.isExternal && baselines[$0.id]?.slouchedRatio == nil }
+			? devices.filter { device in
+				device.isExternal
+					&& baselines[device.id].flatMap { settings.postureEffectiveSlouchSpan(for: $0) } == nil
+			}
 			: []
 
 		// Withdraw a delivered nudge once its reason is gone (calibrated,

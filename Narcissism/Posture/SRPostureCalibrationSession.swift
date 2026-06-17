@@ -45,13 +45,24 @@ final class SRPostureCalibrationSession {
 		case slouchReady(failure: Failure?)
 		case countingDown(pose: Pose, remaining: Int)
 		case capturing(pose: Pose, sampledSeconds: Double, paused: Bool)
-		case done(baseline: CGFloat, slouched: CGFloat)
+		/// slouched is nil for a single-pose run (hybrid mode: an anchor
+		/// already exists, so the span is derived, not demonstrated).
+		case done(baseline: CGFloat, slouched: CGFloat?)
 	}
 
-	/// Fires the moment the upright capture passes its gates, before the
-	/// slouch pose runs; the owner saves it right away (a flow abandoned
-	/// mid-slouch still keeps a valid single-point baseline).
-	var onUprightCaptured: ((CGFloat) -> Void)?
+	/// Whether this run includes the slouch pose. True exactly when no
+	/// anchor exists yet (the very first calibration measures the span
+	/// once, ever); the owner sets it before the session starts. Every
+	/// later camera runs single-pose and derives its span from the anchor
+	/// via the eye:shoulder ratio (see SRSettings.postureEffectiveSlouchSpan).
+	var includesSlouchPose = true
+
+	/// Fires the moment the upright capture passes its gates, with the
+	/// upright median and the median eye:shoulder ratio (nil if the eyes
+	/// never measured, which the gates make unlikely); the owner saves
+	/// both right away (a flow abandoned mid-slouch still keeps a valid
+	/// single-point baseline).
+	var onUprightCaptured: ((CGFloat, CGFloat?) -> Void)?
 
 	/// Calibration outcomes are tuning telemetry (the span floor and the
 	/// depth ladder are tuned from these lines), same category as the
@@ -91,6 +102,10 @@ final class SRPostureCalibrationSession {
 	fileprivate static let minimumShoulderWidthFraction: CGFloat = 0.15
 
 	fileprivate var samples: [CGFloat] = []
+	// The eye:shoulder width ratio per usable frame, collected during the
+	// upright capture only (the geometry probe belongs to the upright pose,
+	// like the baseline it rides with).
+	fileprivate var rhoSamples: [CGFloat] = []
 	fileprivate var sampledSeconds = 0.0
 	fileprivate var consecutiveUnusable = 0
 	fileprivate var consecutiveUsable = 0
@@ -178,6 +193,9 @@ final class SRPostureCalibrationSession {
 
 	fileprivate func startCapture() {
 		self.samples = []
+		if self.capturePose == .upright {
+			self.rhoSamples = []
+		}
 		self.sampledSeconds = 0
 		self.consecutiveUnusable = 0
 		self.consecutiveUsable = 0
@@ -221,6 +239,9 @@ final class SRPostureCalibrationSession {
 		self.sampledSeconds += Self.secondsPerFrame
 		if let ratio {
 			self.samples.append(ratio)
+			if self.capturePose == .upright, let rho = sample?.eyeShoulderWidthRatio {
+				self.rhoSamples.append(rho)
+			}
 		}
 
 		// Publish the final value too, so the bar gets its "full" target
@@ -273,14 +294,24 @@ final class SRPostureCalibrationSession {
 
 		switch self.capturePose {
 		case .upright:
-			// Reported (and saved) right away, then straight into the slouch
-			// pose: the instruction shows during the auto countdown, which is
-			// plenty to settle into a slouch. The user is present - they just
-			// finished a capture - so the auto-start cannot loop unattended.
 			self.uprightMedian = median
-			Self.logger.log("Calibration upright captured: median \(String(format: "%.3f", median), privacy: .public) (\(count, privacy: .public) samples)")
-			self.onUprightCaptured?(median)
-			self.startCountdown(pose: .slouched)
+			let rho = Self.median(of: self.rhoSamples)
+			let rhoText = rho.map { String(format: "%.4f", $0) } ?? "n/a"
+			Self.logger.log("Calibration upright captured: median \(String(format: "%.3f", median), privacy: .public), rho \(rhoText, privacy: .public) (\(count, privacy: .public) samples)")
+			self.onUprightCaptured?(median, rho)
+
+			if self.includesSlouchPose {
+				// Straight into the slouch pose: the instruction shows during
+				// the auto countdown, which is plenty to settle into a
+				// slouch. The user is present - they just finished a
+				// capture - so the auto-start cannot loop unattended.
+				self.startCountdown(pose: .slouched)
+			} else {
+				// Hybrid mode: the anchor exists, the span is derived from
+				// rho, and this run is complete after the one pose.
+				Self.logger.log("Calibration finished (single pose): baseline \(String(format: "%.3f", median), privacy: .public), rho \(rhoText, privacy: .public)")
+				self.onPhase.send(.done(baseline: median, slouched: nil))
+			}
 
 		case .slouched:
 			// The span gates: a "slouch" at or above upright, or closer to it
@@ -294,6 +325,13 @@ final class SRPostureCalibrationSession {
 			Self.logger.log("Calibration finished: upright \(String(format: "%.3f", upright), privacy: .public), slouched \(String(format: "%.3f", median), privacy: .public), span \(String(format: "%.3f", upright - median), privacy: .public)")
 			self.onPhase.send(.done(baseline: upright, slouched: median))
 		}
+	}
+
+	fileprivate static func median(of values: [CGFloat]) -> CGFloat? {
+		guard !values.isEmpty else { return nil }
+		let sorted = values.sorted()
+		let count = sorted.count
+		return count % 2 == 0 ? (sorted[count / 2 - 1] + sorted[count / 2]) / 2 : sorted[count / 2]
 	}
 
 	/// A capture that reached its 5 seconds but failed the quality gates.

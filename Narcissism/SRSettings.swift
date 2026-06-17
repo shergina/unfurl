@@ -29,6 +29,13 @@ struct PostureBaseline: Equatable, Sendable {
 	var slouchedRatio: CGFloat?
 	var date: Date
 
+	/// The eye:shoulder width ratio measured during the upright capture -
+	/// the camera's geometry probe, from which a slouch span is derived
+	/// for cameras that never ran the slouch pose (see
+	/// postureEffectiveSlouchSpan). Nil on entries from before the probe
+	/// existed.
+	var eyeShoulderRatio: CGFloat?
+
 	/// How far the ratio travels from upright to this user's own slouch on
 	/// this camera; nil while only the upright pose was measured.
 	var span: CGFloat? {
@@ -126,6 +133,14 @@ final class SRSettings {
 	// was measured. A camera absent from the map is uncalibrated. Only these
 	// values persist, never imagery.
 	let postureBaselines: Preference<[String: PostureBaseline]>
+	// The anchor: the span and eye:shoulder ratio of the one two-pose
+	// calibration (the very first; every later camera runs single-pose and
+	// derives its span from the anchor). A pair measured together, set at
+	// most once, and deliberately not tied to a camera - the anchor is a
+	// unit definition and outlives the device it was measured on. 0 = no
+	// anchor yet, which is what makes the next calibration two-pose.
+	let postureAnchorSpan: Preference<CGFloat>
+	let postureAnchorEyeShoulderRatio: Preference<CGFloat>
 	// Legacy single-baseline preferences, kept only to migrate a pre-per-camera
 	// install into postureBaselines once (see migrateLegacyBaselineIfNeeded);
 	// cleared after, never written again.
@@ -169,6 +184,16 @@ final class SRSettings {
 	// nonisolated: also read on the posture analysis queue.
 	nonisolated static let nominalSlouchSpanFraction: CGFloat = 0.2
 
+	// The derived-span mapping: gain scale = (rho / anchor rho) ^ exponent,
+	// clamped. The exponent is a physics-informed initial guess - the model
+	// brackets it at ~4.5-10 for plausible desk geometries (the eye:shoulder
+	// ratio moves ~12-25 percent between a laptop and a monitor camera while
+	// the slouch gain moves ~2.5-3x) - to be tuned from the calibration log
+	// lines, which print every input of this formula. The clamp bounds what
+	// a noisy rho can do to the thresholds.
+	nonisolated static let slouchGainExponent: CGFloat = 6.0
+	nonisolated static let slouchGainScaleRange: ClosedRange<CGFloat> = 0.25...4.0
+
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
     // The camera's menu-bar width is session-only (never persisted): it always
     // starts here and is only adjusted by dragging within the current session.
@@ -193,6 +218,8 @@ final class SRSettings {
 		self.postureTracking = Preference("PostureTracking", default: false, defaults: defaults)
 		self.postureSnoozeUntil = Preference("PostureSnoozeUntil", default: .distantPast, defaults: defaults)
 		self.postureBaselines = Preference("PostureBaselines", default: [:], defaults: defaults)
+		self.postureAnchorSpan = Preference("PostureAnchorSpan", default: 0, defaults: defaults)
+		self.postureAnchorEyeShoulderRatio = Preference("PostureAnchorEyeShoulderRatio", default: 0, defaults: defaults)
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
@@ -221,6 +248,26 @@ final class SRSettings {
 		return self.postureBaselines.value[deviceID]
 	}
 
+	/// The slouch span an entry is judged against, by precedence: the
+	/// measured one (the entry ran the slouch pose - the anchor itself, or
+	/// a pre-hybrid two-pose entry), else one derived from the anchor by
+	/// the camera's geometry probe - anchor span x (rho / anchor rho) ^
+	/// slouchGainExponent, clamped - else nil (no anchor yet, or an entry
+	/// from before the probe: evaluation falls back to the nominal span,
+	/// and the takeover gate treats the camera as not fully calibrated).
+	func postureEffectiveSlouchSpan(for baseline: PostureBaseline) -> CGFloat? {
+		if let span = baseline.span, span > 0 {
+			return span
+		}
+		let anchorSpan = self.postureAnchorSpan.value
+		let anchorRatio = self.postureAnchorEyeShoulderRatio.value
+		guard anchorSpan > 0, anchorRatio > 0, let ratio = baseline.eyeShoulderRatio, ratio > 0 else {
+			return nil
+		}
+		let scale = pow(ratio / anchorRatio, SRSettings.slouchGainExponent)
+		return anchorSpan * min(max(scale, SRSettings.slouchGainScaleRange.lowerBound), SRSettings.slouchGainScaleRange.upperBound)
+	}
+
 	/// Store (or, with nil, clear) one camera's baseline, leaving the others
 	/// untouched. Writing the whole map republishes it for the observers.
 	func setPostureBaseline(_ baseline: PostureBaseline?, for deviceID: String) {
@@ -239,7 +286,7 @@ final class SRSettings {
 		guard ratio > 0 else { return }
 		if self.postureBaselines.value[deviceID] == nil {
 			self.setPostureBaseline(
-				PostureBaseline(slouchRatio: ratio, slouchedRatio: nil, date: self.postureBaselineDate.value),
+				PostureBaseline(slouchRatio: ratio, slouchedRatio: nil, date: self.postureBaselineDate.value, eyeShoulderRatio: nil),
 				for: deviceID
 			)
 		}
@@ -318,7 +365,8 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 			result[id] = PostureBaseline(
 				slouchRatio: CGFloat(ratio),
 				slouchedRatio: fields["slouched"].map { CGFloat($0) },
-				date: Date(timeIntervalSince1970: date)
+				date: Date(timeIntervalSince1970: date),
+				eyeShoulderRatio: fields["eyeShoulder"].map { CGFloat($0) }
 			)
 		}
 		return result
@@ -330,6 +378,9 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 			var fields = ["ratio": Double(baseline.slouchRatio), "date": baseline.date.timeIntervalSince1970]
 			if let slouched = baseline.slouchedRatio {
 				fields["slouched"] = Double(slouched)
+			}
+			if let eyeShoulder = baseline.eyeShoulderRatio {
+				fields["eyeShoulder"] = Double(eyeShoulder)
 			}
 			raw[id] = fields
 		}

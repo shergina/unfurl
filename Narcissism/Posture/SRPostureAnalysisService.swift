@@ -71,19 +71,25 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	override init() {
 		super.init()
 
-		// Mirror the active camera's baseline and slouch span onto the
-		// analysis queue, where they are consumed. Keyed by the device
+		// Mirror the active camera's baseline and effective slouch span onto
+		// the analysis queue, where they are consumed. Keyed by the device
 		// actually in use, so switching cameras swaps both (an uncalibrated
 		// camera reads nil, which suppresses the slouch alert exactly as
-		// before calibration; a single-point camera reads a nil span and is
-		// judged against the nominal one). Worst case a frame races the
-		// initial push, sees nil, and one window goes unevaluated.
+		// before calibration; an entry without measured or derived span
+		// reads nil and is judged against the nominal one). The effective
+		// span resolves measured-over-derived on the main actor (see
+		// SRSettings.postureEffectiveSlouchSpan); anchor changes always
+		// ride a baselines write, so this sink stays current. Worst case a
+		// frame races the initial push, sees nil, and one window goes
+		// unevaluated.
 		SRSettings.sharedInstance.postureBaselines.publisher
 			.combineLatest(self.cameraService.onSelectedDeviceID)
 			.sink { [unowned self] baselines, deviceID in
 				let entry = baselines[deviceID]
 				let baseline: CGFloat? = (entry?.slouchRatio ?? 0) > 0 ? entry?.slouchRatio : nil
-				let span = baseline != nil ? entry?.span : nil
+				let span = baseline != nil
+					? entry.flatMap { SRSettings.sharedInstance.postureEffectiveSlouchSpan(for: $0) }
+					: nil
 				self.analysisQueue.async {
 					self.baselineSlouchRatio = baseline
 					self.baselineSlouchSpan = span
@@ -401,6 +407,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		let sample = SRPostureFrameSample(
 			shoulderWidthFraction: best?.fractionOfWidth,
 			slouchRatio: best?.slouchRatio,
+			eyeShoulderWidthRatio: best?.eyeShoulderWidthRatio,
 			joints: best?.joints
 		)
 		Task { @MainActor [sample] in self.onFrameSample.send(sample) }
@@ -824,6 +831,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		var eyeHeightPixels: CGFloat?
 		var slouchRatio: CGFloat?
 		var personHeightFraction: CGFloat?
+		var eyeShoulderWidthRatio: CGFloat?
 		var leftEyePoint: CGPoint?
 		var rightEyePoint: CGPoint?
 		if
@@ -837,6 +845,15 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			let fraction = ((leftEye.y + rightEye.y) / 2 - frameRect.minY) / frameRect.height
 			eyeHeightFraction = fraction
 			eyeHeightPixels = fraction * height * frameRect.height
+
+			// The eye separation over the shoulder separation, both
+			// aspect-correct in pixels. Both segments are horizontal in the
+			// world, so this ratio encodes only anatomy times perspective -
+			// which of the two segments sits closer to the camera - making
+			// it the per-camera geometry probe the derived slouch span is
+			// scaled by (see Posture/spec.md).
+			let eyeDistanceInPixels = hypot((leftEye.x - rightEye.x) * width, (leftEye.y - rightEye.y) * height)
+			eyeShoulderWidthRatio = eyeDistanceInPixels / distanceInPixels
 
 			// The slouch ratio from VISION.md: the vertical drop from eye
 			// level to shoulder level, over shoulder width. Heights are
@@ -867,6 +884,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			eyeHeightPixels: eyeHeightPixels,
 			slouchRatio: slouchRatio,
 			personHeightFraction: personHeightFraction,
+			eyeShoulderWidthRatio: eyeShoulderWidthRatio,
 			shoulderTiltDegrees: tiltDegrees,
 			joints: SRPostureJoints(
 				leftShoulder: remapToFrame(left),
@@ -908,6 +926,10 @@ fileprivate struct ShoulderMeasurement {
 	/// top (half the eye-to-shoulder drop above the eyes). Nil whenever
 	/// the eye heights are.
 	let personHeightFraction: CGFloat?
+
+	/// Eye separation over shoulder separation (the per-camera geometry
+	/// probe; see analyzeShoulders). Nil whenever the eye heights are.
+	let eyeShoulderWidthRatio: CGFloat?
 
 	/// The angle of the shoulder line off horizontal, in degrees. Positive
 	/// means the subject's anatomical left shoulder is higher; 0 is level.
@@ -1043,10 +1065,12 @@ struct SRPostureWindowSample: Sendable {
 
 /// One analyzed frame's readings, padded pipeline preferred: shoulder
 /// width as a fraction of the frame, the slouch ratio (nil without eyes),
+/// the eye:shoulder width ratio (the geometry probe, nil without eyes),
 /// and the joints. All nil when nothing measured.
 struct SRPostureFrameSample: Sendable {
 	let shoulderWidthFraction: CGFloat?
 	let slouchRatio: CGFloat?
+	let eyeShoulderWidthRatio: CGFloat?
 	let joints: SRPostureJoints?
 }
 
