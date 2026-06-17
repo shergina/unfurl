@@ -130,29 +130,9 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 
 	func showPanelAtView(_ view: NSView) {
 		let size = self.preferences.cameraPanelSize.value
-		var position = self.preferences.cameraPanelPosition.value
-
-		if position == CGPoint.zero {
-			let padding: CGFloat = 10
-			let viewFrameRelativeToWindow = view.convert(view.bounds, to: nil)
-			let viewFrameRelativeToScreen = view.window!.convertToScreen(viewFrameRelativeToWindow)
-			let point = NSPoint(x: NSMidX(viewFrameRelativeToScreen), y: NSMinY(viewFrameRelativeToScreen))
-			let screen = view.window!.screen
-			let screenFrame = screen!.frame
-
-			position = CGPoint(
-				x: ceil(point.x - size.width / 2.0),
-				y: point.y - size.height - padding
-			)
-
-			position.x = min(position.x, screenFrame.size.width - size.width - padding);
-		}
-
-		let panelFrame = CGRect(
-			origin: position,
-			size: size
-		)
-
+		// Read before creating: assigning the content view controller can
+		// fire a transient frame save that would clobber the stored values.
+		let panelFrame = self.restoredFrame(size: size) ?? self.anchoredFrame(under: view, size: size)
 
 		self.createPanel()
 		self.createViewController()
@@ -161,6 +141,98 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 		self.panel.orderFront(self)
 
 		self.applyGhostMode()
+	}
+
+	/// The remembered position, re-anchored to the right display: the saved
+	/// fraction of a screen's usable area, applied to the screen under the
+	/// mouse for a hover summon (the panel appears where the user is
+	/// looking) or to the screen the panel lived on for a pinned restore.
+	/// nil while the panel has never been placed.
+	fileprivate func restoredFrame(size: CGSize) -> CGRect? {
+		var fraction: CGPoint
+		var savedScreen: NSScreen?
+
+		let savedScreenName = self.preferences.cameraPanelScreenName.value
+		if !savedScreenName.isEmpty {
+			fraction = self.preferences.cameraPanelRelativePosition.value
+			savedScreen = NSScreen.screens.first { $0.localizedName == savedScreenName }
+		} else {
+			// Pre-fraction install: derive from the legacy absolute origin
+			// (the screen containing it is the screen the panel lived on).
+			// The first save rewrites everything in the new form. A legacy
+			// origin on a screen no longer connected starts fresh.
+			let legacy = self.preferences.cameraPanelPosition.value
+			guard legacy != CGPoint.zero,
+				let screen = NSScreen.screens.first(where: { NSMouseInRect(legacy, $0.frame, false) })
+			else { return nil }
+			fraction = Self.fraction(ofOrigin: legacy, size: size, on: screen)
+			savedScreen = screen
+		}
+
+		let pinned = self.preferences.cameraPanelPinned.value
+		let target = pinned
+			? (savedScreen ?? self.screenUnderMouse() ?? NSScreen.main)
+			: (self.screenUnderMouse() ?? savedScreen ?? NSScreen.main)
+		guard let target else { return nil }
+
+		return Self.frame(atFraction: fraction, size: size, on: target)
+	}
+
+	/// First-ever placement: centered under the status item, clamped into
+	/// the item's screen. Used until the user moves or resizes the panel
+	/// once; after that the stored fraction takes over.
+	fileprivate func anchoredFrame(under view: NSView, size: CGSize) -> CGRect {
+		let padding: CGFloat = 10
+		let viewFrameRelativeToWindow = view.convert(view.bounds, to: nil)
+		let viewFrameRelativeToScreen = view.window!.convertToScreen(viewFrameRelativeToWindow)
+		let point = NSPoint(x: NSMidX(viewFrameRelativeToScreen), y: NSMinY(viewFrameRelativeToScreen))
+		let screenFrame = view.window!.screen!.frame
+
+		var position = CGPoint(
+			x: ceil(point.x - size.width / 2.0),
+			y: point.y - size.height - padding
+		)
+		// Clamp against the screen's edges (maxX/minX, not its width: a
+		// secondary display's global origin is not zero).
+		position.x = min(position.x, screenFrame.maxX - size.width - padding)
+		position.x = max(position.x, screenFrame.minX + padding)
+
+		return CGRect(origin: position, size: size)
+	}
+
+	fileprivate func screenUnderMouse() -> NSScreen? {
+		let location = NSEvent.mouseLocation
+		return NSScreen.screens.first { NSMouseInRect(location, $0.frame, false) }
+	}
+
+	/// Where an origin sits inside a screen's usable area: 0 is the
+	/// left/bottom edge, 1 the right/top edge of the room the panel has to
+	/// move on that screen. Screen-size independent, so one position means
+	/// the same corner on every display.
+	fileprivate static func fraction(ofOrigin origin: CGPoint, size: CGSize, on screen: NSScreen) -> CGPoint {
+		let visible = screen.visibleFrame
+		let roomX = visible.width - size.width
+		let roomY = visible.height - size.height
+		return CGPoint(
+			x: roomX > 0 ? (origin.x - visible.minX) / roomX : 0,
+			y: roomY > 0 ? (origin.y - visible.minY) / roomY : 0
+		)
+	}
+
+	/// The inverse: a frame at the given fraction of a screen's usable
+	/// area. The fraction is clamped to 0...1, so a restored panel is
+	/// always fully on screen (a smaller display cannot strand it).
+	fileprivate static func frame(atFraction fraction: CGPoint, size: CGSize, on screen: NSScreen) -> CGRect {
+		let visible = screen.visibleFrame
+		let roomX = max(visible.width - size.width, 0)
+		let roomY = max(visible.height - size.height, 0)
+		let clamped = CGPoint(x: min(max(fraction.x, 0), 1), y: min(max(fraction.y, 0), 1))
+		return CGRect(
+			x: visible.minX + clamped.x * roomX,
+			y: visible.minY + clamped.y * roomY,
+			width: size.width,
+			height: size.height
+		)
 	}
 
 	func hidePanel() {
@@ -258,12 +330,20 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 	}
 
 	func storeWindowPosition() {
-		guard let window = self.window , self.window != nil else {
+		// No screen (window mid-transition or off-screen): keep the last
+		// saved place rather than recording garbage.
+		guard let window = self.window, let screen = window.screen else {
 			return
 		}
 
 		self.preferences.cameraPanelSize.value = window.frame.size
-		self.preferences.cameraPanelPosition.value = window.frame.origin
+		self.preferences.cameraPanelRelativePosition.value =
+			Self.fraction(ofOrigin: window.frame.origin, size: window.frame.size, on: screen)
+		self.preferences.cameraPanelScreenName.value = screen.localizedName
+		// The legacy absolute origin has served its migration purpose.
+		if self.preferences.cameraPanelPosition.value != CGPoint.zero {
+			self.preferences.cameraPanelPosition.value = CGPoint.zero
+		}
 	}
 
 

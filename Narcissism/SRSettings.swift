@@ -94,6 +94,16 @@ final class SRSettings {
 	let showCameraOnDockTile: Preference<Bool>
 	let showCameraPanelOnHover: Preference<Bool>
 	let cameraPanelSize: Preference<CGSize>
+	// Where the panel sits: its origin as a fraction of a screen's usable
+	// area (0...1 per axis) plus the name of the screen it was last on.
+	// The fraction makes one dragged position carry to every display
+	// (top-right here is top-right there); the name lets a pinned panel
+	// restore to its home screen. See SRPanelController's placement.
+	let cameraPanelRelativePosition: Preference<CGPoint>
+	let cameraPanelScreenName: Preference<String>
+	// Legacy absolute origin, read only to seed the relative position on a
+	// pre-fraction install and zeroed on the first save; never written
+	// otherwise.
 	let cameraPanelPosition: Preference<CGPoint>
 	let cameraPanelPinned: Preference<Bool>
 	let cameraPanelGhostMode: Preference<Bool>
@@ -172,6 +182,8 @@ final class SRSettings {
 		self.showCameraOnDockTile = Preference("ShowCameraOnDockTile", default: false, defaults: defaults)
 		self.showCameraPanelOnHover = Preference("ShowCameraPanelOnHover", default: true, defaults: defaults)
 		self.cameraPanelSize = Preference("CameraPanelSize", default: CGSize(width: 300.0, height: 200.0), defaults: defaults)
+		self.cameraPanelRelativePosition = Preference("CameraPanelRelativePosition", default: CGPoint.zero, defaults: defaults)
+		self.cameraPanelScreenName = Preference("CameraPanelScreenName", default: "", defaults: defaults)
 		self.cameraPanelPosition = Preference("CameraPanelPosition", default: CGPoint.zero, defaults: defaults)
 		self.cameraPanelPinned = Preference("CameraPanelPinned", default: true, defaults: defaults)
 		self.cameraPanelGhostMode = Preference("CameraPanelGhostMode", default: false, defaults: defaults)

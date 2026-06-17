@@ -32,7 +32,7 @@
   - `showPanel == (hover || pinned) && (cameraAvailable || cameraState != .idle)`. A denied camera keeps the panel showable so its reason is visible; it does not silently hide.
   - The chip is revealed only while hovering AND `cameraState.isRunning`.
   - The camera view is hidden whenever `cameraState` is not running, so it cannot cover the placeholder or swallow the placeholder's button clicks.
-  - Panel frame writes go to `cameraPanelSize` / `cameraPanelPosition` on move and resize.
+  - Panel frame writes go to `cameraPanelSize` / `cameraPanelRelativePosition` / `cameraPanelScreenName` on move and resize (the position as a fraction of the screen's usable area plus the screen's name; see the placement decision).
 
 ## Key workflows
 
@@ -89,7 +89,7 @@
 
 - **Public API surface**: `SRPanelController(services:statusItemController:)`, constructed by the app delegate with the status item controller injected explicitly (it reads that controller's `onMouseHover` and uses its view as the panel anchor). `handleCloseButton` (unpins and hides) is reached by the toolbar through `window.windowController`, not a global.
 - **Inputs**: status-item hover, panel preferences, camera availability and state.
-- **Outputs**: `cameraPanelSize` / `cameraPanelPosition` writes; toggling of pin/ghost/mirror preferences.
+- **Outputs**: `cameraPanelSize` / `cameraPanelRelativePosition` / `cameraPanelScreenName` writes; toggling of pin/ghost/mirror preferences.
 
 ## Key design decisions (recorded)
 
@@ -108,8 +108,7 @@
 - **Decision**: hide the camera view when not running.
   - Context: an always-present transparent camera view sat above the placeholder and ate the "Open System Settings" click.
   - Chosen: gate `cameraView.isHidden` on `cameraState.isRunning`.
-
-## Open questions / known limitations
-
-- Placement math assumes the main screen; multi-display is unspecified.
+- **Decision** (2026-08-02): the panel position is screen-relative, and a hover summon targets the screen being hovered.
+  - Context: the position was one absolute global point, so hovering the status item on a monitor summoned the panel to wherever it last lived (usually the laptop screen), and a point saved on a since-disconnected display restored nowhere.
+  - Chosen: the origin persists as a fraction of a screen's usable area (`visibleFrame`, 0...1 per axis of the room the panel has to move) plus the screen's `localizedName`. On show, the fraction is applied to a target screen: the screen under the mouse for a hover summon - the mouse is on the hovered menu bar by definition, and the glance should happen where the user is looking - or the named screen for a pinned restore (pinning means "it lives here"), each falling back to the other, then to the main screen. The fraction is clamped on apply, so a restored panel is always fully on screen and one dragged position means the same corner on every display. The legacy absolute `cameraPanelPosition` is read once to seed the fraction (its containing screen doubles as the home screen) and zeroed on the first save. First-ever placement still anchors under the status item, clamped by the screen's real edges (maxX/minX, not width - a secondary display's global origin is not zero). Known simplification: two identical displays share a `localizedName`; the pinned restore then picks the first match.
 - Ghost mode relies on global mouse monitors; if Input Monitoring is restricted the hover-fade may not fire (the panel stays at its idle translucency).
