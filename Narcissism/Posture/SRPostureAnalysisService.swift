@@ -193,6 +193,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 					self.lastAnalysisTime = .invalid
 					self.resetWindow()
 					self.issueTrackers = [:]
+					self.recentSlouchRatios = []
 					self.notVisibleWindows = 0
 					self.lastLoggedStatus = nil
 					self.lastEvaluatedStatus = nil
@@ -299,12 +300,44 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var maximumLevelShoulderTiltDegrees: CGFloat = 2.9
 
 	/// No breach drop may be smaller than this, regardless of how small a
-	/// span calibration measured: a drop this size is indistinguishable
-	/// from per-window measurement noise and natural settling (observed
-	/// 2026-08-02: span 0.041 put every ladder stop inside noise, flagging
-	/// a genuinely good posture 0.021 below baseline). Noise is a property
-	/// of the pipeline, so the floor is absolute, camera-independent.
-	fileprivate nonisolated static let minimumBreachDrop: CGFloat = 0.03
+	/// span calibration measured. With the rolling-median accusation (see
+	/// recentSlouchRatios) frame jitter no longer reaches the breach test,
+	/// so the floor guards only what averaging cannot remove: natural
+	/// settling - genuinely sitting a little lower than at calibration
+	/// (observed 2026-08-02: a sustained 0.021 below baseline while
+	/// sitting well). The floor is absolute and camera-independent, and
+	/// for a shallow habitual slouch it is the effective strictness (much
+	/// of the ladder sits under it), so this constant is also the tuning
+	/// knob for that profile. (History: 0.03 on day one; 0.025 on
+	/// 2026-08-03 when detection felt loose; 0.02 same day with the
+	/// median - jitter handled, the observed settling amplitude is now
+	/// the binding constraint and this sits at its edge.)
+	fileprivate nonisolated static let minimumBreachDrop: CGFloat = 0.02
+
+	/// The rolling window for the median-based accusation: the last N
+	/// windows' slouch ratios (nil where unmeasured), ~N seconds of
+	/// wall-clock. The median needs at least half the window measured to
+	/// speak; below that the raw per-window value decides, as before.
+	/// Sized so a slouch must occupy about half of it before the verdict
+	/// flips - brief excursions and single jittery frames structurally
+	/// cannot accuse. Touched only on the analysis queue.
+	fileprivate nonisolated static let slouchMedianWindowCount = 8
+	fileprivate nonisolated static let slouchMedianMinimumSamples = 4
+	fileprivate nonisolated(unsafe) var recentSlouchRatios: [CGFloat?] = []
+
+	/// Push one window's reading (nil = not measurable this window) and
+	/// return the median of the measured readings in the window, or nil
+	/// while fewer than half are measured.
+	fileprivate nonisolated func updateRecentSlouchRatios(with ratio: CGFloat?) -> CGFloat? {
+		self.recentSlouchRatios.append(ratio)
+		if self.recentSlouchRatios.count > Self.slouchMedianWindowCount {
+			self.recentSlouchRatios.removeFirst(self.recentSlouchRatios.count - Self.slouchMedianWindowCount)
+		}
+		let measured = self.recentSlouchRatios.compactMap { $0 }.sorted()
+		guard measured.count >= Self.slouchMedianMinimumSamples else { return nil }
+		let count = measured.count
+		return count % 2 == 0 ? (measured[count / 2 - 1] + measured[count / 2]) / 2 : measured[count / 2]
+	}
 
 	/// The absolute ratio drop that counts as a breach: the depth tolerance
 	/// applied to the measured span, or to the nominal one while this
@@ -360,6 +393,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				// timestamp lives on the old timeline, so it goes too.
 				self.resetWindow()
 				self.issueTrackers = [:]
+				self.recentSlouchRatios = []
 				self.notVisibleWindows = 0
 				self.lastEvaluatedStatus = nil
 				self.smoothedFaceBox = nil
@@ -433,6 +467,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// reset for a clean start.
 		guard let baseline = self.baselineSlouchRatio, !self.suppressedForCalibration else {
 			self.issueTrackers = [:]
+			self.recentSlouchRatios = []
 			self.notVisibleWindows = 0
 			self.lastLoggedStatus = nil
 			self.lastEvaluatedStatus = nil
@@ -440,22 +475,33 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			return
 		}
 
+		// One rolling-median update per window, measured or not (nil ages
+		// stale readings out during blindness); the returned median drives
+		// the tracker's breach verdict below and rides the log line.
+		let recentMedian = self.updateRecentSlouchRatios(
+			with: (self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement)?.slouchRatio
+		)
+
 		// Slouch alert, evaluated on whichever pipeline measured (adaptive
 		// preferred, fixed canvas as fallback). One evaluation per window,
 		// no debounce yet: immediate per-second feedback is the point of the
-		// current experiment. The line reports slouch depth (the fraction
+		// current experiment; the line stays raw on purpose (tuning
+		// telemetry) and carries the rolling median so the accusation the
+		// tracker actually acts on is visible next to it. The line reports
+		// slouch depth (the fraction
 		// of the calibrated span the ratio has sunk) when the span was
 		// measured, the old percent-below-baseline form otherwise.
 		if
 			let ratio = self.adaptiveWindow.bestMeasurement?.slouchRatio ?? self.paddedWindow.bestMeasurement?.slouchRatio,
 			ratio < baseline - self.slouchBreachDrop(baseline: baseline)
 		{
+			let medianText = recentMedian.map { String(format: "%.3f", $0) } ?? "n/a"
 			if let span = self.baselineSlouchSpan {
 				let depthPercent = Int(((baseline - ratio) / span * 100).rounded())
-				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(depthPercent, privacy: .public) percent of your slouch depth (baseline \(String(format: "%.3f", baseline), privacy: .public), span \(String(format: "%.3f", span), privacy: .public))")
+				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) (median \(medianText, privacy: .public)) is \(depthPercent, privacy: .public) percent of your slouch depth (baseline \(String(format: "%.3f", baseline), privacy: .public), span \(String(format: "%.3f", span), privacy: .public))")
 			} else {
 				let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
-				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
+				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) (median \(medianText, privacy: .public)) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
 			}
 		}
 
@@ -481,12 +527,26 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		if let measurement = self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement {
 			self.notVisibleWindows = 0
 
+			// Slow to accuse, instant to forgive: the breach verdict comes
+			// from the rolling median (a slouch must occupy about half the
+			// recent window - jitter and brief excursions cannot accuse),
+			// while a strong recovery is judged on the raw value (sitting
+			// up decisively is a large, unambiguous move; the note must
+			// vanish right away, not after the median catches up). While
+			// the median has too few samples (startup, after a dropout),
+			// the raw value decides alone, as before.
 			let slouchObservation: SRIssueObservation
 			if let ratio = measurement.slouchRatio {
 				let breachDrop = self.slouchBreachDrop(baseline: baseline)
 				let breachFloor = baseline - breachDrop
 				let strongFloor = baseline - breachDrop / 2
-				slouchObservation = ratio < breachFloor ? .breaching : (ratio >= strongFloor ? .stronglyRecovered : .clean)
+				if ratio >= strongFloor {
+					slouchObservation = .stronglyRecovered
+				} else if let median = recentMedian {
+					slouchObservation = median < breachFloor ? .breaching : .clean
+				} else {
+					slouchObservation = ratio < breachFloor ? .breaching : .clean
+				}
 			} else {
 				// Eyes not measurable this window: freeze the tracker
 				// rather than guessing either way.

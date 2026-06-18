@@ -164,15 +164,19 @@ Notifications page (see UI/Settings/spec.md).
   strictness slider on the Settings window's Posture page over five
   stops - 0.6, 0.5, 0.4, 0.3, 0.2 of the span, relaxed to strict - and
   mirrored onto the analysis queue like the baseline. The resulting
-  breach drop is floored at 0.03 absolute (added 2026-08-02): a smaller
-  drop is indistinguishable from per-window noise and natural settling,
-  so no span may make the evaluation hair-trigger (observed same day: a
-  measured span of 0.041 put every ladder stop inside noise and flagged
-  a genuinely good posture 0.021 below baseline). Noise is a property of
-  the measurement pipeline, so the floor is absolute and
+  breach drop is floored at 0.02 absolute (0.03 on 2026-08-02, 0.025
+  then 0.02 on 2026-08-03): with the rolling-median accusation (see
+  issue tracking) frame jitter no longer reaches the breach test, so
+  the floor guards only what averaging cannot remove - natural
+  settling, genuinely sitting a little lower than at calibration
+  (observed: a sustained 0.021 below baseline while sitting well, which
+  bounds the floor from below). The floor is absolute and
   camera-independent; it only clips ladder stops that a small span would
-  push into noise. A camera without a
-  measured span (calibrated before the two-pose flow, or the flow was
+  push under it. For a shallow habitual slouch the clip is still
+  substantial - a 0.047 span leaves stops at 0.028/0.024 live and
+  floors the rest at 0.02 - so the floor remains the strict end of the
+  de facto ladder there. A camera
+  without a usable span (calibrated before the two-pose flow, or the flow was
   abandoned mid-slouch) is judged against a nominal span of 0.2 x its
   baseline (SRSettings.nominalSlouchSpanFraction); the 0.2 is chosen so
   the depth ladder reproduces the previous percent-of-baseline ladder
@@ -238,7 +242,28 @@ Notifications page (see UI/Settings/spec.md).
   other from zero). Per logging window each issue observes its metric
   one-sidedly as breaching, clean, strongly recovered (past half the
   tolerance band on its own side), or unknown (not measurable; the
-  tracker freezes - eyes hidden freezes only slouching). An issue is
+  tracker freezes - eyes hidden freezes only slouching). The slouch
+  observation is asymmetric since 2026-08-03 - slow to accuse, instant
+  to forgive: the breaching verdict comes from a rolling median of the
+  last 8 windows' ratios (at least 4 measured, else the raw value
+  decides alone as before; unmeasured and not-visible windows push nil
+  so stale readings age out of the buffer, and the buffer resets
+  wherever the trackers do), while strong recovery is judged on the raw
+  window value - sitting up decisively is a large, unambiguous move and
+  the note must vanish right away, not after the median catches up.
+  Rationale: onset detection happens near the threshold where frame
+  jitter can fake it (a slouch must now occupy about half the recent
+  window - single frames and coffee reaches structurally cannot
+  accuse), which is what allowed the breach-drop floor to drop to the
+  settling amplitude; recovery is a move several times the noise, raw
+  is trustworthy there, and a false clear is cheap (the still-breached
+  median re-arms the episode). Known cost: a marginal correction -
+  rising to just above the breach floor but short of strong recovery -
+  now clears via the median's lag plus the clean windows (~6 s instead
+  of ~2), which leans further into "hovering at the threshold is still
+  the issue". The per-window warning log line stays raw and carries the
+  median alongside, so both views are visible in the telemetry. An
+  issue is
   voiced after being active for the nudge-delay preference
   (PostureNudgeDelaySeconds, default 10 s; windows are ~1 s so seconds
   map straight to a window count, mirrored onto the analysis queue the
@@ -628,14 +653,18 @@ Notifications page (see UI/Settings/spec.md).
   and an undock falling back onto an uncalibrated built-in (possible when
   onboarding ran docked, so only the monitor got calibrated). Whether
   those deserve the same notification treatment is open.
-- Small spans vs per-window noise: decided same day it was recorded -
-  live testing hit it immediately (span 0.041, good posture flagged at
-  0.021 below baseline), so the breach drop now has the 0.03 absolute
-  noise floor (above). Still open: whether 0.03 is the right floor, and
-  how much of the depth ladder flattens onto it on low-gain cameras
-  under the normal-slouch instruction (a flattened ladder makes the
-  strictness slider near-inert there) - tune from the logged spans and
-  depth lines.
+- Small spans vs per-window noise: largely addressed in two steps. The
+  noise floor exists (0.03 -> 0.025 -> 0.02 across 2026-08-02/03), and
+  the rolling-median accusation removed frame jitter from the breach
+  test, which is what let the floor reach the settling amplitude - on a
+  0.047 span the slider now has distinct stops at 0.028/0.024/0.02
+  instead of one. Still open: whether the floor can sit lower (the
+  0.021 settling event bounds it - going under would flag genuinely
+  good sitting), whether the median window (8) and its minimum (4) are
+  right, and whether the still-floored strict stops deserve the
+  floor-slope idea (the floor itself varying 0.03...0.02 across the
+  slider, giving every stop a distinct meaning at the cost of the
+  strictest flirting with settling) - decide from lived-with behavior.
 - The derived-span exponent (6.0) is unvalidated: it has never been
   checked against a real measured-span pair, because the hybrid shipped
   before any camera had both. First check: after the anchor calibration,
