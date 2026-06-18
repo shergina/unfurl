@@ -31,7 +31,7 @@ These distill `.spec/constitution.md`; the constitution wins if they ever confli
 - **Never blank-frame a failure.** Camera permission and errors surface through `SRCameraService.onState`; user-facing surfaces explain the state. Do not swallow errors into `print` or a discarded `Task`.
 - **One capture session.** All preview layers and outputs attach to `SRCameraService`'s shared session. Do not create a second `AVCaptureSession` on the camera, and do not request a buffer size on the Dock output.
 - **Keep background cost low.** Cache static drawing; redraw only changing pixels; pace background surfaces; keep per-frame and IO work off the main thread.
-- **Camera data stays on device.** No network transmission of frames or photos.
+- **Camera data stays on device.** No network transmission of frames or photos. The sandbox entitlements enforce this, not just convention: the app requests only app-sandbox, camera, and pictures read-write. Microphone and network-client are deliberately not requested. Do not add either without a real, user-facing reason and a matching Info.plist usage string.
 - **Delete rather than defer.** Dead code and half-finished features are liabilities.
 
 ## Commit messages
