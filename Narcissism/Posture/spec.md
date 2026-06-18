@@ -213,14 +213,18 @@ Notifications page (see UI/Settings/spec.md).
   baseline - level is level. The tolerance is the
   PostureShoulderTolerance preference, stored as a slope (the height
   difference between the shoulder joints over their separation) with
-  five slider stops - 9, 7, 5, 3, 2 percent, relaxed to strict, default
-  7 - and converted to degrees (atan) when mirrored onto the analysis
-  queue, since the evaluation compares degrees. The default 7 percent
-  is ~4.0 degrees. (History: a hardcoded 3-degree band, tuned from 5 and
+  five slider stops - 12, 10, 8, 6, 4 percent, relaxed to strict,
+  default
+  10 - and converted to degrees (atan) when mirrored onto the analysis
+  queue, since the evaluation compares degrees. The default 10 percent
+  is ~5.7 degrees. (History: a hardcoded 3-degree band, tuned from 5 and
   2 on 2026-07-22, then a 5...1 percent ladder at default ~2.9 degrees;
   live testing on 2026-07-31 found even the relaxed end too strict, a
   barely-visible tilt nagging, so the ladder was raised to 9...2 percent,
-  ~5.1 to ~1.1 degrees, at default ~4.0.)
+  ~5.1 to ~1.1 degrees, at default ~4.0; on 2026-08-03 the whole 9...2
+  ladder still read too strict on every camera, so it was raised again
+  to 12...4 percent, ~6.8 to ~2.3 degrees, at default ~5.7, and the
+  stored value was cleared once so the new default takes effect.)
 - Output goes to the unified log: subsystem com.shergin.narcissism, category
   Posture. Watch it with:
       log stream --predicate 'subsystem == "com.shergin.narcissism"'
@@ -665,6 +669,12 @@ Notifications page (see UI/Settings/spec.md).
   floor-slope idea (the floor itself varying 0.03...0.02 across the
   slider, giving every stop a distinct meaning at the cost of the
   strictest flirting with settling) - decide from lived-with behavior.
+- The shoulder tilt observation still runs on raw single-window values;
+  the rolling-median accusation applies only to slouching. Some of the
+  tilt's perceived over-strictness may be jitter accusing - the exact
+  failure the median removed from the slouch axis. If the loosened
+  12...4 ladder still nags, port the median (signed tilts, same
+  slow-accuse/instant-forgive shape) before loosening further.
 - The derived-span exponent (6.0) is unvalidated: it has never been
   checked against a real measured-span pair, because the hybrid shipped
   before any camera had both. First check: after the anchor calibration,

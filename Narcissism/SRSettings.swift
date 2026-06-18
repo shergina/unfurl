@@ -157,7 +157,7 @@ final class SRSettings {
 	// nominalSlouchSpanFraction of its baseline, which reproduces the old
 	// percent-of-baseline ladder exactly. Shoulders: the height difference
 	// between the shoulders as a fraction of their separation, i.e. the
-	// tilt's slope (0.09 relaxed ... 0.02 strict).
+	// tilt's slope (0.12 relaxed ... 0.04 strict).
 	let postureSlouchDepthTolerance: Preference<CGFloat>
 	let postureShoulderTolerance: Preference<CGFloat>
 	// Legacy slouch tolerance (fraction below baseline), read once to seed
@@ -225,7 +225,7 @@ final class SRSettings {
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
 		self.postureSlouchDepthTolerance = Preference("PostureSlouchDepthTolerance", default: 0.30, defaults: defaults)
 		self.postureSlouchTolerance = Preference("PostureSlouchTolerance", default: 0.06, defaults: defaults)
-		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.07, defaults: defaults)
+		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.10, defaults: defaults)
 
 		// One-time: a pre-depth install stored the slouch tolerance as a
 		// fraction of baseline; dividing by the nominal span fraction gives
