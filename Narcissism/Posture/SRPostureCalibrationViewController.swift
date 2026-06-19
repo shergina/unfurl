@@ -222,9 +222,9 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.guidanceLabel.stringValue = Self.text(for: guidance, failure: failure)
 
 		case .slouchReady(let failure):
-			// The slouch pose's resting state after a failed capture; Begin
-			// re-arms. Framing was established by the upright capture, so
-			// the button is not gated on guidance here.
+			// The gate before the slouch pose (and its resting state after
+			// a failed capture); Begin arms it. Framing was established by
+			// the upright capture, so the button is not gated on guidance.
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = true
 			self.progressIndicator.doubleValue = 0
@@ -278,8 +278,9 @@ final class SRPostureCalibrationViewController: NSViewController {
 		}
 	}
 
-	/// The slouch pose's guidance: failure explanation first, then the
-	/// instruction, mirroring the positioning text.
+	/// The slouch pose's guidance: what just happened on the first line -
+	/// the upright capture landing, or the failure - then the instruction
+	/// with its press-Begin cue, mirroring the positioning text.
 	fileprivate static func slouchText(failure: SRPostureCalibrationSession.Failure?) -> String {
 		var lines: [String] = []
 		switch failure {
@@ -290,9 +291,9 @@ final class SRPostureCalibrationViewController: NSViewController {
 		case .notSlouched:
 			lines.append(NSLocalizedString("posture.calibration.failed.not-slouched", comment: ""))
 		case nil:
-			break
+			lines.append(NSLocalizedString("posture.calibration.upright-captured", comment: ""))
 		}
-		lines.append(NSLocalizedString("posture.calibration.slouch-instruction", comment: ""))
+		lines.append(NSLocalizedString("posture.calibration.slouch-ready", comment: ""))
 		return lines.joined(separator: "\n")
 	}
 

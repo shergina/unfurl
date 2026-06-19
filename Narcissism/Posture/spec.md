@@ -405,12 +405,13 @@ Notifications page (see UI/Settings/spec.md).
   any stored slouched value: a new baseline must never pair with an old
   slouch - recalibrating after moving the screen would mix geometries).
   A single-pose run is complete here and goes straight to the finished
-  screen. A two-pose run continues with
-  the slouch pose: "Now slouch the way you normally do", with an
-  auto-started 3-2-1 (the countdown is
-  the time to settle into the pose; the user is present, having just
-  finished a capture, so the auto-start cannot loop unattended) and the
-  same 5 s
+  screen. A two-pose run rests at slouchReady: "Upright posture
+  captured. Now slouch the way you normally do, then press Begin" - the
+  pause tells the user what is coming and lets them start when ready.
+  (An auto-started countdown was tried first and dropped 2026-08-04: it
+  landed before the user realized a second pose was being asked for.)
+  Begin starts a 3-2-1 (the countdown is
+  the time to settle into the pose) and the same 5 s
   capture and gates, plus the span gate: the slouched median must sit at
   least 0.04 below the upright one. The gate's only job is "did you move
   at all", not "was it a big slouch": both sides are medians of 12+

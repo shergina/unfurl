@@ -14,11 +14,11 @@ import os
 /// samples, publishes the phase the window renders. Flow: position ->
 /// Begin -> 3-2-1 -> 5 s of upright sampling (pauses when you vanish,
 /// 10 s hard cap) -> quality gates -> the upright median is reported
-/// (onUprightCaptured, saved right away) -> the slouch pose: instruction
-/// with an auto 3-2-1, the same 5 s capture and gates plus the span
-/// gates -> done carries both medians. A failed slouch capture rests at
-/// slouchReady (Begin re-arms it) so an absent user never loops. See
-/// spec.md.
+/// (onUprightCaptured, saved right away) -> slouchReady: the slouch
+/// instruction, waiting for Begin -> 3-2-1, the same 5 s capture and
+/// gates plus the span gates -> done carries both medians. A failed
+/// slouch capture returns to slouchReady with a failure line, so an
+/// absent user never loops. See spec.md.
 @MainActor
 final class SRPostureCalibrationSession {
 
@@ -42,6 +42,9 @@ final class SRPostureCalibrationSession {
 
 	enum Phase: Equatable {
 		case positioning(guidance: Guidance, failure: Failure?)
+		/// The gate before the slouch pose: entered after the upright
+		/// capture (and again, with the failure, after a failed slouch
+		/// capture); Begin arms the countdown.
 		case slouchReady(failure: Failure?)
 		case countingDown(pose: Pose, remaining: Int)
 		case capturing(pose: Pose, sampledSeconds: Double, paused: Bool)
@@ -131,7 +134,7 @@ final class SRPostureCalibrationSession {
 	}
 
 	/// Honored while positioned well (starts the upright pass; the Begin
-	/// button mirrors this) and at slouchReady (re-arms the slouch pass).
+	/// button mirrors this) and at slouchReady (arms the slouch pass).
 	func begin() {
 		switch self.onPhase.value {
 		case .positioning(guidance: .good, _):
@@ -301,11 +304,11 @@ final class SRPostureCalibrationSession {
 			self.onUprightCaptured?(median, rho)
 
 			if self.includesSlouchPose {
-				// Straight into the slouch pose: the instruction shows during
-				// the auto countdown, which is plenty to settle into a
-				// slouch. The user is present - they just finished a
-				// capture - so the auto-start cannot loop unattended.
-				self.startCountdown(pose: .slouched)
+				// Rest at slouchReady: the instruction explains the slouch
+				// pose and Begin starts it when the user is ready. (An
+				// auto-started countdown was tried first: it landed before
+				// the user realized what was being asked.)
+				self.onPhase.send(.slouchReady(failure: nil))
 			} else {
 				// Hybrid mode: the anchor exists, the span is derived from
 				// rho, and this run is complete after the one pose.

@@ -177,9 +177,11 @@
 "posture.calibration.finished" = "Calibration finished.";
 "posture.calibration.accept" = "Looks Good";
 "posture.calibration.redo" = "Try Again";
+"posture.calibration.upright-captured" = "Upright posture captured.";
+"posture.calibration.slouch-ready" = "Now slouch the way you normally do, then press Begin.";
 "posture.calibration.slouch-instruction" = "Now slouch the way you normally do.";
 "posture.calibration.slouch-capturing" = "Hold that slouch - measuring.";
-"posture.calibration.failed.not-slouched" = "That didn't read as a slouch. Slouch like you normally do and try again.";
+"posture.calibration.failed.not-slouched" = "That didn't read as a slouch.";
 
 // New-camera calibration nudge (system notification)
 "posture.nudge.title" = "New camera detected";

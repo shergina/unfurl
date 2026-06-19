@@ -170,8 +170,9 @@ final class SRWelcomePostureViewController: NSViewController {
 			beginEnabled = (guidance == .good)
 			showsEscape = !self.calibrationViewController.completed
 		}
-		// The slouch pose's resting state (a failed slouch capture): Begin
-		// re-arms it, ungated - framing was established by the upright pass.
+		// The gate before the slouch pose (and its rest after a failed
+		// slouch capture): Begin arms it, ungated - framing was
+		// established by the upright pass.
 		if case .slouchReady = phase {
 			showsBegin = true
 			beginEnabled = true
