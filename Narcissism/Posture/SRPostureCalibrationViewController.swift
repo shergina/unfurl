@@ -9,10 +9,10 @@ import Cocoa
 import Combine
 
 
-/// The calibration window's content: mirrored preview with joint dots,
-/// the camera placeholder behind it for failure states, guidance line,
-/// countdown overlay, progress bar, Begin button. Owns the session and
-/// persists its result.
+/// The calibration window's content: mirrored preview, the camera
+/// placeholder behind it for failure states, guidance line, countdown
+/// overlay, progress bar, Begin button. Owns the session and persists
+/// its result.
 @MainActor
 final class SRPostureCalibrationViewController: NSViewController {
 

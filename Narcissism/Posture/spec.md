@@ -372,8 +372,7 @@ Notifications page (see UI/Settings/spec.md).
   windows (level .floating: a brief, focused task must not get lost
   behind other work) and moves to the active Space when re-fronted
   rather than switching Spaces. Content: a live always-mirrored
-  preview with the joint dots (the user positions themselves by seeing
-  exactly what the tracker sees), the panel's placeholder behind it so
+  preview, the panel's placeholder behind it so
   camera failures and permission denials explain themselves in-window, a
   guidance line (can't see you / face the camera / move closer / sit up
   straight), and a Begin button enabled only while framing is good:
@@ -564,11 +563,10 @@ Notifications page (see UI/Settings/spec.md).
 - Dots overlay: the service publishes each analyzed frame's readings
   (shoulder width fraction, slouch ratio, joints; adaptive pipeline
   preferred, padded as fallback, frame-normalized) on the main actor via
-  onFrameSample. The
-  calibration window renders the joints permanently as dots over its
-  preview (shoulders red, eyes yellow, hidden when detection drops),
-  positioned via layerPointConverted so aspect-fill cropping and
-  mirroring apply to them exactly as to the video. The floating panel's
+  onFrameSample. The calibration window drew the joints as dots over its
+  preview (shoulders red, eyes yellow) until 2026-08-04, removed as
+  visual noise: the guidance line already tells the user whether
+  detection sees them. The floating panel's
   camera view is still temporarily SRPostureDebugCameraView (accuracy
   aid), drawing the same dots behind a dotsVisible master switch - true
   again as of 2026-07-30, turned back on for the tilted-screen detection
