@@ -9,7 +9,7 @@
 
 ## Summary
 
-- **What this subsystem is**: the onboarding flow, five pages. About: the app icon, a "Welcome to Narcissism" title, the slogan, the maker's description, the privacy block. Tutorial: where the app lives (a Locate Me button that points at the status item) and three feature rows describing what it does. Get ready: the setup checklist (screen angle, clothing, lighting, clear camera) shown before the camera ever starts. Good posture: the sit-like-this tips (hips back, sit tall, shoulders level), where Ready lives. Posture preset: a header plus the embedded calibration content, ending in Looks Good (enables Track Posture and closes) or Not Now (closes with nothing changed).
+- **What this subsystem is**: the onboarding flow, five pages. About: the app icon, a "Welcome to Narcissism" title, the slogan, the app description, the privacy block. Tutorial: where the app lives (a Locate Me button that points at the status item) and three feature rows describing what it does. Get ready: the setup checklist (screen angle and framing, clothing, hair, lighting, clear camera) shown before the camera ever starts. Good posture: the sit-like-this tips (hips back, sit tall, shoulders level), where Ready lives. Posture preset: a header plus the embedded calibration content, ending in Looks Good (enables Track Posture and closes) or Not Now (closes with nothing changed).
 - **One-sentence contract**: the flow's durable effects are the ones calibration itself produces (a saved baseline and, on success, Track Posture switching on) plus the first-run flag every close sets; every other preference is left untouched.
 
 ## Scope
@@ -39,7 +39,9 @@
 
 ## Get-ready page (recorded decisions)
 
-- The checklist exists because the baseline is setup-sensitive (Posture/spec.md records baseline staleness as per-camera-placement): screen angle changes the measured geometry, bulky clothing and poor or backlit lighting degrade the body-pose detection, and a covered camera defeats everything. Settling the setup before measuring improves the baseline.
+- The checklist exists because the baseline is setup-sensitive (Posture/spec.md records baseline staleness as per-camera-placement): screen angle changes the measured geometry, bulky clothing, hair over the eyes or shoulders, and poor or backlit lighting degrade the body-pose detection, and a covered camera defeats everything.
+- The title is "Help the camera see you", not calibration prep (renamed 2026-08-04): the same conditions govern everyday tracking, so the page reads as general camera-visibility guidance. Its placement before calibration is unchanged - that is still the moment settling the setup matters most.
+- The screen-angle row is titled by its checkable condition, "Head and shoulders in view" (renamed 2026-08-04 from "A comfortable angle", which read as comfort advice, not a check): detection needs the eyes and shoulders in frame, so the row asks for chest-up framing after the tilt is settled. Settling the setup before measuring improves the baseline.
 - The camera permission prompt still lands at app launch on a fresh install, not on this flow's pages: the mirror surfaces (panel pinned, menu-bar camera) default on and attach the shared session immediately. That is accepted - the about page's privacy block is on screen at that moment, which is the priming. This page's deferral governs the posture probe only.
 - The camera and probe are deliberately untouched until Ready: the checklist gets read without a live self-view competing for attention, the camera permission prompt lands right after the user read "nothing covering the camera", and a Not Now here never triggers the camera at all.
 - The rows reuse the tutorial's row style (SRWelcomeRows).
@@ -66,8 +68,8 @@
 
 ## Copy decisions (recorded)
 
-- The slogan ("Work doesn't have to come at the expense of your spine") is bold and carries no trailing period: it is set as a display headline, not prose.
-- The maker stays unnamed ("Made by someone who spent too many years hunched over a keyboard"); the name lives in the About window, where credits belong.
+- The slogan ("Work without the expense of your spine" - tightened 2026-08-04 from "Work doesn't have to come at the expense of your spine") is bold at prose size (13), and carries no trailing period: emphasis by weight, subordination by size, so it cannot compete with the title (bold at 15 read as a second title; 15 regular read too quiet - settled 2026-08-04). It mirrors the privacy lead's bold-at-13, the page's one other emphasis.
+- The description is a plain two-sentence description - what the app does for you, then how (camera, what it detects, that it tells you what to improve - matching the tutorial's "specific corrections" claim) - using "uneven shoulders", the term the rest of the app uses. The maker story that used to open it ("Made by someone who spent too many years hunched over a keyboard") was cut 2026-08-04: the page describes the app, it does not tell a story. Credits stay in the About window.
 - The privacy block is its own paragraph, set apart with a lock symbol and a bold "Private by design." lead, so even a skimmer absorbs it before the camera permission prompt ever appears. The description mentions the camera on purpose: it primes that prompt.
 - The description is secondary-label color; the slogan and the privacy block are label color. The visual hierarchy is slogan first, privacy second, prose third.
 

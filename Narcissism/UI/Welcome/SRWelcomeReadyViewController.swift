@@ -29,14 +29,19 @@ class SRWelcomeReadyViewController: NSViewController {
 
 		let rows = NSStackView(views: [
 			SRWelcomeRows.row(
-				symbol: "laptopcomputer",
-				titleKey: "welcome.ready.tilt.title",
-				bodyKey: "welcome.ready.tilt.body"
+				symbol: "person.fill.viewfinder",
+				titleKey: "welcome.ready.framing.title",
+				bodyKey: "welcome.ready.framing.body"
 			),
 			SRWelcomeRows.row(
 				symbol: "tshirt",
 				titleKey: "welcome.ready.clothes.title",
 				bodyKey: "welcome.ready.clothes.body"
+			),
+			SRWelcomeRows.row(
+				symbol: "comb",
+				titleKey: "welcome.ready.hair.title",
+				bodyKey: "welcome.ready.hair.body"
 			),
 			SRWelcomeRows.row(
 				symbol: "lightbulb",

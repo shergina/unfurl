@@ -31,7 +31,7 @@ class SRWelcomeViewController: NSViewController {
 
 		let sloganView = self.label(
 			NSLocalizedString("welcome.slogan", comment: ""),
-			font: NSFont.systemFont(ofSize: 15, weight: .bold)
+			font: NSFont.systemFont(ofSize: 13, weight: .bold)
 		)
 
 		let descriptionView = self.label(
@@ -114,6 +114,17 @@ class SRWelcomeViewController: NSViewController {
 			.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)) {
 			let attachment = NSTextAttachment()
 			attachment.image = lock
+			// AppKit puts an attachment image on the line's bottom, not the
+			// text baseline (unlike UIKit, which reads the symbol's metrics).
+			// This 11 pt semibold lock.fill raster is 11x13 with 1 pt of
+			// transparent padding below the glyph (alpha-measured), so y = -1
+			// rests the glyph's flat bottom exactly on the baseline.
+			attachment.bounds = CGRect(
+				x: 0,
+				y: -1.0,
+				width: lock.size.width,
+				height: lock.size.height
+			)
 			text.append(NSAttributedString(attachment: attachment))
 			text.append(NSAttributedString(string: " "))
 		}

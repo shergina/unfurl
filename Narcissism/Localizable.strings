@@ -121,10 +121,10 @@
 
 // Welcome window
 "welcome.title" = "Welcome to Narcissism";
-"welcome.slogan" = "Work doesn’t have to come at the expense of your spine";
-"welcome.description" = "Made by someone who spent too many years hunched over a keyboard, Narcissism helps you build healthier posture habits without stepping away from work. It uses your camera to catch slouching and shoulder imbalance, then gives you a quiet nudge to straighten up.";
+"welcome.slogan" = "Work without the expense of your spine";
+"welcome.description" = "Narcissism helps you build healthier posture habits without stepping away from work. It uses your camera to detect slouching and uneven shoulders, then quietly tells you what to improve.";
 "welcome.privacy.lead" = "Private by design.";
-"welcome.privacy.body" = "Everything happens on your Mac. No footage is ever kept, uploaded, or shared.";
+"welcome.privacy.body" = "Everything happens on your Mac.\nNo footage is ever kept, uploaded, or shared.";
 "welcome.continue" = "Continue";
 "welcome.back" = "Back";
 "welcome.tutorial.title" = "Narcissism lives in your menu bar";
@@ -139,11 +139,13 @@
 "welcome.posture.title" = "Hold your best posture to calibrate";
 "welcome.posture.body" = "The posture you hold becomes the baseline Narcissism coaches you toward. No images are saved, just a few measurements that never leave your Mac.";
 "welcome.posture.later" = "Not Now";
-"welcome.ready.title" = "Before you calibrate";
-"welcome.ready.tilt.title" = "A comfortable angle";
-"welcome.ready.tilt.body" = "Tilt your screen the way you normally use it. Calibration remembers your setup.";
+"welcome.ready.title" = "Help the camera see you";
+"welcome.ready.framing.title" = "Head and shoulders in view";
+"welcome.ready.framing.body" = "Tilt your screen the way you normally use it, then check that the camera sees you from the chest up.";
 "welcome.ready.clothes.title" = "Normal clothes";
 "welcome.ready.clothes.body" = "Bulky hoods and scarves can hide your shoulders from the camera.";
+"welcome.ready.hair.title" = "Hair put back";
+"welcome.ready.hair.body" = "Hair over your eyes or shoulders can hide them from the camera.";
 "welcome.ready.lighting.title" = "Good lighting";
 "welcome.ready.lighting.body" = "Face the light if you can. A bright window behind you makes you hard to see.";
 "welcome.ready.camera.title" = "A clear view";
