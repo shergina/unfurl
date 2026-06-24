@@ -68,6 +68,34 @@ protocol CameraProviding: AnyObject, Sendable {
 	@discardableResult func detachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never>
 	@discardableResult func attachOutput(_ output: AVCaptureOutput) -> Task<Void, Error>
 	@discardableResult func detachOutput(_ output: AVCaptureOutput) -> Task<Void, Never>
+
+	/// Stops the session's work for an attached output - no frames delivered,
+	/// no conversion - and releases its claim on the session, without removing
+	/// it from the graph: removing an output from the running session stalls
+	/// frame delivery to every consumer for ~300 ms (the measured toggle
+	/// blink; see Tools/spec.md), while a disabled connection is free. The
+	/// suspended output is torn down with the session when the last claim
+	/// leaves. Idempotent.
+	@discardableResult func suspendOutput(_ output: AVCaptureOutput) -> Task<Void, Never>
+	/// Reclaims a suspended output: true when it was still wired (claim
+	/// re-taken, connections re-enabled, frames flowing again); false when
+	/// the session went down in the meantime and took the wiring with it, so
+	/// the caller must attach a fresh output instead.
+	@discardableResult func resumeOutput(_ output: AVCaptureOutput) -> Task<Bool, Never>
+
+	/// The preview-layer twin of suspendOutput, for a preview that toggles
+	/// while the session runs (the menu-bar camera): disables the layer's
+	/// connection and releases its claim, leaving the layer wired - detaching
+	/// a layer from the running session is the same graph rebuild as removing
+	/// an output, with the same stall. Idempotent.
+	@discardableResult func suspendPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never>
+	/// Reclaims a suspended preview layer. Unlike outputs, a layer needs no
+	/// recreation, so this subsumes the fresh-attach fallback: still wired -
+	/// re-take the claim and re-enable; session gone in the meantime - attach
+	/// to the (re)created session, which is warming up behind its placeholder
+	/// anyway. Throws only when the session cannot be created at all
+	/// (surfaced through onState like every attach).
+	@discardableResult func resumePreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Error>
 }
 
 
@@ -163,8 +191,9 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 			NotificationCenter.default.publisher(for: .AVCaptureDeviceWasDisconnected)
 		)
 		.sink { [weak self] _ in
-			self?.refreshDevices()
-			self?.sessionQueue.async { self?.applyDesiredDevice() }
+			guard let self else { return }
+			self.refreshDevices()
+			self.sessionQueue.async { self.applyDesiredDevice() }
 		}
 		.store(in: &self.cancellables)
 
@@ -526,6 +555,85 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 				}
 			}
 			await self.detachObject(UncheckedSendable(value: output.value))
+		}
+	}
+
+	// Suspending and resuming outputs (the contract lives on the protocol).
+	// The isEnabled writes are guarded so a redundant suspend or resume never
+	// touches the connection at all: only real toggles were measured
+	// stall-free, and a no-op write costs nothing to skip.
+	@discardableResult
+	func suspendOutput(_ output: AVCaptureOutput) -> Task<Void, Never> {
+		let output = UncheckedSendable(value: output)
+		return Task { [weak self] in
+			guard let self else { return }
+			await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+				self.sessionQueue.async {
+					for connection in output.value.connections where connection.isEnabled {
+						connection.isEnabled = false
+					}
+					c.resume()
+				}
+			}
+			await self.detachObject(UncheckedSendable(value: output.value))
+		}
+	}
+
+	@discardableResult
+	func resumeOutput(_ output: AVCaptureOutput) -> Task<Bool, Never> {
+		let output = UncheckedSendable(value: output)
+		return Task { [weak self] in
+			guard let self else { return false }
+			return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+				self.sessionQueue.async {
+					guard let session = self.session, session.outputs.contains(output.value) else {
+						c.resume(returning: false)
+						return
+					}
+					self.attachedObjects.add(output.value)
+					for connection in output.value.connections where !connection.isEnabled {
+						connection.isEnabled = true
+					}
+					c.resume(returning: true)
+				}
+			}
+		}
+	}
+
+	@discardableResult
+	func suspendPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never> {
+		let layer = UncheckedSendable(value: layer)
+		return Task { [weak self] in
+			guard let self else { return }
+			await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+				self.sessionQueue.async {
+					if let connection = layer.value.connection, connection.isEnabled {
+						connection.isEnabled = false
+					}
+					c.resume()
+				}
+			}
+			await self.detachObject(UncheckedSendable(value: layer.value))
+		}
+	}
+
+	@discardableResult
+	func resumePreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Error> {
+		let layer = UncheckedSendable(value: layer)
+		return Task { [weak self] in
+			guard let self else { return }
+			try await self.attachObject(UncheckedSendable(value: layer.value))
+			self.sessionQueue.sync {
+				// A suspended layer still points at the session it was wired
+				// to; only rewire when that session is gone (the one path that
+				// still rebuilds the graph, against a session warming up).
+				if layer.value.session !== self.session {
+					layer.value.session = self.session
+				}
+				if let connection = layer.value.connection, !connection.isEnabled {
+					connection.isEnabled = true
+				}
+			}
 		}
 	}
 

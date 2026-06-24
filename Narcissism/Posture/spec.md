@@ -23,14 +23,21 @@ Notifications page (see UI/Settings/spec.md).
 - While on, the attached output holds the shared capture session running,
   independent of any visible preview (the relationship decided in
   VISION.md), and macOS shows its camera-in-use indicator the whole time.
-  Turning the toggle off detaches the output (no Vision work at all),
-  resets the window and episode state, and clears the published status and
-  joints so the corner note hides immediately. The camera service
-  ref-counts its consumers, so the toggle never stops a session another
-  surface (preview, photo capture, Dock tile) is still using; the session
-  goes down only when the probe was its last consumer. A quick on-off
-  flip is safe: stop waits for an in-flight attach to settle before
-  detaching.
+  Turning the toggle off suspends the output rather than removing it
+  (removing an output from the running session stalls every preview for
+  ~300 ms - the gray toggle blink; see Tools/spec.md): its connection is
+  disabled, so no frames are delivered or converted and no Vision work
+  runs, the window and episode state reset, and the published status and
+  joints clear so the corner note hides immediately. The suspended output
+  stays wired but releases its claim on the session; the camera service
+  counts claims, so the toggle never stops a session another surface
+  (preview, photo capture, Dock tile) is still using, and the session -
+  taking the wired output down with it - stops when the probe was its
+  last consumer. Turning the toggle back on resumes the output in place
+  (no rewiring, no blink); if the session went down while suspended, a
+  fresh output attaches during the new session's own warm-up. Lifecycle
+  operations are chained, each awaiting its predecessor, so a quick
+  on-off flip cannot interleave.
 - Snooze: the menu's Snooze submenu (visible only while tracking is on)
   writes a deadline to the PostureSnoozeUntil preference - 5/10/15/30
   minutes or 1/2/5 hours from now; Resume Now, shown only while snoozed,
@@ -39,8 +46,8 @@ Notifications page (see UI/Settings/spec.md).
   a popup writing the same preference (see UI/Settings/spec.md), so the
   menu and the page always agree.
   While the deadline is in the future the probe is stopped exactly as the
-  toggle stops it (output detached, note hidden, camera released to its
-  ref-count), and the composition root schedules a one-shot timer that
+  toggle stops it (output suspended, note hidden, camera claim released),
+  and the composition root schedules a one-shot timer that
   clears the deadline, so tracking resumes by itself and the menu's
   "Snoozed Until ..." title resets with the preference. Choosing a new
   duration mid-snooze replaces the deadline from now. Unchecking Track
@@ -630,7 +637,8 @@ Notifications page (see UI/Settings/spec.md).
 
 ## Invariants
 
-- No second AVCaptureSession; the probe consumes SRCameraService.attachOutput.
+- No second AVCaptureSession; the probe consumes SRCameraService's
+  attachOutput and the suspendOutput/resumeOutput pair.
 - No width/height request on the video data output: asking the shared
   session for scaled buffers renegotiates the device format and degrades
   every preview (same constraint the Dock output documents).

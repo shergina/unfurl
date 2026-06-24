@@ -26,7 +26,7 @@
   - Request camera authorization on first use; resolve the selected (or default) video device.
   - Enumerate the selectable cameras - the built-in and external ones (monitor cameras, USB webcams); Continuity and Desk View devices are excluded entirely (see the phone-ban decision) - and switch the active device on request, swapping the running session's input live.
   - Create/start the session lazily on first attach; stop/destroy it when the attached-object set empties.
-  - Attach and detach preview layers (panel, status item) and outputs (Dock video-data output, photo output).
+  - Attach and detach preview layers (panel, status item) and outputs (Dock video-data output, photo output); suspend and resume the consumers that toggle while the session runs (the posture probe and Dock outputs, the menu-bar preview layer).
   - Publish `onCaptureDeviceAvailable`, `onState`, `onDevices`, and `onSelectedDeviceID`.
   - `SRPhotoCaptureService`: lazily attach an `AVCapturePhotoOutput`, capture one photo, write a JPEG to Pictures, post a user notification.
   - `SRLaunchApplicationAtLoginController`: register/unregister the main app as a login item when the preference changes.
@@ -35,6 +35,7 @@
   - `session`, `captureDevice`, `captureDeviceInput`, and `desiredDeviceID` are read and written only on the session queue.
   - Switching the device replaces the session's single input in one begin/commit and re-pins 1080p; outputs already attached (Dock, photo) are untouched. `onSelectedDeviceID` reports the `uniqueID` actually in use.
   - `onState` is published only on the main queue (its subscribers touch main-actor UI). A hard state (`unauthorized`, `failed`) is never overwritten by a later transient state (`unavailable`, `idle`, `running`).
+  - The attached-object set counts claims on the session, not wiring: a suspended output stays wired to the session graph but holds no claim, so the session still stops when the last claim leaves and the suspended output is torn down with it.
   - Captured photos are written only under the user's Pictures directory; frames are never transmitted.
 
 ## Key workflows
@@ -94,7 +95,7 @@
 
 ### Interfaces and contracts
 
-- **Public API surface**: `SRCameraService.sharedInstance`; `onCaptureDeviceAvailable`, `onState`, `onDevices`, `onSelectedDeviceID`, `selectDevice(id:)`; `attachPreviewLayer`/`detachPreviewLayer`, `attachOutput`/`detachOutput`. `SRPhotoCaptureService.sharedInstance.capture`. `SRLaunchApplicationAtLoginController.sharedInstance.enabled`.
+- **Public API surface**: `SRCameraService.sharedInstance`; `onCaptureDeviceAvailable`, `onState`, `onDevices`, `onSelectedDeviceID`, `selectDevice(id:)`; `attachPreviewLayer`/`detachPreviewLayer`, `attachOutput`/`detachOutput`, `suspendOutput`/`resumeOutput`, `suspendPreviewLayer`/`resumePreviewLayer`. `SRPhotoCaptureService.sharedInstance.capture`. `SRLaunchApplicationAtLoginController.sharedInstance.enabled`.
 - **Inputs/outputs**: preview layers and outputs in; `Sendable` state out on the main queue; a JPEG file and a notification out of the photo path.
 - **Error model**: setup throws `SRCameraError`; callers of `attach*` may discard the returned `Task` because failures are surfaced centrally through `onState`.
 
@@ -110,6 +111,9 @@
 - **Decision**: no outputs added at session creation; attach lazily.
   - Context: adding an `AVCapturePhotoOutput` during initial configuration blanks the live preview on current macOS.
   - Chosen: the photo output attaches on first capture; the Dock output attaches when the Dock tile turns on.
+- **Decision** (2026-08-05): an output that toggles while the session runs is suspended and resumed, never removed.
+  - Context: adding or removing an output on the running session makes AVFoundation rebuild the capture graph and stalls frame delivery to every consumer - both previews flash gray. Measured with a frame-gap monitor riding the session: 12 of 12 add/remove toggles stalled 278-302 ms; toggling the output's `connection.isEnabled` instead produced zero gaps over the same protocol, frames stop reaching the disabled output immediately (the session does no work for a disabled connection, so the idle cost is zero), and re-enabling delivers the first frame within ~100 ms.
+  - Chosen: `suspendOutput` disables the output's connections and releases its claim on the session; `resumeOutput` re-takes the claim and re-enables the connections while the output is still wired, and reports false when the session went down in between (the caller then attaches a fresh output - the one remaining rewire, against a session that is warming up anyway, behind its placeholder). The `isEnabled` writes are skipped when already in the desired state; only real flips were measured stall-free. The posture probe and the Dock tile use this pair. The menu-bar preview uses the layer twin, `suspendPreviewLayer`/`resumePreviewLayer` (a preview layer owns a connection in the same graph, so detaching it stalls identically); since a layer needs no recreation, its resume subsumes the fresh-attach fallback. Verified with the same frame-gap monitor: three Dock cycles and three menu-bar cycles against live frames, zero gaps. The photo output's one-time lazy attach (first capture) remains the only mid-session rewire.
 - **Decision**: the selected camera is a preference the composition root mirrors into the service, not a call the menu makes directly.
   - Context: device choice must persist across launches and be applied before any surface attaches, and the menu must not reach into the camera service.
   - Chosen: `selectedCameraDeviceID` (a `uniqueID`, "" = default) is the source of truth; the menu only writes it, and the app delegate subscribes it to `selectDevice(id:)`. The service resolves the id on its own queue and swaps the live input, so switching does not tear down the session or disturb attached outputs.

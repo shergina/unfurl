@@ -85,6 +85,17 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 	    fatalError("init(coder:) has not been implemented")
 	}
 
+	/// Suspend/resume forwarding for the host's content swaps: the view is
+	/// kept and reused across Show Camera toggles, so its preview layer never
+	/// detaches from the running session (see SRStatusItemView.refreshContent).
+	func suspendCamera() {
+		self.cameraView.suspendPreview()
+	}
+
+	func resumeCamera() {
+		self.cameraView.resumePreview()
+	}
+
 	var width: CGFloat {
 		didSet {
 			// Resize the whole status item through NSStatusItem.length (via the

@@ -18,7 +18,18 @@ class SRDockTileController: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 	fileprivate var dockTile: NSDockTile
 	fileprivate var dockTileView: SRDockTileCameraView
 
+	// Created on first enable, then kept: disabling the tile suspends the
+	// output (connection off, session claim released) instead of removing it,
+	// because removing an output from the running session stalls every
+	// preview for ~300 ms - the toggle blink (see Tools/spec.md). Cleared
+	// only when the session died while suspended, or an attach failed.
 	fileprivate var output: AVCaptureVideoDataOutput?
+
+	/// The tail of the attach/suspend/resume chain; every lifecycle operation
+	/// awaits its predecessor, so a quick on-off flip cannot interleave.
+	fileprivate var lifecycleTask: Task<Void, Never>?
+
+	fileprivate var enabled = false
 
 	fileprivate let preferences: SRSettings
 	fileprivate var cancellables = Set<AnyCancellable>()
@@ -54,47 +65,79 @@ class SRDockTileController: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
 	fileprivate var enable: Bool {
 		get {
-			return self.output != nil
+			return self.enabled
 		}
 
 		set(value) {
-			if value == self.enable {
+			if value == self.enabled {
 				return
 			}
+			self.enabled = value
 
 			self.showsDockTile = value
 
 			if value {
-				self.createCaptureSession()
+				self.startOutput()
 			}
 			else {
-				self.destroyCaptureSession()
+				self.stopOutput()
 			}
 		}
 	}
 
-	fileprivate func createCaptureSession() {
-		self.output = AVCaptureVideoDataOutput()
+	/// Puts the tile's output in the frame path: resumes the kept output in
+	/// place, or - first enable, or the session died while it was suspended -
+	/// attaches a fresh one (that attach lands during the session's own
+	/// warm-up). Mirrors the posture probe's lifecycle.
+	fileprivate func startOutput() {
+		let previous = self.lifecycleTask
+		self.lifecycleTask = Task {
+			await previous?.value
 
-		let queue: DispatchQueue! = DispatchQueue(label: "sample-buffer-queue", attributes: [])
-		self.output!.setSampleBufferDelegate(self, queue: queue)
+			if let output = self.output {
+				if await self.cameraService.resumeOutput(output).value {
+					return
+				}
+				self.output = nil
+			}
 
-		// BGRA only - deliberately no width/height request. Asking this
-		// output for small scaled buffers makes the *shared* capture session
-		// renegotiate the device to a low-resolution format, visibly
-		// degrading the panel and status bar previews. Full-resolution
-		// frames are downscaled in imageRefFromSampleBuffer instead, which
-		// is cheap at the tile's ~10 fps pacing.
-		self.output!.videoSettings = [
-			kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-		]
+			let output = AVCaptureVideoDataOutput()
 
-		_ = self.cameraService.attachOutput(self.output!)
+			let queue = DispatchQueue(label: "sample-buffer-queue", attributes: [])
+			output.setSampleBufferDelegate(self, queue: queue)
+
+			// BGRA only - deliberately no width/height request. Asking this
+			// output for small scaled buffers makes the *shared* capture session
+			// renegotiate the device to a low-resolution format, visibly
+			// degrading the panel and status bar previews. Full-resolution
+			// frames are downscaled in imageRefFromSampleBuffer instead, which
+			// is cheap at the tile's ~10 fps pacing.
+			output.videoSettings = [
+				kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+			]
+
+			self.output = output
+
+			do {
+				try await self.cameraService.attachOutput(output).value
+			} catch {
+				// Surfaced through onState centrally; clearing lets the next
+				// enable retry the attach.
+				if self.output === output {
+					self.output = nil
+				}
+			}
+		}
 	}
 
-	fileprivate func destroyCaptureSession() {
-		_ = self.cameraService.detachOutput(self.output!)
-		self.output = nil
+	fileprivate func stopOutput() {
+		let previous = self.lifecycleTask
+		self.lifecycleTask = Task {
+			await previous?.value
+
+			guard let output = self.output else { return }
+			await self.cameraService.suspendOutput(output).value
+		}
 	}
 
 	// Frame pacing: a Dock icon gains nothing from the camera's full frame

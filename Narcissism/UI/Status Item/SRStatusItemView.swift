@@ -28,6 +28,14 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 	fileprivate let cursor = NSCursor.resizeLeftRight
 	fileprivate var cancellables = Set<AnyCancellable>()
 
+	// The one camera content view, created on first show and reused across
+	// every later swap. Recreating it would detach/reattach its preview layer
+	// on the running session - the ~300 ms all-preview stall (the toggle
+	// blink; see Tools/spec.md). Swapping away suspends the preview instead;
+	// swapping back resumes it. Side effect: a drag-resized width now
+	// survives Show Camera toggles within the session (still never persisted).
+	fileprivate var cameraContentView: SRStatusItemCameraView?
+
 	// The camera width is session-only (starts at the default each launch, never
 	// persisted). It is not clamped at launch; instead, over-widening is bounded
 	// only while dragging (see `maximumCameraWidth`, used by the pan handler), so
@@ -170,7 +178,31 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		}
 
 		if let current = self.contentView, type(of: current) == Class { return }
-		self.setContentView(self.createContentViewWithClass(Class), animated: animated)
+
+		// The camera view is a kept singleton (see cameraContentView): reuse
+		// resumes its suspended preview in place; only the very first show
+		// creates it (that creation attaches, so no resume on top of it).
+		let newContentView: SRStatusItemContentView
+		if Class == SRStatusItemCameraView.self {
+			if let camera = self.cameraContentView {
+				camera.resumeCamera()
+				newContentView = camera
+			} else {
+				let camera = self.createContentViewWithClass(Class) as! SRStatusItemCameraView
+				self.cameraContentView = camera
+				newContentView = camera
+			}
+		} else {
+			newContentView = self.createContentViewWithClass(Class)
+		}
+
+		// Swapping away from the live camera: quiet its preview instead of
+		// letting the view (and its layer wiring) die with the swap.
+		if self.contentView === self.cameraContentView {
+			self.cameraContentView?.suspendCamera()
+		}
+
+		self.setContentView(newContentView, animated: animated)
 	}
 
 

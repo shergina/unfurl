@@ -33,7 +33,7 @@
 - **Owned invariants** (must always hold):
   - Width flows through `statusItem.length`; the hosted view has an explicit height constraint (menu-bar thickness) so the button never collapses when a zero-intrinsic-height camera view is installed.
   - Content class is: camera when show-in-menu-bar is on and the device is available; unavailable-icon when on but device is not available; plain icon when off.
-  - The camera width is session-only: the camera view is created at the `SRSettings.defaultStatusItemCameraWidth` constant (not a persisted preference) on every launch and the width is never saved, so a previous run's resize has no effect on relaunch.
+  - The camera width is session-only: the camera view is created at the `SRSettings.defaultStatusItemCameraWidth` constant (not a persisted preference) on every launch and the width is never saved, so a previous run's resize has no effect on relaunch. Because the camera view is reused across Show Camera toggles (Workflow 1, step 3), a drag-resized width now survives those toggles within the session; relaunch still resets it.
   - The camera view's width is set once at creation and never re-set from the content path afterward; re-setting the width after the preview layer attaches blanks the feed. Over-widening is bounded only during a drag.
   - Drag resize is bounded below by `allowedStatusItemCameraWidthRange.lowerBound` and above by `maximumCameraWidth()` (a screen-scaled cap, see Workflow 4). The resulting width is not persisted.
 
@@ -43,6 +43,7 @@
 
 1. Combine `onCaptureDeviceAvailable` with `showCameraOnStatusBar`, debounced.
 2. Choose the content class and cross-fade to it; update `statusItem.length` to the new content's intrinsic width.
+3. The camera content view is a kept singleton (2026-08-05): created on the first show, reused on every later swap. Swapping away suspends its preview (layer connection disabled, session claim released, wiring kept); swapping back resumes it in place. Recreating the view would detach and reattach its preview layer on the running session, which stalls frame delivery to every preview for ~300 ms - the toggle blink (see Tools/spec.md). Lifecycle operations are chained inside SRCameraView, so a quick off-on flip cannot interleave.
 
 ### Workflow 2: click opens the menu
 

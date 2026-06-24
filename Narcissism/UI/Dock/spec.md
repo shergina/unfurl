@@ -23,7 +23,7 @@
 ## Responsibilities and ownership
 
 - **Responsibilities**:
-  - Attach/detach a video-data output on the shared session as the preference and camera availability change.
+  - Attach a video-data output to the shared session on first enable, then suspend/resume it as the preference and camera availability change - never removing it from the running session, which would stall every preview for ~300 ms (the toggle blink; see Tools/spec.md).
   - Pace delivered frames to about 10 fps and convert each to a square, downscaled `CGImage`.
   - Draw the icon: squircle-clipped video, drop shadow, dark/light edge hairlines, and the camera-logo corner badge, with mirror applied when set.
 - **Owned invariants** (must always hold):
@@ -33,10 +33,11 @@
 
 ## Key workflows
 
-### Workflow 1: enable
+### Workflow 1: enable and disable
 
 1. `showCameraOnDockTile` and `onCaptureDeviceAvailable`, combined and debounced, flip an `enable` flag.
-2. Enabling sets activation policy `.regular`, creates the video-data output (BGRA only), and attaches it to the shared session.
+2. The first enable sets activation policy `.regular`, creates the video-data output (BGRA only), and attaches it to the shared session. Later enables resume the kept output in place (claim re-taken, connection re-enabled); if the session died while suspended, a fresh output attaches during the new session's warm-up.
+3. Disable sets activation policy `.prohibited` and suspends the output: connection off, session claim released, wiring kept (2026-08-05, see Tools/spec.md). Lifecycle operations are chained, so a quick flip cannot interleave.
 
 ### Workflow 2: per frame
 

@@ -16,6 +16,13 @@ class SRCameraView: NSView {
 	fileprivate let preferences = SRSettings.sharedInstance
 	fileprivate var cancellables = Set<AnyCancellable>()
 
+	/// The tail of the attach/suspend/resume chain; each lifecycle operation
+	/// awaits its predecessor so a quick hide-show flip cannot interleave.
+	/// Only a host that suspends/resumes (the status item) grows the chain;
+	/// throwaway views (panel, calibration) just attach once and detach in
+	/// deinit as before.
+	fileprivate var lifecycleTask: Task<Void, Never>?
+
 	var captureResolution: CGSize {
 		return CGSize(width: 320, height: 240)
 	}
@@ -47,7 +54,8 @@ class SRCameraView: NSView {
 		self.setAccessibilityRole(.image)
 		self.setAccessibilityLabel(NSLocalizedString("accessibility.camera-preview.label", comment: ""))
 
-		_ = self.cameraService.attachPreviewLayer(self.previewLayer)
+		let attach = self.cameraService.attachPreviewLayer(self.previewLayer)
+		self.lifecycleTask = Task { try? await attach.value }
 
 		// TEMPORARY: check whether the session ever actually attaches (the layout
 		// log runs before the async attach completes).
@@ -106,6 +114,30 @@ class SRCameraView: NSView {
 		let scale = self.window?.backingScaleFactor ?? 2.0
 		if self.previewLayer.contentsScale != scale {
 			self.previewLayer.contentsScale = scale
+		}
+	}
+
+	/// Takes the live preview out of the frame path without tearing the view
+	/// down: the layer's session connection is disabled (the session does no
+	/// work for it) and its claim on the session released, but the wiring
+	/// stays - detaching a layer from the running session stalls every
+	/// preview for ~300 ms, the toggle blink (see Tools/spec.md). For hosts
+	/// that hide and re-show the same view (the status item).
+	func suspendPreview() {
+		let previous = self.lifecycleTask
+		self.lifecycleTask = Task {
+			await previous?.value
+			await self.cameraService.suspendPreviewLayer(self.previewLayer).value
+		}
+	}
+
+	/// Puts a suspended preview back in the frame path: resumed in place when
+	/// still wired, re-attached during the new session's warm-up otherwise.
+	func resumePreview() {
+		let previous = self.lifecycleTask
+		self.lifecycleTask = Task {
+			await previous?.value
+			try? await self.cameraService.resumePreviewLayer(self.previewLayer).value
 		}
 	}
 

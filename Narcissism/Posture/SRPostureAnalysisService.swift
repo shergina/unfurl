@@ -56,11 +56,18 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// independent of the nudge machinery above.
 	let onWindowSample = PassthroughSubject<SRPostureWindowSample, Never>()
 
+	/// The probe's video data output. Created on the first start, then kept
+	/// for as long as the session lives: stop() suspends it (connection
+	/// disabled, session claim released) instead of removing it, because
+	/// removing an output from the running session stalls frame delivery to
+	/// every preview for ~300 ms - the gray toggle blink (see Tools/spec.md).
+	/// Cleared only when the session went down while suspended and took the
+	/// wiring with it, or when an attach failed.
 	fileprivate var output: AVCaptureVideoDataOutput?
 
-	/// The in-flight attach from start(), kept so stop() can wait for it to
-	/// settle before detaching (a quick on-off flip must not interleave).
-	fileprivate var attachTask: Task<Void, Error>?
+	/// The tail of the attach/suspend/resume chain; every lifecycle operation
+	/// awaits its predecessor, so a quick on-off flip cannot interleave.
+	fileprivate var lifecycleTask: Task<Void, Never>?
 
 	/// The serial queue the sample-buffer delegate and Vision work run on;
 	/// every nonisolated(unsafe) property below is touched only here.
@@ -124,70 +131,82 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			.store(in: &self.cancellables)
 	}
 
-	/// Attaches a video data output to the shared session and begins the
-	/// once-per-second shoulder-distance log. The attached output holds the
+	/// Puts the probe in the frame path and begins the once-per-second
+	/// shoulder-distance log. The first start creates the video data output
+	/// and attaches it to the shared session; later starts resume the kept
+	/// output in place (see `output`). While running, the output holds the
 	/// session up for as long as tracking stays on, independent of any
-	/// preview. Idempotent.
+	/// preview. Idempotent: a repeated start resumes an already-flowing
+	/// output, which is harmless and retries a previously failed attach.
 	func start() {
-		guard self.output == nil else { return }
+		let previous = self.lifecycleTask
+		self.lifecycleTask = Task {
+			await previous?.value
 
-		let output = AVCaptureVideoDataOutput()
-		// BGRA and deliberately no width/height request: asking the shared
-		// session for scaled buffers renegotiates the device to a low
-		// resolution format and degrades every preview (see the Dock output).
-		output.videoSettings = [
-			kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-		]
-		output.setSampleBufferDelegate(self, queue: self.analysisQueue)
-		self.output = output
+			// Resume the suspended output where possible; a session torn
+			// down while suspended took the wiring with it, so start fresh
+			// (that attach lands during the new session's own warm-up).
+			if let output = self.output {
+				if await self.cameraService.resumeOutput(output).value {
+					return
+				}
+				self.output = nil
+			}
 
-		self.attachTask = Task {
+			let output = AVCaptureVideoDataOutput()
+			// BGRA and deliberately no width/height request: asking the shared
+			// session for scaled buffers renegotiates the device to a low
+			// resolution format and degrades every preview (see the Dock output).
+			output.videoSettings = [
+				kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+			]
+			output.setSampleBufferDelegate(self, queue: self.analysisQueue)
+			self.output = output
+
 			do {
 				try await self.cameraService.attachOutput(output).value
 			} catch {
 				// attachOutput already surfaced the failure through onState;
 				// note it here too so the absent measurements are explained
-				// in the same log the reader is watching.
+				// in the same log the reader is watching. Clearing the output
+				// lets a later start retry the attach.
 				Self.logger.error("Posture probe could not attach to the camera: \(error.localizedDescription, privacy: .public)")
-				// Only clear if a stop/start pair has not already replaced
-				// the output this task was attaching.
 				if self.output === output {
 					self.output = nil
 				}
-				throw error
 			}
 		}
 	}
 
-	/// Detaches the probe and clears its published state, hiding the corner
-	/// note. The camera service ref-counts its consumers, so this never stops
-	/// a session another surface (preview, photo capture, Dock tile) is still
-	/// using; the session goes down only when the probe was its last
-	/// consumer. Idempotent.
+	/// Takes the probe out of the frame path and clears its published state,
+	/// hiding the corner note. The output is suspended, not removed: its
+	/// connection is disabled (the session does no work for it, so the idle
+	/// cost is zero) and its claim on the session is released, but it stays
+	/// wired - removing it would stall every preview for ~300 ms, the gray
+	/// toggle blink this replaced (see Tools/spec.md). Releasing the claim
+	/// keeps the camera lifecycle honest: the toggle never stops a session
+	/// another surface (preview, photo capture, Dock tile) is still using,
+	/// and the session - taking the wired output down with it - stops when
+	/// the probe was its last consumer. Idempotent.
 	func stop() {
-		guard let output = self.output else { return }
-		self.output = nil
-
-		let attachTask = self.attachTask
-		self.attachTask = nil
-
-		// Hide the note and dots right away rather than after the detach's
+		// Hide the note and dots right away rather than after the suspend's
 		// session-queue round trip.
 		self.onFrameSample.send(nil)
 		self.onPostureStatus.send(nil)
 
-		Task {
-			do {
-				try await attachTask?.value
-			} catch {
-				// The attach never went through; there is nothing to detach.
-				return
-			}
-			await self.cameraService.detachOutput(output).value
+		let previous = self.lifecycleTask
+		self.lifecycleTask = Task {
+			await previous?.value
 
-			// No new frames arrive after the detach; once the analysis queue
-			// drains, the window and episode state can be reset so a later
-			// start() begins from a clean slate.
+			// Read under the chain, not at stop() time: the predecessor may
+			// be the very attach that creates the output (or the failed one
+			// that cleared it, in which case there is nothing to suspend).
+			guard let output = self.output else { return }
+			await self.cameraService.suspendOutput(output).value
+
+			// No new frames arrive once the connection is off; when the
+			// analysis queue drains, the window and episode state reset so a
+			// later start() begins from a clean slate.
 			await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
 				self.analysisQueue.async {
 					self.lastAnalysisTime = .invalid
@@ -204,11 +223,11 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			}
 
 			// Squash anything a last in-flight frame published between the
-			// sends above and the detach completing.
+			// sends above and the connection going quiet.
 			self.onFrameSample.send(nil)
 			self.onPostureStatus.send(nil)
 
-			Self.logger.log("Posture probe detached (tracking off)")
+			Self.logger.log("Posture probe suspended (tracking off)")
 		}
 	}
 
