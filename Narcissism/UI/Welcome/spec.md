@@ -18,6 +18,7 @@
 - **Constraints / assumptions**:
   - Shown via the Settings-window recipe (`makeKeyAndOrderFront` plus `orderFrontRegardless` plus `NSApp.activate`), never by changing the activation policy. At launch the policy is usually `.prohibited`, so without the regardless-ordering the window opens behind the active app.
   - The window floats while open (`level = .floating`, moves to the active Space on re-front) - the calibration-window precedent: onboarding is a short focused task, and without the level the system camera-permission alert drops the window behind other apps when dismissed.
+  - Every fresh presentation centers on the interaction screen, the pointer's screen (the app-wide placement rule, see UI/Settings/spec.md): at first launch and on a menu re-show alike, the window appears where the user is, not on the primary display.
   - `SRMenuController` owns the single kept instance (the Settings precedent); the composition root presents it through `showWelcome()`.
   - Locate Me never touches the status item directly: the page calls the window's `onLocate`, the menu controller forwards to `onLocateStatusItem`, and the composition root wires that to `SRStatusItemController.locate()` (the same explicit cross-surface wiring the panel uses).
 

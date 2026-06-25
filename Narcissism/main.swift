@@ -14,3 +14,4 @@ autoreleasepool { () -> () in
 	app.delegate = delegate
 	app.run()
 }
+

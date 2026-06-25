@@ -34,7 +34,13 @@ class SRSettingsWindowController: NSWindowController {
 		self.contentViewController = tabs
 
 		window.title = tabs.tabViewItems[tabs.selectedTabViewItemIndex].label
-		window.center()
+
+		// First open only (the instance is kept, so a reopen keeps the
+		// user's placement): on the screen where the menu was clicked, not
+		// center()'s primary-display fallback.
+		if let screen = NSScreen.interaction {
+			window.center(on: screen)
+		}
 	}
 
 	override func showWindow(_ sender: Any?) {

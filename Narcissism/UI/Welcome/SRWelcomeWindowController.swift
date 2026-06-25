@@ -68,9 +68,11 @@ class SRWelcomeWindowController: NSWindowController {
 
 		// Center only now: a deferred window gets its real frame when first
 		// ordered on screen, and centering during loadWindow operated on
-		// placeholder geometry, parking the window bottom-right.
-		if freshPresentation {
-			self.window!.center()
+		// placeholder geometry, parking the window bottom-right. On the
+		// interaction screen: at launch and from the menu alike, the pointer
+		// marks where the user is.
+		if freshPresentation, let screen = NSScreen.interaction {
+			self.window!.center(on: screen)
 		}
 
 		// The Settings-window recipe: with the Dock tile off the activation

@@ -14,6 +14,7 @@
 
 ## Recorded decisions
 
+- First open centers on the interaction screen, the pointer's screen at the menu click (the app-wide placement rule, see UI/Settings/spec.md); the kept instance keeps the user's placement on reopen.
 - The chart reads SRPostureHistoryService.days (the live in-memory counts), never the JSON file: the file is durability and lags up to a minute; the UI and the service share a process.
 - Redraw cadence: fresh on every window appearance, then at most one redraw per 30 seconds, from the service's onChange publisher through a Combine throttle. Statistics is the reflective surface (the corner note is the live one); per-second movement would turn it into a monitoring dashboard and make thin hours twitch. A closed window skips redraws and catches up on reopen, which is also what rolls the chart to a new day.
 - Percentages are computed at display time, each issue over its own denominator: slouching over slouch-measurable seconds, shoulders over measured seconds. Hours with nothing measurable draw no mark - absence on a continuous axis, never a zero bar. The axis spans first-measured to current hour, padded one hour each side, clamped to the day.

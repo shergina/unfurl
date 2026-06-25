@@ -23,16 +23,16 @@ class SRAboutWindowController: NSWindowController {
         )
 
         let window = self.window!
-        let screen = window.screen!
 
         window.title = NSLocalizedString("about.title", comment: "")
 
         self.contentViewController = SRAboutViewController()
 
-        let x = screen.frame.width / 2 - window.frame.width / 2
-        let y = screen.frame.height / 2 - window.frame.height / 2
-
-        window.setFrame(CGRect(x: x, y: y, width: window.frame.width, height: window.frame.height), display: true)
+        // First open only (the instance is kept, so a reopen keeps the
+        // user's placement): on the screen where the menu was clicked.
+        if let screen = NSScreen.interaction {
+            window.center(on: screen)
+        }
     }
 
     override func showWindow(_ sender: Any?) {

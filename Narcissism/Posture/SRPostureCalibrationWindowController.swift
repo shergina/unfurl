@@ -56,10 +56,17 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 
 		viewController.onFinished = { [weak self] in self?.close() }
 
-		if let screen = window.screen ?? NSScreen.main {
-			let x = screen.frame.width / 2 - window.frame.width / 2
-			let y = screen.frame.height / 2 - window.frame.height / 2
-			window.setFrame(CGRect(x: x, y: y, width: window.frame.width, height: window.frame.height), display: true)
+		// Center on the display of the camera being calibrated: the user
+		// calibrates looking through that camera, so the window belongs on
+		// the screen the camera sits on. No API ties a camera to a display,
+		// so external camera -> external display is the best available
+		// guess; with several externals the interaction screen wins when it
+		// is one.
+		let cameraService = SRCameraService.sharedInstance
+		let targetDeviceID = self.cameraOverrideDeviceID ?? cameraService.onSelectedDeviceID.value
+		let targetIsExternal = cameraService.onDevices.value.first { $0.id == targetDeviceID }?.isExternal ?? false
+		if let screen = Self.screen(forExternalCamera: targetIsExternal) {
+			window.center(on: screen)
 		}
 
 		// Calibrating a not-yet-active camera: look through it while the
@@ -79,6 +86,18 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 				if !tracking { self?.close() }
 			}
 			.store(in: &self.cancellables)
+	}
+
+	fileprivate static func screen(forExternalCamera isExternal: Bool) -> NSScreen? {
+		let wantsBuiltin = !isExternal
+		if let interaction = NSScreen.interaction, self.isBuiltin(interaction) == wantsBuiltin { return interaction }
+		return NSScreen.screens.first { self.isBuiltin($0) == wantsBuiltin } ?? NSScreen.interaction
+	}
+
+	fileprivate static func isBuiltin(_ screen: NSScreen) -> Bool {
+		guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+		else { return false }
+		return CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
 	}
 
 	override func showWindow(_ sender: Any?) {
