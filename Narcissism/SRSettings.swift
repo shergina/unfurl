@@ -36,10 +36,45 @@ struct PostureBaseline: Equatable, Sendable {
 	/// existed.
 	var eyeShoulderRatio: CGFloat?
 
+	/// The ear-anchored pair, captured alongside the eye pair since
+	/// 2026-08-06: ears sit on the head's pitch axis, so this variant of
+	/// the ratio does not read a downward glance as a slouch and is the
+	/// preferred evaluation metric. Nil on entries calibrated before it,
+	/// or when the ears never cleared the confidence floor during capture
+	/// (headphones, a hood); evaluation then stays on the eye pair.
+	var earSlouchRatio: CGFloat?
+	var earSlouchedRatio: CGFloat?
+
+	/// The gaze probe (added 2026-08-06): how far the eye ratio, the ear
+	/// ratio, and the face pitch (degrees) moved between looking at the
+	/// camera's screen and looking directly ahead during calibration -
+	/// the per-camera angle measurements for the pitch-based strictness
+	/// work (see PITCH_TUNING.md). Nil on entries from before the probe
+	/// or when its capture was skipped; nothing consumes them at runtime
+	/// yet.
+	var eyeGazeDelta: CGFloat?
+	var earGazeDelta: CGFloat?
+	var gazePitchDelta: CGFloat?
+
+	/// The bottom-of-screen leg of the gaze probe (three-gaze flow,
+	/// 2026-08-06): deltas of each ratio and the face pitch (degrees)
+	/// from the middle-of-screen baseline to looking at the screen's
+	/// bottom edge - the per-camera gaze envelope. Telemetry for the
+	/// strictness work; nothing consumes them at runtime.
+	var eyeBottomDelta: CGFloat?
+	var earBottomDelta: CGFloat?
+	var bottomPitchDelta: CGFloat?
+
 	/// How far the ratio travels from upright to this user's own slouch on
 	/// this camera; nil while only the upright pose was measured.
 	var span: CGFloat? {
 		return self.slouchedRatio.map { self.slouchRatio - $0 }
+	}
+
+	/// The same travel in ear units; nil while unmeasured.
+	var earSpan: CGFloat? {
+		guard let upright = self.earSlouchRatio, let slouched = self.earSlouchedRatio else { return nil }
+		return upright - slouched
 	}
 }
 
@@ -133,13 +168,16 @@ final class SRSettings {
 	// was measured. A camera absent from the map is uncalibrated. Only these
 	// values persist, never imagery.
 	let postureBaselines: Preference<[String: PostureBaseline]>
-	// The anchor: the span and eye:shoulder ratio of the one two-pose
-	// calibration (the very first; every later camera runs single-pose and
-	// derives its span from the anchor). A pair measured together, set at
-	// most once, and deliberately not tied to a camera - the anchor is a
-	// unit definition and outlives the device it was measured on. 0 = no
-	// anchor yet, which is what makes the next calibration two-pose.
+	// The anchor: the spans (eye and ear units) and eye:shoulder ratio of
+	// the one two-pose calibration (every later camera runs single-pose
+	// and derives its span from the anchor). Measured together, and
+	// deliberately not tied to a camera - the anchor is a unit definition
+	// and outlives the device it was measured on. 0 = not measured yet;
+	// either span missing makes the next calibration two-pose, which is
+	// also what migrates pre-ear-metric installs (their eye-only anchor is
+	// refreshed wholesale by that run).
 	let postureAnchorSpan: Preference<CGFloat>
+	let postureAnchorEarSpan: Preference<CGFloat>
 	let postureAnchorEyeShoulderRatio: Preference<CGFloat>
 	// Legacy single-baseline preferences, kept only to migrate a pre-per-camera
 	// install into postureBaselines once (see migrateLegacyBaselineIfNeeded);
@@ -184,14 +222,38 @@ final class SRSettings {
 	// nonisolated: also read on the posture analysis queue.
 	nonisolated static let nominalSlouchSpanFraction: CGFloat = 0.2
 
+	// Piecewise slouch strictness (PITCH_TUNING.md): the camera's gaze
+	// angle theta (middle-of-screen to straight-ahead, degrees, negative
+	// = screen below the gaze line) picks the regime; the index picks the
+	// stop from that regime's per-metric ladder (percent below baseline,
+	// relaxed to strict). Below the boundary the mediums (index 2) are
+	// the measured flat region (3 ears / 5 eyes, decided at theta -19..
+	// -10); above it they are the current working guess (7 / 8), still
+	// being tuned. A camera without a theta (pre-probe entry) is treated
+	// as high-camera: the looser regime, until recalibrated. The
+	// strictness slider is disconnected from slouch while this is in
+	// place - the index below is the whole control. The intended end
+	// state: the slider picks this index into the active camera's
+	// regime.
+	nonisolated static let lowCameraThetaBoundary: CGFloat = -10
+	nonisolated static let slouchStrictnessIndex = 2
+	nonisolated static let lowCameraEarPercents: [CGFloat] = [4, 3, 2.5, 2, 1.5]
+	nonisolated static let lowCameraEyePercents: [CGFloat] = [8, 6.5, 5, 4, 3]
+	nonisolated static let highCameraEarPercents: [CGFloat] = [11, 9, 7, 5.5, 4.5]
+	nonisolated static let highCameraEyePercents: [CGFloat] = [12, 10, 8, 6.5, 5]
+
 	// The derived-span mapping: gain scale = (rho / anchor rho) ^ exponent,
-	// clamped. The exponent is a physics-informed initial guess - the model
-	// brackets it at ~4.5-10 for plausible desk geometries (the eye:shoulder
-	// ratio moves ~12-25 percent between a laptop and a monitor camera while
-	// the slouch gain moves ~2.5-3x) - to be tuned from the calibration log
-	// lines, which print every input of this formula. The clamp bounds what
-	// a noisy rho can do to the thresholds.
-	nonisolated static let slouchGainExponent: CGFloat = 6.0
+	// clamped, one exponent per unit. Fitted 2026-08-06 from the first
+	// cross-camera measured pair (the same user's laptop and monitor
+	// slouch demos; n=2, so both values are provisional): eyes +1.9,
+	// ears -0.85. The ear spans came out nearly camera-independent -
+	// most of the old 2-3x "camera gain" was head pitch, and it left
+	// with the eye metric. (History: a single shared 6.0, the 2026-08-03
+	// physics guess bracketing 4.5-10; it pinned the laptop's derived
+	// ear span on the lower clamp rail, and the strictness floor with
+	// it.) The clamp bounds what a noisy rho can do to the thresholds.
+	nonisolated static let slouchGainExponent: CGFloat = 1.9
+	nonisolated static let earSlouchGainExponent: CGFloat = -0.85
 	nonisolated static let slouchGainScaleRange: ClosedRange<CGFloat> = 0.25...4.0
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
@@ -219,6 +281,7 @@ final class SRSettings {
 		self.postureSnoozeUntil = Preference("PostureSnoozeUntil", default: .distantPast, defaults: defaults)
 		self.postureBaselines = Preference("PostureBaselines", default: [:], defaults: defaults)
 		self.postureAnchorSpan = Preference("PostureAnchorSpan", default: 0, defaults: defaults)
+		self.postureAnchorEarSpan = Preference("PostureAnchorEarSpan", default: 0, defaults: defaults)
 		self.postureAnchorEyeShoulderRatio = Preference("PostureAnchorEyeShoulderRatio", default: 0, defaults: defaults)
 		self.postureBaselineSlouchRatio = Preference("PostureBaselineSlouchRatio", default: 0, defaults: defaults)
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
@@ -259,12 +322,34 @@ final class SRSettings {
 		if let span = baseline.span, span > 0 {
 			return span
 		}
-		let anchorSpan = self.postureAnchorSpan.value
+		return self.derivedSlouchSpan(
+			anchorSpan: self.postureAnchorSpan.value,
+			rho: baseline.eyeShoulderRatio,
+			exponent: SRSettings.slouchGainExponent
+		)
+	}
+
+	/// Ear-unit counterpart of postureEffectiveSlouchSpan, same precedence:
+	/// the measured ear span, else one derived from the ear anchor by the
+	/// same rho mapping (with the ear-unit exponent), else nil (evaluation
+	/// falls back to the nominal fraction of the ear baseline).
+	func postureEffectiveEarSlouchSpan(for baseline: PostureBaseline) -> CGFloat? {
+		if let span = baseline.earSpan, span > 0 {
+			return span
+		}
+		return self.derivedSlouchSpan(
+			anchorSpan: self.postureAnchorEarSpan.value,
+			rho: baseline.eyeShoulderRatio,
+			exponent: SRSettings.earSlouchGainExponent
+		)
+	}
+
+	fileprivate func derivedSlouchSpan(anchorSpan: CGFloat, rho: CGFloat?, exponent: CGFloat) -> CGFloat? {
 		let anchorRatio = self.postureAnchorEyeShoulderRatio.value
-		guard anchorSpan > 0, anchorRatio > 0, let ratio = baseline.eyeShoulderRatio, ratio > 0 else {
+		guard anchorSpan > 0, anchorRatio > 0, let rho, rho > 0 else {
 			return nil
 		}
-		let scale = pow(ratio / anchorRatio, SRSettings.slouchGainExponent)
+		let scale = pow(rho / anchorRatio, exponent)
 		return anchorSpan * min(max(scale, SRSettings.slouchGainScaleRange.lowerBound), SRSettings.slouchGainScaleRange.upperBound)
 	}
 
@@ -366,7 +451,15 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 				slouchRatio: CGFloat(ratio),
 				slouchedRatio: fields["slouched"].map { CGFloat($0) },
 				date: Date(timeIntervalSince1970: date),
-				eyeShoulderRatio: fields["eyeShoulder"].map { CGFloat($0) }
+				eyeShoulderRatio: fields["eyeShoulder"].map { CGFloat($0) },
+				earSlouchRatio: fields["earRatio"].map { CGFloat($0) },
+				earSlouchedRatio: fields["earSlouched"].map { CGFloat($0) },
+				eyeGazeDelta: fields["eyeGaze"].map { CGFloat($0) },
+				earGazeDelta: fields["earGaze"].map { CGFloat($0) },
+				gazePitchDelta: fields["pitchDelta"].map { CGFloat($0) },
+				eyeBottomDelta: fields["eyeBottom"].map { CGFloat($0) },
+				earBottomDelta: fields["earBottom"].map { CGFloat($0) },
+				bottomPitchDelta: fields["bottomPitch"].map { CGFloat($0) }
 			)
 		}
 		return result
@@ -381,6 +474,30 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 			}
 			if let eyeShoulder = baseline.eyeShoulderRatio {
 				fields["eyeShoulder"] = Double(eyeShoulder)
+			}
+			if let earRatio = baseline.earSlouchRatio {
+				fields["earRatio"] = Double(earRatio)
+			}
+			if let earSlouched = baseline.earSlouchedRatio {
+				fields["earSlouched"] = Double(earSlouched)
+			}
+			if let eyeGaze = baseline.eyeGazeDelta {
+				fields["eyeGaze"] = Double(eyeGaze)
+			}
+			if let earGaze = baseline.earGazeDelta {
+				fields["earGaze"] = Double(earGaze)
+			}
+			if let pitchDelta = baseline.gazePitchDelta {
+				fields["pitchDelta"] = Double(pitchDelta)
+			}
+			if let eyeBottom = baseline.eyeBottomDelta {
+				fields["eyeBottom"] = Double(eyeBottom)
+			}
+			if let earBottom = baseline.earBottomDelta {
+				fields["earBottom"] = Double(earBottom)
+			}
+			if let bottomPitch = baseline.bottomPitchDelta {
+				fields["bottomPitch"] = Double(bottomPitch)
 			}
 			raw[id] = fields
 		}

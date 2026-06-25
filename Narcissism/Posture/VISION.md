@@ -118,7 +118,11 @@ possible):
   somewhat; the numerator shrinks more, so the ratio still drops. This metric
   captures the visible in-plane head-drop component of slouch well; pure
   toward-camera motion with no vertical drop stays weak (see the 2D
-  constraint).
+  constraint). Learned in practice (2026-08-06): head pitch pollutes the
+  eye form - looking down at the keyboard drops the eyes and reads as
+  slouch. The ears sit on the head's pitch axis, so the same ratio
+  measured from the ears is immune to glances; the shipped metric is
+  ear-anchored with the eye form as fallback (see spec.md).
 - Shoulder tilt angle (line between shoulders vs horizontal).
 - Shoulder-height asymmetry (normalized vertical shoulder difference).
 - Head lateral tilt (eye-line or ear-line angle).
