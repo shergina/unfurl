@@ -11,8 +11,8 @@ import Combine
 
 
 /// TEMPORARY (accuracy test): the panel's camera view plus dots where the
-/// posture probe last saw the shoulders (red) and eyes (yellow), so Vision's
-/// accuracy can be judged against the live image. The dots are sublayers of
+/// posture probe last saw the shoulders (red), eyes (yellow), and ears
+/// (orange), so Vision's accuracy can be judged against the live image. The dots are sublayers of
 /// the preview layer and are positioned through the preview layer's own
 /// coordinate converter, so the aspect-fill crop and the mirror flip apply
 /// to them exactly as to the video.
@@ -31,7 +31,17 @@ class SRPostureDebugCameraView: SRCameraView {
 	fileprivate var rightShoulderDot: CALayer!
 	fileprivate var leftEyeDot: CALayer!
 	fileprivate var rightEyeDot: CALayer!
+	fileprivate var leftEarDot: CALayer!
+	fileprivate var rightEarDot: CALayer!
 	fileprivate var jointsCancellable: AnyCancellable?
+
+	fileprivate var allDots: [CALayer?] {
+		return [
+			self.leftShoulderDot, self.rightShoulderDot,
+			self.leftEyeDot, self.rightEyeDot,
+			self.leftEarDot, self.rightEarDot,
+		]
+	}
 
 	override init(frame: NSRect) {
 		super.init(frame: frame)
@@ -52,6 +62,8 @@ class SRPostureDebugCameraView: SRCameraView {
 		self.rightShoulderDot = makeDot(.systemRed, diameter: 14)
 		self.leftEyeDot = makeDot(.systemYellow, diameter: 10)
 		self.rightEyeDot = makeDot(.systemYellow, diameter: 10)
+		self.leftEarDot = makeDot(.systemOrange, diameter: 10)
+		self.rightEarDot = makeDot(.systemOrange, diameter: 10)
 
 		// Published on the main actor at the analysis rate (4/s).
 		self.jointsCancellable = SRPostureAnalysisService.sharedInstance.onFrameSample
@@ -64,7 +76,7 @@ class SRPostureDebugCameraView: SRCameraView {
 
 	fileprivate func updateDots(_ joints: SRPostureJoints?) {
 		guard Self.dotsVisible else {
-			for dot in [self.leftShoulderDot, self.rightShoulderDot, self.leftEyeDot, self.rightEyeDot] {
+			for dot in self.allDots {
 				dot?.isHidden = true
 			}
 			return
@@ -101,6 +113,8 @@ class SRPostureDebugCameraView: SRCameraView {
 		place(self.rightShoulderDot, at: joints?.rightShoulder)
 		place(self.leftEyeDot, at: joints?.leftEye)
 		place(self.rightEyeDot, at: joints?.rightEye)
+		place(self.leftEarDot, at: joints?.leftEar)
+		place(self.rightEarDot, at: joints?.rightEar)
 	}
 
 }

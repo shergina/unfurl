@@ -94,12 +94,25 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			.sink { [unowned self] baselines, deviceID in
 				let entry = baselines[deviceID]
 				let baseline: CGFloat? = (entry?.slouchRatio ?? 0) > 0 ? entry?.slouchRatio : nil
-				let span = baseline != nil
-					? entry.flatMap { SRSettings.sharedInstance.postureEffectiveSlouchSpan(for: $0) }
-					: nil
+				let earBaseline: CGFloat? = (entry?.earSlouchRatio ?? 0) > 0 ? entry?.earSlouchRatio : nil
+				// Piecewise strictness (PITCH_TUNING.md): the entry's gaze
+				// angle picks the regime, the fixed index picks the stop
+				// from each metric's percent table. Missing theta = the
+				// looser high-camera regime until recalibrated. Spans stay
+				// stored but unresolved - the percent tables are the whole
+				// threshold while the collection runs.
+				let lowCamera = (entry?.gazePitchDelta).map { $0 <= SRSettings.lowCameraThetaBoundary } ?? false
+				let index = SRSettings.slouchStrictnessIndex
+				let earPercent = (lowCamera ? SRSettings.lowCameraEarPercents : SRSettings.highCameraEarPercents)[index]
+				let eyePercent = (lowCamera ? SRSettings.lowCameraEyePercents : SRSettings.highCameraEyePercents)[index]
+				if entry != nil {
+					Self.logger.log("Strictness: ears \(String(format: "%.1f", earPercent), privacy: .public)%, eyes \(String(format: "%.1f", eyePercent), privacy: .public)% (\(lowCamera ? "low" : "high", privacy: .public) camera, theta \(entry?.gazePitchDelta.map { String(format: "%.1f", $0) } ?? "n/a", privacy: .public))")
+				}
 				self.analysisQueue.async {
 					self.baselineSlouchRatio = baseline
-					self.baselineSlouchSpan = span
+					self.baselineEarSlouchRatio = earBaseline
+					self.earBreachPercent = earPercent
+					self.eyeBreachPercent = eyePercent
 				}
 			}
 			.store(in: &self.cancellables)
@@ -118,11 +131,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// ratio may sink. The shoulder tolerance is stored as a slope
 		// (height difference over shoulder separation); the evaluation
 		// compares degrees, so convert once here.
-		SRSettings.sharedInstance.postureSlouchDepthTolerance.publisher
-			.sink { [unowned self] tolerance in
-				self.analysisQueue.async { self.slouchDepthTolerance = tolerance }
-			}
-			.store(in: &self.cancellables)
 		SRSettings.sharedInstance.postureShoulderTolerance.publisher
 			.sink { [unowned self] slope in
 				let degrees = atan(slope) * 180 / .pi
@@ -213,10 +221,12 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 					self.resetWindow()
 					self.issueTrackers = [:]
 					self.recentSlouchRatios = []
+					self.recentEarSlouchRatios = []
 					self.notVisibleWindows = 0
 					self.lastLoggedStatus = nil
 					self.lastEvaluatedStatus = nil
 					self.smoothedFaceBox = nil
+					self.lastFacePitch = nil
 					self.lastFaceTime = .invalid
 					continuation.resume()
 				}
@@ -300,22 +310,25 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated static let notVisibleResetWindows = 5
 
 	/// The calibrated good-posture slouch ratio (see init); nil until
-	/// calibrated, which suppresses the whole per-window evaluation. The
-	/// span is the measured upright-to-slouched travel; nil on a
-	/// single-point calibration, which falls back to the nominal span
-	/// (SRSettings.nominalSlouchSpanFraction of baseline - exactly the old
-	/// percent-of-baseline behavior). Touched only on the (serial)
-	/// analysis queue.
+	/// calibrated, which suppresses the whole per-window evaluation.
+	/// Touched only on the (serial) analysis queue.
 	fileprivate nonisolated(unsafe) var baselineSlouchRatio: CGFloat?
-	fileprivate nonisolated(unsafe) var baselineSlouchSpan: CGFloat?
 
-	/// Mirrors of the strictness preferences (see init): the fraction of
-	/// the slouch span the ratio may sink, and how far off level the
-	/// shoulder line may tilt (in degrees, converted from the stored
-	/// slope). Ratios above baseline are sitting tall, never an alert.
-	/// Touched only on the analysis queue; the literals match the
-	/// preference defaults and are overwritten by the replay in init.
-	fileprivate nonisolated(unsafe) var slouchDepthTolerance: CGFloat = 0.30
+	/// The ear-metric counterpart (see PostureBaseline.earSlouchRatio):
+	/// nil until this camera is calibrated with visible ears, which keeps
+	/// the evaluation on the eye metric. Touched only on the analysis queue.
+	fileprivate nonisolated(unsafe) var baselineEarSlouchRatio: CGFloat?
+
+	/// The regime-resolved breach percents (see the piecewise tables in
+	/// SRSettings), one per metric. Touched only on the analysis queue.
+	fileprivate nonisolated(unsafe) var earBreachPercent: CGFloat?
+	fileprivate nonisolated(unsafe) var eyeBreachPercent: CGFloat?
+
+	/// Mirror of the shoulder strictness preference (see init): how far
+	/// off level the shoulder line may tilt (in degrees, converted from
+	/// the stored slope). Ratios above baseline are sitting tall, never
+	/// an alert. Touched only on the analysis queue; the literal matches
+	/// the preference default and is overwritten by the replay in init.
 	fileprivate nonisolated(unsafe) var maximumLevelShoulderTiltDegrees: CGFloat = 2.9
 
 	/// No breach drop may be smaller than this, regardless of how small a
@@ -331,7 +344,12 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// 2026-08-03 when detection felt loose; 0.02 same day with the
 	/// median - jitter handled, the observed settling amplitude is now
 	/// the binding constraint and this sits at its edge.)
-	fileprivate nonisolated static let minimumBreachDrop: CGFloat = 0.02
+	// Lowered 0.02 -> 0.01 on 2026-08-06 for the piecewise percent
+	// tables: the strict ear stops (2-3 percent of a ~0.5-0.7 baseline)
+	// sit under the old floor, which would have silently flattened them.
+	// The rolling-median accusation still guards jitter; revisit against
+	// settling telemetry in ear units.
+	fileprivate nonisolated static let minimumBreachDrop: CGFloat = 0.01
 
 	/// The rolling window for the median-based accusation: the last N
 	/// windows' slouch ratios (nil where unmeasured), ~N seconds of
@@ -342,29 +360,30 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// cannot accuse. Touched only on the analysis queue.
 	fileprivate nonisolated static let slouchMedianWindowCount = 8
 	fileprivate nonisolated static let slouchMedianMinimumSamples = 4
+	/// One rolling window per metric, so ear and eye readings never mix in
+	/// a single median (their baselines differ by the head-pitch term).
 	fileprivate nonisolated(unsafe) var recentSlouchRatios: [CGFloat?] = []
+	fileprivate nonisolated(unsafe) var recentEarSlouchRatios: [CGFloat?] = []
 
 	/// Push one window's reading (nil = not measurable this window) and
 	/// return the median of the measured readings in the window, or nil
 	/// while fewer than half are measured.
-	fileprivate nonisolated func updateRecentSlouchRatios(with ratio: CGFloat?) -> CGFloat? {
-		self.recentSlouchRatios.append(ratio)
-		if self.recentSlouchRatios.count > Self.slouchMedianWindowCount {
-			self.recentSlouchRatios.removeFirst(self.recentSlouchRatios.count - Self.slouchMedianWindowCount)
+	fileprivate nonisolated func pushRecent(_ ratio: CGFloat?, into ratios: inout [CGFloat?]) -> CGFloat? {
+		ratios.append(ratio)
+		if ratios.count > Self.slouchMedianWindowCount {
+			ratios.removeFirst(ratios.count - Self.slouchMedianWindowCount)
 		}
-		let measured = self.recentSlouchRatios.compactMap { $0 }.sorted()
+		let measured = ratios.compactMap { $0 }.sorted()
 		guard measured.count >= Self.slouchMedianMinimumSamples else { return nil }
 		let count = measured.count
 		return count % 2 == 0 ? (measured[count / 2 - 1] + measured[count / 2]) / 2 : measured[count / 2]
 	}
 
-	/// The absolute ratio drop that counts as a breach: the depth tolerance
-	/// applied to the measured span, or to the nominal one while this
-	/// camera has only a single-point calibration, never below the noise
-	/// floor. Analysis queue only.
-	fileprivate nonisolated func slouchBreachDrop(baseline: CGFloat) -> CGFloat {
-		let span = self.baselineSlouchSpan ?? (SRSettings.nominalSlouchSpanFraction * baseline)
-		return max(self.slouchDepthTolerance * span, Self.minimumBreachDrop)
+	/// The absolute ratio drop that counts as a breach: the regime percent
+	/// of the metric's baseline, never below the noise floor. Analysis
+	/// queue only.
+	fileprivate nonisolated func slouchBreachDrop(baseline: CGFloat, percent: CGFloat) -> CGFloat {
+		return max(baseline * percent / 100, Self.minimumBreachDrop)
 	}
 
 	/// Mirror of calibrationWindowOpen. Touched only on the analysis queue.
@@ -413,9 +432,11 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				self.resetWindow()
 				self.issueTrackers = [:]
 				self.recentSlouchRatios = []
+				self.recentEarSlouchRatios = []
 				self.notVisibleWindows = 0
 				self.lastEvaluatedStatus = nil
 				self.smoothedFaceBox = nil
+				self.lastFacePitch = nil
 				self.lastFaceTime = .invalid
 			} else if elapsed < Self.minimumAnalysisInterval {
 				return
@@ -460,7 +481,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		let sample = SRPostureFrameSample(
 			shoulderWidthFraction: best?.fractionOfWidth,
 			slouchRatio: best?.slouchRatio,
+			earSlouchRatio: best?.earSlouchRatio,
 			eyeShoulderWidthRatio: best?.eyeShoulderWidthRatio,
+			facePitch: self.lastFacePitch,
 			joints: best?.joints
 		)
 		Task { @MainActor [sample] in self.onFrameSample.send(sample) }
@@ -484,9 +507,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// Muted while uncalibrated (nothing to judge against) or while the
 		// calibration window is open (no nagging mid-calibration). Trackers
 		// reset for a clean start.
-		guard let baseline = self.baselineSlouchRatio, !self.suppressedForCalibration else {
+		guard self.baselineSlouchRatio != nil, !self.suppressedForCalibration else {
 			self.issueTrackers = [:]
 			self.recentSlouchRatios = []
+			self.recentEarSlouchRatios = []
 			self.notVisibleWindows = 0
 			self.lastLoggedStatus = nil
 			self.lastEvaluatedStatus = nil
@@ -494,34 +518,55 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			return
 		}
 
-		// One rolling-median update per window, measured or not (nil ages
-		// stale readings out during blindness); the returned median drives
-		// the tracker's breach verdict below and rides the log line.
-		let recentMedian = self.updateRecentSlouchRatios(
-			with: (self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement)?.slouchRatio
-		)
+		let best = self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement
+
+		// Distance from baseline per metric, every window, in the ladder's
+		// own currency: percent of baseline, positive = below it (toward
+		// slouch). The tuning notebook (PITCH_TUNING.md) reads its bands
+		// straight off these lines.
+		if let best, best.slouchRatio != nil || best.earSlouchRatio != nil {
+			func dropText(_ ratio: CGFloat?, _ base: CGFloat?) -> String {
+				guard let ratio, let base, base > 0 else { return "n/a" }
+				return String(format: "%+.1f%%", (base - ratio) / base * 100)
+			}
+			Self.logger.log("Below baseline: ears \(dropText(best.earSlouchRatio, self.baselineEarSlouchRatio), privacy: .public), eyes \(dropText(best.slouchRatio, self.baselineSlouchRatio), privacy: .public)")
+		}
+
+		// Both rolling medians update every window, measured or not (nil
+		// ages stale readings out during blindness); the chosen metric's
+		// median drives the tracker's breach verdict below.
+		let recentEarMedian = self.pushRecent(best?.earSlouchRatio, into: &self.recentEarSlouchRatios)
+		let recentEyeMedian = self.pushRecent(best?.slouchRatio, into: &self.recentSlouchRatios)
+
+		// The metric for this window: ears whenever this camera has an ear
+		// baseline and the window measured an ear - immune to the downward
+		// keyboard glance - else the eye metric (headphones, a hood), each
+		// judged against its own regime percent. Units never mix.
+		let metric: (name: String, ratio: CGFloat, median: CGFloat?, baseline: CGFloat, percent: CGFloat)?
+		if let earBaseline = self.baselineEarSlouchRatio, let ratio = best?.earSlouchRatio, let percent = self.earBreachPercent {
+			metric = ("ears", ratio, recentEarMedian, earBaseline, percent)
+		} else if let eyeBaseline = self.baselineSlouchRatio, let ratio = best?.slouchRatio, let percent = self.eyeBreachPercent {
+			metric = ("eyes", ratio, recentEyeMedian, eyeBaseline, percent)
+		} else {
+			metric = nil
+		}
 
 		// Slouch alert, evaluated on whichever pipeline measured (adaptive
 		// preferred, fixed canvas as fallback). One evaluation per window,
 		// no debounce yet: immediate per-second feedback is the point of the
 		// current experiment; the line stays raw on purpose (tuning
-		// telemetry) and carries the rolling median so the accusation the
-		// tracker actually acts on is visible next to it. The line reports
-		// slouch depth (the fraction
-		// of the calibrated span the ratio has sunk) when the span was
-		// measured, the old percent-below-baseline form otherwise.
+		// telemetry), names the metric that judged, and carries the rolling
+		// median so the accusation the tracker actually acts on is visible
+		// next to it. The line reports slouch depth (the fraction of the
+		// calibrated span the ratio has sunk) when the span was measured,
+		// the old percent-below-baseline form otherwise.
 		if
-			let ratio = self.adaptiveWindow.bestMeasurement?.slouchRatio ?? self.paddedWindow.bestMeasurement?.slouchRatio,
-			ratio < baseline - self.slouchBreachDrop(baseline: baseline)
+			let metric,
+			metric.ratio < metric.baseline - self.slouchBreachDrop(baseline: metric.baseline, percent: metric.percent)
 		{
-			let medianText = recentMedian.map { String(format: "%.3f", $0) } ?? "n/a"
-			if let span = self.baselineSlouchSpan {
-				let depthPercent = Int(((baseline - ratio) / span * 100).rounded())
-				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) (median \(medianText, privacy: .public)) is \(depthPercent, privacy: .public) percent of your slouch depth (baseline \(String(format: "%.3f", baseline), privacy: .public), span \(String(format: "%.3f", span), privacy: .public))")
-			} else {
-				let percentBelow = Int(((baseline - ratio) / baseline * 100).rounded())
-				Self.logger.warning("Slouching: ratio \(String(format: "%.3f", ratio), privacy: .public) (median \(medianText, privacy: .public)) is \(percentBelow, privacy: .public) percent below your \(String(format: "%.3f", baseline), privacy: .public) baseline")
-			}
+			let medianText = metric.median.map { String(format: "%.3f", $0) } ?? "n/a"
+			let percentBelow = (metric.baseline - metric.ratio) / metric.baseline * 100
+			Self.logger.warning("Slouching (\(metric.name, privacy: .public)): ratio \(String(format: "%.3f", metric.ratio), privacy: .public) (median \(medianText, privacy: .public)) is \(String(format: "%.1f", percentBelow), privacy: .public) percent below your \(String(format: "%.3f", metric.baseline), privacy: .public) baseline (limit \(String(format: "%.1f", metric.percent), privacy: .public) percent)")
 		}
 
 		// Shoulder alignment alert, same cadence and pipeline preference.
@@ -543,7 +588,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// recovery is one-sided per issue, so overcorrecting a left-high
 		// tilt into a right-high one clears the left issue immediately.
 		let status: SRPostureStatus?
-		if let measurement = self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement {
+		if let measurement = best {
 			self.notVisibleWindows = 0
 
 			// Slow to accuse, instant to forgive: the breach verdict comes
@@ -555,19 +600,19 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			// the median has too few samples (startup, after a dropout),
 			// the raw value decides alone, as before.
 			let slouchObservation: SRIssueObservation
-			if let ratio = measurement.slouchRatio {
-				let breachDrop = self.slouchBreachDrop(baseline: baseline)
-				let breachFloor = baseline - breachDrop
-				let strongFloor = baseline - breachDrop / 2
-				if ratio >= strongFloor {
+			if let metric {
+				let breachDrop = self.slouchBreachDrop(baseline: metric.baseline, percent: metric.percent)
+				let breachFloor = metric.baseline - breachDrop
+				let strongFloor = metric.baseline - breachDrop / 2
+				if metric.ratio >= strongFloor {
 					slouchObservation = .stronglyRecovered
-				} else if let median = recentMedian {
+				} else if let median = metric.median {
 					slouchObservation = median < breachFloor ? .breaching : .clean
 				} else {
-					slouchObservation = ratio < breachFloor ? .breaching : .clean
+					slouchObservation = metric.ratio < breachFloor ? .breaching : .clean
 				}
 			} else {
-				// Eyes not measurable this window: freeze the tracker
+				// Neither metric measurable this window: freeze the tracker
 				// rather than guessing either way.
 				slouchObservation = .unknown
 			}
@@ -584,7 +629,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			let sample = SRPostureWindowSample(
 				timestamp: Date.now,
 				visible: true,
-				slouchMeasurable: measurement.slouchRatio != nil,
+				slouchMeasurable: metric != nil,
 				slouching: slouchObservation == .breaching,
 				leftShoulderHigh: leftObservation == .breaching,
 				rightShoulderHigh: rightObservation == .breaching
@@ -703,6 +748,8 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// queue.
 	fileprivate nonisolated(unsafe) var smoothedFaceBox: CGRect?
 	fileprivate nonisolated(unsafe) var lastFaceTime = CMTime.invalid
+	/// The winning face's head pitch, kept in step with the box.
+	fileprivate nonisolated(unsafe) var lastFacePitch: CGFloat?
 	fileprivate nonisolated(unsafe) var adaptiveCanvas: CVPixelBuffer?
 	fileprivate nonisolated(unsafe) var didLogAdaptiveCanvasFailure = false
 	fileprivate nonisolated(unsafe) var didLogFaceFailure = false
@@ -729,12 +776,20 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 		// Largest face wins; a passerby in the background must not shrink
 		// the canvas under the person at the desk.
-		guard let face = request.results?.max(by: { $0.boundingBox.height < $1.boundingBox.height })?.boundingBox else {
+		guard let observation = request.results?.max(by: { $0.boundingBox.height < $1.boundingBox.height }) else {
 			if self.lastFaceTime.isValid, timestamp - self.lastFaceTime > Self.faceMemory {
 				self.smoothedFaceBox = nil
+				self.lastFacePitch = nil
 			}
 			return
 		}
+		let face = observation.boundingBox
+
+		// Head pitch rides the same observation: radians, relative to the
+		// camera's optical axis (every camera has its own zero). Feeds the
+		// calibration gaze capture; sign convention is settled empirically
+		// there.
+		self.lastFacePitch = observation.pitch.map { CGFloat(truncating: $0) }
 
 		if let previous = self.smoothedFaceBox {
 			let alpha = Self.faceSmoothing
@@ -904,6 +959,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			)
 		}
 
+		// The shoulder line's height in canvas pixels, shared by both slouch
+		// variants below.
+		let shoulderHeightPixels = ((left.y + right.y) / 2 - frameRect.minY) * height
+
 		// Average eye height, reported relative to the camera frame (0 =
 		// frame bottom, 1 = frame top), remapped through the placement rect.
 		var eyeHeightFraction: CGFloat?
@@ -939,7 +998,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			// vertical only, so head tilt does not pollute it, and the
 			// division makes it scale-invariant: chair and laptop moves
 			// cancel out. Smaller means more slouch.
-			let shoulderHeightPixels = ((left.y + right.y) / 2 - frameRect.minY) * height
 			slouchRatio = (eyeHeightPixels! - shoulderHeightPixels) / distanceInPixels
 
 			// Rough frame occupancy: the body runs off the frame's bottom
@@ -948,6 +1006,20 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			// shoulder drop above the eyes.
 			let shoulderFraction = ((left.y + right.y) / 2 - frameRect.minY) / frameRect.height
 			personHeightFraction = min(1, fraction + (fraction - shoulderFraction) / 2)
+		}
+
+		// The ear-anchored slouch ratio: the same vertical drop measured
+		// from the ears. Ears sit on the head's pitch axis, so a downward
+		// glance at the keyboard moves the eyes but not this ratio; it is
+		// the preferred evaluation metric (see spec.md). One confident ear
+		// is enough - both sit at essentially the same height.
+		let leftEar = (try? observation.recognizedPoint(.leftEar)).flatMap { $0.confidence > Self.minimumJointConfidence ? $0 : nil }
+		let rightEar = (try? observation.recognizedPoint(.rightEar)).flatMap { $0.confidence > Self.minimumJointConfidence ? $0 : nil }
+		var earSlouchRatio: CGFloat?
+		let ears = [leftEar, rightEar].compactMap { $0 }
+		if !ears.isEmpty {
+			let earY = ears.map(\.y).reduce(0, +) / CGFloat(ears.count)
+			earSlouchRatio = ((earY - frameRect.minY) * height - shoulderHeightPixels) / distanceInPixels
 		}
 
 		return .measured(ShoulderMeasurement(
@@ -962,6 +1034,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			eyeHeightFraction: eyeHeightFraction,
 			eyeHeightPixels: eyeHeightPixels,
 			slouchRatio: slouchRatio,
+			earSlouchRatio: earSlouchRatio,
 			personHeightFraction: personHeightFraction,
 			eyeShoulderWidthRatio: eyeShoulderWidthRatio,
 			shoulderTiltDegrees: tiltDegrees,
@@ -969,7 +1042,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				leftShoulder: remapToFrame(left),
 				rightShoulder: remapToFrame(right),
 				leftEye: leftEyePoint,
-				rightEye: rightEyePoint
+				rightEye: rightEyePoint,
+				leftEar: leftEar.map(remapToFrame),
+				rightEar: rightEar.map(remapToFrame)
 			)
 		))
 	}
@@ -999,6 +1074,11 @@ fileprivate struct ShoulderMeasurement {
 	/// the scale-invariant slouch ratio from VISION.md. Nil whenever the eye
 	/// heights are. Smaller means more slouch.
 	let slouchRatio: CGFloat?
+
+	/// The same drop measured from the ears (one confident ear suffices),
+	/// immune to head pitch; the preferred evaluation metric. Nil when
+	/// neither ear cleared the confidence floor.
+	let earSlouchRatio: CGFloat?
 
 	/// Rough share of the frame's height the person occupies, from the
 	/// frame's bottom edge (the body runs off it) to the estimated head
@@ -1108,12 +1188,15 @@ fileprivate struct SRIssueTracker {
 
 
 /// One frame's joint positions, frame-normalized Vision coordinates
-/// (origin bottom-left). Eyes are nil below the confidence floor.
+/// (origin bottom-left). Eyes and ears are each nil below the confidence
+/// floor.
 struct SRPostureJoints: Sendable {
 	let leftShoulder: CGPoint
 	let rightShoulder: CGPoint
 	let leftEye: CGPoint?
 	let rightEye: CGPoint?
+	let leftEar: CGPoint?
+	let rightEar: CGPoint?
 }
 
 
@@ -1144,12 +1227,17 @@ struct SRPostureWindowSample: Sendable {
 
 /// One analyzed frame's readings, padded pipeline preferred: shoulder
 /// width as a fraction of the frame, the slouch ratio (nil without eyes),
-/// the eye:shoulder width ratio (the geometry probe, nil without eyes),
-/// and the joints. All nil when nothing measured.
+/// its ear-anchored variant (nil without an ear), the eye:shoulder width
+/// ratio (the geometry probe, nil without eyes), and the joints. All nil
+/// when nothing measured.
 struct SRPostureFrameSample: Sendable {
 	let shoulderWidthFraction: CGFloat?
 	let slouchRatio: CGFloat?
+	let earSlouchRatio: CGFloat?
 	let eyeShoulderWidthRatio: CGFloat?
+	/// Head pitch from the face detector, radians, camera-relative; nil
+	/// while no face is tracked. Consumed by the calibration gaze capture.
+	let facePitch: CGFloat?
 	let joints: SRPostureJoints?
 }
 

@@ -154,10 +154,10 @@ final class SRSettingsPostureViewController: NSViewController {
 			let row = grid.addRow(with: [label, stack])
 			row.yPlacement = .center
 		}
-		// The slouch stops are depth fractions: how far along the calibrated
-		// upright-to-slouched span the ratio may sink. On a camera without a
-		// measured span they reproduce the old percent-of-baseline ladder
-		// exactly (see SRSettings.nominalSlouchSpanFraction).
+		// Inert for slouch while the piecewise strictness runs (see
+		// SRSettings.slouchStrictnessIndex): the control still works and
+		// stores, but the evaluation reads the per-regime percent tables.
+		// Intended end state: this slider picks the strictness index.
 		addStrictnessRow(
 			labelKey: "settings.posture.slouch-strictness.label",
 			slider: SRPreferenceStepSlider(
