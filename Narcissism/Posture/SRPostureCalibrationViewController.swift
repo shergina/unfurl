@@ -50,6 +50,11 @@ final class SRPostureCalibrationViewController: NSViewController {
 	override func loadView() {
 		self.view = NSView(frame: CGRect(origin: .zero, size: CGSize(width: 480.0, height: 500.0)))
 
+		// The window sizes itself from this, not from the fitting size - a
+		// long guidance line must wrap, never widen the window (and with it
+		// the preview, whose height rides the width).
+		self.preferredContentSize = CGSize(width: 480.0, height: 500.0)
+
 		// Placeholder behind the preview, panel-style: when the camera is
 		// not delivering, it says why (incl. the System Settings button).
 		self.placeholderView = SRCameraPlaceholerView()
@@ -73,6 +78,10 @@ final class SRPostureCalibrationViewController: NSViewController {
 		self.guidanceLabel.font = NSFont.systemFont(ofSize: 13.0, weight: .medium)
 		self.guidanceLabel.alignment = .center
 		self.guidanceLabel.maximumNumberOfLines = 0
+		self.guidanceLabel.lineBreakMode = .byWordWrapping
+		// Window width minus the margins; keeps the multi-line intrinsic
+		// height honest.
+		self.guidanceLabel.preferredMaxLayoutWidth = 440.0
 		self.view.addSubview(self.guidanceLabel)
 
 		self.progressIndicator = NSProgressIndicator()
@@ -122,17 +131,36 @@ final class SRPostureCalibrationViewController: NSViewController {
 			.sink { [weak self] sample in self?.session.ingest(sample) }
 			.store(in: &self.cancellables)
 
-		// Hybrid mode: the slouch pose runs only while no anchor exists -
-		// exactly once, ever. Every later calibration is single-pose; its
-		// span is derived from the anchor by the eye:shoulder ratio.
-		self.session.includesSlouchPose = (SRSettings.sharedInstance.postureAnchorSpan.value <= 0)
+		// Hybrid mode: the slouch pose runs only while the anchor is
+		// missing a unit - once at the very first calibration, and once
+		// more by the first run after the ear metric landed (which is what
+		// migrates older installs to an ear-unit anchor). Every later
+		// calibration is single-pose; its spans are derived from the
+		// anchor by the eye:shoulder ratio.
+		let settings = SRSettings.sharedInstance
+		self.session.includesSlouchPose =
+			settings.postureAnchorSpan.value <= 0 || settings.postureAnchorEarSpan.value <= 0
 
-		// The upright median (with its geometry probe) is saved the moment
-		// its capture passes the gates, before any slouch pose runs: a flow
-		// abandoned mid-slouch keeps a valid single-point baseline.
-		self.session.onUprightCaptured = { [weak self] baseline, rho in
+		// The upright medians (with the geometry probe) are saved the
+		// moment the capture passes the gates, before any slouch pose runs:
+		// a flow abandoned mid-slouch keeps a valid single-point baseline.
+		self.session.onUprightCaptured = { [weak self] baseline, rho, earBaseline in
 			self?.capturedRho = rho
-			self?.saveUpright(baseline, rho: rho)
+			self?.saveUpright(baseline, rho: rho, earBaseline: earBaseline)
+		}
+
+		// The gaze probes land after the upright save: fold their deltas
+		// into the just-written entry.
+		self.session.onGazeCaptured = { result in
+			let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
+			guard var entry = SRSettings.sharedInstance.postureBaseline(for: deviceID) else { return }
+			entry.eyeGazeDelta = result.aheadEyeDelta
+			entry.earGazeDelta = result.aheadEarDelta
+			entry.gazePitchDelta = result.aheadPitchDelta
+			entry.eyeBottomDelta = result.bottomEyeDelta
+			entry.earBottomDelta = result.bottomEarDelta
+			entry.bottomPitchDelta = result.bottomPitchDelta
+			SRSettings.sharedInstance.setPostureBaseline(entry, for: deviceID)
 		}
 
 		self.session.onPhase
@@ -221,6 +249,24 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.beginButton.isEnabled = (guidance == .good)
 			self.guidanceLabel.stringValue = Self.text(for: guidance, failure: failure)
 
+		case .bottomReady:
+			// The gaze probes' gates; Begin arms each, ungated on guidance -
+			// framing was established by the upright capture.
+			self.countdownLabel.isHidden = true
+			self.progressIndicator.isHidden = true
+			self.progressIndicator.doubleValue = 0
+			self.beginButton.isHidden = !self.showsActionButtons
+			self.beginButton.isEnabled = true
+			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.bottom-ready", comment: "")
+
+		case .lookAheadReady:
+			self.countdownLabel.isHidden = true
+			self.progressIndicator.isHidden = true
+			self.progressIndicator.doubleValue = 0
+			self.beginButton.isHidden = !self.showsActionButtons
+			self.beginButton.isEnabled = true
+			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.look-ahead-ready", comment: "")
+
 		case .slouchReady(let failure):
 			// The gate before the slouch pose (and its resting state after
 			// a failed capture); Begin arms it. Framing was established by
@@ -238,34 +284,46 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.isHidden = true
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = true
-			// The slouch countdown carries the instruction: those three
-			// seconds are the time to settle into the pose.
-			self.guidanceLabel.stringValue = NSLocalizedString(
-				pose == .slouched ? "posture.calibration.slouch-instruction" : "posture.calibration.capturing",
-				comment: ""
-			)
+			// The slouch and gaze countdowns carry the instruction: those
+			// three seconds are the time to settle into the pose.
+			let countdownKey: String
+			switch pose {
+			case .upright: countdownKey = "posture.calibration.capturing"
+			case .lookingAtBottom: countdownKey = "posture.calibration.bottom-instruction"
+			case .lookingAhead: countdownKey = "posture.calibration.look-ahead-instruction"
+			case .slouched: countdownKey = "posture.calibration.slouch-instruction"
+			}
+			self.guidanceLabel.stringValue = NSLocalizedString(countdownKey, comment: "")
 
 		case .capturing(let pose, let sampledSeconds, let paused):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = sampledSeconds
 			self.beginButton.isHidden = true
-			let key = paused
-				? "posture.calibration.paused"
-				: (pose == .slouched ? "posture.calibration.slouch-capturing" : "posture.calibration.capturing")
+			let key: String
+			if paused {
+				key = "posture.calibration.paused"
+			} else {
+				switch pose {
+				case .upright: key = "posture.calibration.capturing"
+				case .lookingAtBottom: key = "posture.calibration.bottom-capturing"
+				case .lookingAhead: key = "posture.calibration.look-ahead-capturing"
+				case .slouched: key = "posture.calibration.slouch-capturing"
+				}
+			}
 			self.guidanceLabel.stringValue = NSLocalizedString(key, comment: "")
 
-		case .done(let baseline, let slouched):
+		case .done(let baseline, let slouched, let earBaseline, let earSlouched):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = self.progressIndicator.maxValue
 			self.beginButton.isHidden = true
 			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.finished", comment: "")
 			// A single-pose run (slouched == nil) was fully saved by
-			// saveUpright; a two-pose run saves the pair and, first time
-			// ever, establishes the anchor.
+			// saveUpright; a two-pose run saves the pairs and, while a
+			// unit is missing, refreshes the anchor.
 			if let slouched {
-				self.save(baseline: baseline, slouched: slouched)
+				self.save(baseline: baseline, slouched: slouched, earBaseline: earBaseline, earSlouched: earSlouched)
 			}
 
 			// The bar animates its fill at its own (undocumented) pace;
@@ -331,31 +389,45 @@ final class SRPostureCalibrationViewController: NSViewController {
 	/// screen would mix geometries). For a single-pose run this IS the
 	/// complete result; for a two-pose run, a flow abandoned after this
 	/// point leaves a valid single-point entry.
-	fileprivate func saveUpright(_ baseline: CGFloat, rho: CGFloat?) {
+	fileprivate func saveUpright(_ baseline: CGFloat, rho: CGFloat?, earBaseline: CGFloat?) {
 		self.completed = true
 		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
 		SRSettings.sharedInstance.setPostureBaseline(
-			PostureBaseline(slouchRatio: baseline, slouchedRatio: nil, date: .now, eyeShoulderRatio: rho),
+			PostureBaseline(slouchRatio: baseline, slouchedRatio: nil, date: .now, eyeShoulderRatio: rho, earSlouchRatio: earBaseline),
 			for: deviceID
 		)
 	}
 
 	/// The full two-pose result; a Try Again result overwrites. Stored
-	/// against the camera in use, so each camera keeps its own pair. The
-	/// first-ever completion also establishes the anchor - the span and
-	/// geometry probe measured together, written before the entry so
-	/// observers of the baselines map always see a current anchor. All
-	/// calibration ever persists: numbers and a date.
-	fileprivate func save(baseline: CGFloat, slouched: CGFloat) {
+	/// against the camera in use, so each camera keeps its own pairs. A
+	/// completion while the anchor is missing a unit (the very first ever,
+	/// or the first after the ear metric landed) refreshes the whole
+	/// anchor - the spans and geometry probe measured together, written
+	/// before the entry so observers of the baselines map always see a
+	/// current anchor. The ear anchor unit is only written when this run
+	/// measured a real ear span; until one does, calibrations keep running
+	/// two-pose. All calibration ever persists: numbers and a date.
+	fileprivate func save(baseline: CGFloat, slouched: CGFloat, earBaseline: CGFloat?, earSlouched: CGFloat?) {
 		self.completed = true
 		let settings = SRSettings.sharedInstance
-		if settings.postureAnchorSpan.value <= 0, let rho = self.capturedRho, rho > 0 {
+		if settings.postureAnchorSpan.value <= 0 || settings.postureAnchorEarSpan.value <= 0,
+			let rho = self.capturedRho, rho > 0 {
 			settings.postureAnchorSpan.value = baseline - slouched
+			if let earBaseline, let earSlouched, earBaseline - earSlouched > 0 {
+				settings.postureAnchorEarSpan.value = earBaseline - earSlouched
+			}
 			settings.postureAnchorEyeShoulderRatio.value = rho
 		}
 		let deviceID = SRCameraService.sharedInstance.onSelectedDeviceID.value
 		settings.setPostureBaseline(
-			PostureBaseline(slouchRatio: baseline, slouchedRatio: slouched, date: .now, eyeShoulderRatio: self.capturedRho),
+			PostureBaseline(
+				slouchRatio: baseline,
+				slouchedRatio: slouched,
+				date: .now,
+				eyeShoulderRatio: self.capturedRho,
+				earSlouchRatio: earBaseline,
+				earSlouchedRatio: earSlouched
+			),
 			for: deviceID
 		)
 	}

@@ -139,8 +139,23 @@ Notifications page (see UI/Settings/spec.md).
   shoulder height) / shoulder distance, all in frame pixels. Vertical
   components only, so head tilt does not pollute it; the division makes it
   scale-invariant, so chair and laptop moves cancel out. Smaller means more
-  slouch. This is the live metric the future baseline comparison will run
-  on.
+  slouch.
+- The ear-anchored slouch ratio (added 2026-08-06): the same drop measured
+  from the ears - (average ear height - average shoulder height) /
+  shoulder distance; one confident ear suffices, both sit at essentially
+  the same height. The head pitches about an axis through the ears, so a
+  downward glance at the keyboard moves the eyes but not this ratio; the
+  eye form read every glance as a slouch, which was the complaint that
+  prompted the change. Wherever the active camera's entry has an ear
+  baseline, this is the judged metric; the eye form is the fallback for
+  ear-less frames and entries (headphones, a hood, hair over both ears) -
+  exactly the old behavior. The eyes also keep the jobs pitch cannot
+  pollute: the eye:shoulder geometry probe (interocular separation is a
+  horizontal segment, preserved under pitch) and the calibration
+  usability gates. Decided cost: a chin-to-chest droop with a tall torso
+  no longer reads as slouch - it is the same motion as a keyboard glance,
+  only sustained, and treating it as posture was the false-positive
+  engine.
 - Whenever the eye heights are available, the line also reports a rough
   estimate of the share of the frame height the person occupies: from the
   frame's bottom edge (the body runs off it) to an estimated head top,
@@ -153,7 +168,34 @@ Notifications page (see UI/Settings/spec.md).
   PostureBaselines map's entry for the active AVCaptureDevice.uniqueID,
   mirrored onto the analysis queue (the map combined with the camera
   service's onSelectedDeviceID, so a camera switch swaps the baseline),
-  written by the calibration window (see Calibration below). The breach
+  written by the calibration window (see Calibration below). Piecewise
+  strictness (2026-08-06, the pitch-tuning outcome so far): the entry's
+  gaze angle theta (middle-of-screen to straight-ahead, from the gaze
+  probe; negative = screen below the gaze line) picks a regime at the
+  -10 degree boundary, and each regime carries per-metric percent
+  ladders (SRSettings.lowCamera*/highCamera*Percents; the fixed
+  slouchStrictnessIndex picks the stop - mediums 3 ears / 5 eyes below
+  the boundary, the measured flat region, and 7 / 8 above it, still
+  being tuned). The breach drop is that percent of the metric's
+  baseline, floored. A camera without a theta runs the looser high
+  regime until recalibrated. The strictness slider is disconnected
+  from slouch while this is in place (the intended end state: the
+  slider picks the index into the active camera's regime); measured
+  and derived spans stay stored, dormant. A per-window
+  "Below baseline:" line reports both metrics' current drop as a
+  percent of baseline (positive = below), so tuning bands read
+  straight off the log. Since
+  2026-08-06 the judged metric is ear-preferred: a window with an ear
+  reading, on a camera whose entry has an ear baseline, is judged
+  entirely in ear units (ear baseline, ear span, ear median); any other
+  window is judged in eye units as before, against the eye regime
+  percent. (The eye fallback was disabled briefly on 2026-08-06 so one
+  decided strictness meant one thing during early collection; restored
+  the same day when the regimes gave each metric its own percent.) Each metric keeps its own
+  baseline, span, and rolling median - units never mix, they differ by
+  the head-pitch term - and the warning line names the judge
+  ("Slouching (ears):" / "(eyes):") so the two regimes are tellable
+  apart in telemetry. The breach
   test is slouch depth (added 2026-08-02): the drop below baseline as a
   fraction of the camera's slouch span - measured by demonstration on
   the anchor calibration, derived from the geometry probe everywhere
@@ -171,7 +213,9 @@ Notifications page (see UI/Settings/spec.md).
   strictness slider on the Settings window's Posture page over five
   stops - 0.6, 0.5, 0.4, 0.3, 0.2 of the span, relaxed to strict - and
   mirrored onto the analysis queue like the baseline. The resulting
-  breach drop is floored at 0.02 absolute (0.03 on 2026-08-02, 0.025
+  breach drop is floored at 0.01 absolute (0.02 until 2026-08-06,
+  lowered so the piecewise ladders' strict ear stops are real; the
+  history: 0.03 on 2026-08-02, 0.025
   then 0.02 on 2026-08-03): with the rolling-median accusation (see
   issue tracking) frame jitter no longer reaches the breach test, so
   the floor guards only what averaging cannot remove - natural
@@ -253,12 +297,14 @@ Notifications page (see UI/Settings/spec.md).
   other from zero). Per logging window each issue observes its metric
   one-sidedly as breaching, clean, strongly recovered (past half the
   tolerance band on its own side), or unknown (not measurable; the
-  tracker freezes - eyes hidden freezes only slouching). The slouch
+  tracker freezes - a head with neither ears nor eyes freezes only
+  slouching). The slouch
   observation is asymmetric since 2026-08-03 - slow to accuse, instant
   to forgive: the breaching verdict comes from a rolling median of the
-  last 8 windows' ratios (at least 4 measured, else the raw value
+  last 8 windows' ratios (one median buffer per metric, ear and eye, the
+  judged metric's buffer decides; at least 4 measured, else the raw value
   decides alone as before; unmeasured and not-visible windows push nil
-  so stale readings age out of the buffer, and the buffer resets
+  so stale readings age out of the buffers, and the buffers reset
   wherever the trackers do), while strong recovery is judged on the raw
   window value - sitting up decisively is a large, unambiguous move and
   the note must vanish right away, not after the median catches up.
@@ -378,13 +424,39 @@ Notifications page (see UI/Settings/spec.md).
   its public begin/redo and phase publisher. The window floats above normal
   windows (level .floating: a brief, focused task must not get lost
   behind other work) and moves to the active Space when re-fronted
-  rather than switching Spaces. Content: a live always-mirrored
+  rather than switching Spaces. It opens centered on the display of the
+  camera it calibrates (the user must face that camera, so the guidance
+  belongs on its screen): built-in camera on the built-in display,
+  external camera on an external display. No API ties a camera to a
+  display, so external->external is a heuristic; with several external
+  displays the interaction screen (the pointer's, see the placement rule
+  in UI/Settings/spec.md) wins when it is one, otherwise the first
+  external, and with no match at all it falls back to the interaction
+  screen. This camera-follows placement is deliberately the exception to
+  that rule: the window is part of the measurement (the user must face
+  the camera being calibrated, or the baseline encodes an off-axis
+  pose), the Display Calibrator Assistant precedent.
+  Content: a live always-mirrored
   preview, the panel's placeholder behind it so
   camera failures and permission denials explain themselves in-window, a
   guidance line (can't see you / face the camera / move closer / sit up
   straight), and a Begin button enabled only while framing is good:
   confident shoulders, measurable eyes, shoulder width at least 0.15 of
-  the frame width (below that reads as sitting too far away). While the
+  the frame width (below that reads as sitting too far away). The
+  sit-up-straight line also says to rest your hands on the keyboard
+  (added 2026-08-06): hands on keys pin the sitting distance to real
+  working posture, observed to make the captured distance far more
+  repeatable than a free-floating "sit straight". It also says to look
+  at the middle of the screen - the working gaze, the reference both
+  gaze probes difference against. (Wording history, all 2026-08-06:
+  "look at yourself" pinned the gaze to wherever the calibration window
+  sat, reading tall on a large monitor; "middle of your screen" fixed
+  that; "bottom of your screen" - the lower-envelope idea, baseline at
+  the lowest legitimate gaze so down-gazes never eat tolerance - worked
+  at normal heights but collapsed sensitivity on very low screens,
+  where the envelope is wide; superseded by middle-gaze baseline plus
+  the piecewise regimes, with the bottom gaze kept as a measured probe
+  instead of the anchor.) While the
   window is open the per-window evaluation is muted exactly as when
   uncalibrated, so the corner note never nags mid-calibration; trackers
   restart clean after it closes.
@@ -405,12 +477,40 @@ Notifications page (see UI/Settings/spec.md).
   per-frame eye:shoulder width ratio (rho, the geometry probe: eye
   separation over shoulder separation, aspect-correct pixels; both
   segments are horizontal in the world, so the ratio encodes anatomy
-  times perspective - which segment sits closer to the camera). The
-  moment the upright capture passes its gates, its median and the rho
-  median are saved as the entry (overwriting, and clearing
+  times perspective - which segment sits closer to the camera). Both
+  captures additionally collect the ear-anchored ratio per frame,
+  independent of the eye-based usability gate; an ear median counts
+  only when it clears the same 12-sample bar, so an entry never carries
+  a flimsy ear pair - short of the bar the entry is eye-only and
+  evaluation stays on the eye metric (added 2026-08-06). The
+  moment the upright capture passes its gates, its median, the rho
+  median, and the upright ear median are saved as the entry
+  (overwriting, and clearing
   any stored slouched value: a new baseline must never pair with an old
   slouch - recalibrating after moving the screen would mix geometries).
-  A single-pose run is complete here and goes straight to the finished
+  Every run then walks the gaze probes, each resting for Begin:
+  lookAheadReady first - the same 3-2-1 and 5 s capture looking
+  directly ahead, which yields theta - then bottomReady, the same
+  looking at the screen's bottom edge (the gaze envelope), run only
+  when theta puts the camera in the high regime (above the -10
+  boundary): a high camera's baseline gaze sits at the top of the
+  working range, so legitimate down-gazes (keyboard, a lower screen)
+  drop far below it - the envelope worth measuring - while a low
+  camera's baseline is already near the gaze floor and the envelope is
+  thin, so the leg (and any run whose theta went unmeasured) skips -
+  the low-camera calibration stays one probe shorter. Hands on the
+  keyboard throughout. The deltas
+  against the middle-gaze upright capture - eye ratio, ear ratio (both
+  metrics, so the eye fallback gets its own numbers), and face pitch in
+  degrees from the face detector's observation, camera-relative, sign
+  settled empirically - are logged ("Calibration bottom-gaze captured" /
+  "Calibration gaze captured") and folded into the entry (eyeGaze,
+  earGaze, pitchDelta and eyeBottom, earBottom, bottomPitch fields).
+  The ahead pitch delta is theta, the regime selector for the piecewise
+  strictness; the bottom leg is telemetry (PITCH_TUNING.md). The probes
+  are auxiliary, so any failure (gates, timeout) logs a skip and the
+  flow moves on with nil deltas - they never rest, retry, or block.
+  After the probe a single-pose run goes straight to the finished
   screen. A two-pose run rests at slouchReady: "Upright posture
   captured. Now slouch the way you normally do, then press Begin" - the
   pause tells the user what is coming and lets them start when ready.
@@ -419,7 +519,11 @@ Notifications page (see UI/Settings/spec.md).
   Begin starts a 3-2-1 (the countdown is
   the time to settle into the pose) and the same 5 s
   capture and gates, plus the span gate: the slouched median must sit at
-  least 0.04 below the upright one. The gate's only job is "did you move
+  least 0.04 below the upright one. The gate judges the eye metric
+  (always present on a usable capture); the ear span only has to come
+  out positive - a nonsense ear span drops the slouched ear median, and
+  that camera's ear span is derived or nominal like any other. The
+  gate's only job is "did you move
   at all", not "was it a big slouch": both sides are medians of 12+
   samples, far tighter than the per-frame stddev gate, so 0.04 clears
   noise comfortably while accepting a low-gain camera's honest slouch.
@@ -459,30 +563,51 @@ Notifications page (see UI/Settings/spec.md).
   finished state is the same as Looks Good - the result is already saved.
 - The anchor and the derived span (the hybrid, added 2026-08-03): the
   span - how far the ratio travels from upright to this user's own
-  slouch - is measured by demonstration exactly once, at the first-ever
-  calibration, together with that capture's rho. The pair persists as
-  PostureAnchorSpan and PostureAnchorEyeShoulderRatio: a unit
+  slouch - is measured by demonstration together with that capture's
+  rho. The values persist as PostureAnchorSpan, PostureAnchorEarSpan
+  (the same travel in ear units, added 2026-08-06), and
+  PostureAnchorEyeShoulderRatio: a unit
   definition, deliberately not tied to a camera (it outlives the device
   it was measured on; an anchor measured on any camera works, which is
   what makes docked-first onboarding safe - the span self-normalizes, so
   the default strictness lands right whatever the first camera's angle).
-  Every other entry's span is derived from its own rho:
+  A calibration runs two-pose while either anchor unit is missing - once
+  at the first-ever calibration, and once more by the first run after
+  the ear metric landed, which refreshes the whole anchor (all three
+  values from one capture) and is what migrates pre-ear installs. The
+  ear unit is written only when the run measured a real positive ear
+  span; a setup whose ears never measure keeps running two-pose, at the
+  recorded cost of the extra pose for permanent-headphones users (the
+  run is not wasted - each yields that camera a measured eye span).
+  Every other entry's spans are derived from its own rho:
       span = anchor span x (rho / anchor rho) ^ exponent
-  with the exponent 6.0 and the scale clamped to 0.25...4. Rationale:
-  rho cancels the user's anatomy between cameras and encodes only the
-  camera's perspective geometry, which also drives the slouch gain - but
-  ~12-25 percent of rho change maps to ~2.5-3x of gain change, so the
-  exponent is steep, and it is a physics-informed initial guess (the
-  model brackets 4.5-10 across plausible desks; not derivable exactly -
-  height and distance are entangled in rho, and the personal
-  lean-to-drop mix is invisible to it), to be tuned from the calibration
-  log lines, which print every input of the formula. The clamp bounds
+  with one exponent per unit - eyes +1.9, ears -0.85 - and the scale
+  clamped to 0.25...4, applied per unit from that unit's anchor span.
+  The exponents were fitted 2026-08-06 from the first cross-camera
+  measured pair (the same user's slouch demos on the laptop and monitor
+  cameras; n=2, both values provisional, to be re-fit as calibration
+  telemetry accumulates). Finding: the measured ear spans were nearly
+  camera-independent (0.070 vs 0.059 across two very different camera
+  angles) and tilt slightly opposite to rho - most of the old 2-3x
+  cross-camera "gain" was head pitch, and it left with the eye metric.
+  The eye-unit spans still track rho in the guessed direction, just far
+  more gently (+1.9, not 6). Rationale for the mapping itself is
+  unchanged: rho cancels the user's anatomy between cameras and encodes
+  the camera's perspective geometry (not derivable exactly - height and
+  distance are entangled in rho; the 27 percent rho swing observed on
+  one camera between sitting distances is the caution). (History: a
+  single shared exponent 6.0, the 2026-08-03 physics-informed guess
+  bracketing 4.5-10; live use 2026-08-06 pinned a laptop's derived ear
+  span on the lower clamp rail - maximum strictness via the noise
+  floor - which prompted the fit.) The clamp bounds
   what a noisy rho can do, and the evaluation's absolute noise floor
-  still backstops the strict end. Evaluation precedence per entry:
-  measured span, else derived span, else the nominal fallback
-  (SRSettings.postureEffectiveSlouchSpan is the one shared rule; the
+  still backstops the strict end. Evaluation precedence per entry and
+  per unit: measured span, else derived span, else the nominal fallback
+  (SRSettings.postureEffectiveSlouchSpan and its ear counterpart
+  postureEffectiveEarSlouchSpan are the one shared rule; the
   takeover gate, the nudge, and the Settings baseline label all treat
-  "usable span" as measured-or-derived). Migration: existing installs
+  "usable span" as measured-or-derived, judged on the eye unit - a
+  camera is "calibrated" the same way it always was, ears or not). Migration: existing installs
   have no anchor, so the next calibration runs two-pose and becomes it;
   entries from before the probe (no rho) stay on the nominal fallback
   until recalibrated once. (History: the plan on 2026-08-02 was to
@@ -577,14 +702,20 @@ Notifications page (see UI/Settings/spec.md).
   camera view is still temporarily SRPostureDebugCameraView (accuracy
   aid), drawing the same dots behind a dotsVisible master switch - true
   again as of 2026-07-30, turned back on for the tilted-screen detection
-  question. Delete that view and its panel hookup when the accuracy
-  question is fully closed; onFrameSample itself is permanent.
+  question. 2026-08-06: ear dots (orange) joined the overlay; the test
+  they enabled promoted the ears into the judged metric the same day
+  (see the ear-anchored ratio bullet). A neck dot was tried and deleted
+  within the day: Vision's neck joint is the shoulder midpoint, no
+  independent signal. Delete that view and its panel
+  hookup when the accuracy question is fully closed; onFrameSample
+  itself is permanent.
 
 ## History recording (SRPostureHistoryService, added 2026-07-28)
 
 - Alongside the debounced status, the service publishes one raw
   per-window sample (onWindowSample) while evaluation is live: visible or
-  not, slouch measurable or not (the eyes), and the un-debounced breach
+  not, slouch measurable or not (whichever metric judged the window,
+  ears preferred), and the un-debounced breach
   verdict per issue. Muted windows (no baseline, calibration window open)
   publish nothing, so posing during calibration is never recorded.
   The breach verdicts use the same strictness preferences as the nudges
@@ -652,6 +783,14 @@ Notifications page (see UI/Settings/spec.md).
 
 - Whether the per-second measurement log survives once real metrics land,
   and at what log level it should ship.
+- Ear-metric tuning (2026-08-06): the breach floor keeps the eye-tuned
+  0.02 (the settling amplitude was observed in eye units), to be
+  revisited from the "(ears)"-tagged telemetry once it accumulates.
+  The gain exponents are now per-unit and fitted, but from a single
+  cross-camera pair - more measured pairs would firm them up. Also
+  open: whether Vision's ear point drifts along the pinna as the head
+  pitches (initial live observation says it holds, even with hair in
+  front).
 - Baseline staleness: baselines are now per-camera (switching cameras
   looks up the right one instead of reusing a wrong one), but each is still
   per-placement - tilting the same laptop screen or moving to a different

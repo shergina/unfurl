@@ -170,7 +170,7 @@
 "posture.calibration.guidance.not-visible" = "Can't see you - make sure you are in front of the camera.";
 "posture.calibration.guidance.face-not-visible" = "Can't see your face clearly - face the camera.";
 "posture.calibration.guidance.too-far" = "Move a little closer to the camera.";
-"posture.calibration.guidance.good" = "Sit up straight with your best posture, then press Begin.";
+"posture.calibration.guidance.good" = "Sit up straight with your best posture, hands on your keyboard, and look at the middle of your screen, then press Begin.";
 "posture.calibration.begin" = "Begin";
 "posture.calibration.capturing" = "Measuring your posture - hold still.";
 "posture.calibration.paused" = "Can't see you - measurement paused.";
@@ -180,6 +180,12 @@
 "posture.calibration.accept" = "Looks Good";
 "posture.calibration.redo" = "Try Again";
 "posture.calibration.upright-captured" = "Upright posture captured.";
+"posture.calibration.bottom-ready" = "Got it. Now look at the bottom of your screen, hands still on your keyboard, then press Begin.";
+"posture.calibration.bottom-instruction" = "Look at the bottom of your screen.";
+"posture.calibration.bottom-capturing" = "Keep looking at the bottom - measuring.";
+"posture.calibration.look-ahead-ready" = "Got it. Now keep your hands on your keyboard and look directly ahead of you, then press Begin.";
+"posture.calibration.look-ahead-instruction" = "Look directly ahead of you.";
+"posture.calibration.look-ahead-capturing" = "Keep looking ahead - measuring.";
 "posture.calibration.slouch-ready" = "Now slouch the way you normally do, then press Begin.";
 "posture.calibration.slouch-instruction" = "Now slouch the way you normally do.";
 "posture.calibration.slouch-capturing" = "Hold that slouch - measuring.";
