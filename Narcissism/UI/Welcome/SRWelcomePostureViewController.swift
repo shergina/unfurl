@@ -174,13 +174,9 @@ final class SRWelcomePostureViewController: NSViewController {
 			beginEnabled = (guidance == .good)
 			showsEscape = !self.calibrationViewController.completed
 		}
-		// The gates before the gaze probes and the slouch pose (and the
+		// The gates before the gaze probe and the slouch pose (and the
 		// latter's rest after a failed capture): Begin arms them, ungated -
 		// framing was established by the upright pass.
-		if case .bottomReady = phase {
-			showsBegin = true
-			beginEnabled = true
-		}
 		if case .lookAheadReady = phase {
 			showsBegin = true
 			beginEnabled = true

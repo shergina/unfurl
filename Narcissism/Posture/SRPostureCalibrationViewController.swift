@@ -194,9 +194,7 @@ final class SRPostureCalibrationViewController: NSViewController {
 			entry.eyeGazeDelta = result.aheadEyeDelta
 			entry.earGazeDelta = result.aheadEarDelta
 			entry.gazePitchDelta = result.aheadPitchDelta
-			entry.eyeBottomDelta = result.bottomEyeDelta
-			entry.earBottomDelta = result.bottomEarDelta
-			entry.bottomPitchDelta = result.bottomPitchDelta
+			entry.uprightFacePitch = result.uprightPitch
 			SRSettings.sharedInstance.setPostureBaseline(entry, for: deviceID)
 		}
 
@@ -302,20 +300,9 @@ final class SRPostureCalibrationViewController: NSViewController {
 				hold: guidance == .good ? Self.hold(for: .upright) : nil
 			)
 
-		case .bottomReady:
-			// The gaze probes' gates; Begin arms each, ungated on guidance -
-			// framing was established by the upright capture.
-			self.countdownLabel.isHidden = true
-			self.progressIndicator.isHidden = true
-			self.progressIndicator.doubleValue = 0
-			self.beginButton.isHidden = !self.showsActionButtons
-			self.beginButton.isEnabled = true
-			self.setGuidance(
-				instruction: Self.instruction(for: .lookingAtBottom),
-				hold: Self.hold(for: .lookingAtBottom)
-			)
-
 		case .lookAheadReady:
+			// The gaze probe's gate; Begin arms it, ungated on guidance -
+			// framing was established by the upright capture.
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = true
 			self.progressIndicator.doubleValue = 0
@@ -428,8 +415,6 @@ final class SRPostureCalibrationViewController: NSViewController {
 			return NSLocalizedString("posture.calibration.instruction.middle", comment: "")
 		case .lookingAhead:
 			return NSLocalizedString("posture.calibration.instruction.ahead", comment: "")
-		case .lookingAtBottom:
-			return NSLocalizedString("posture.calibration.instruction.bottom", comment: "")
 		case .slouched:
 			return NSLocalizedString("posture.calibration.instruction.slouch", comment: "")
 		}

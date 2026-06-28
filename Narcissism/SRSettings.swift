@@ -10,6 +10,21 @@ import Cocoa
 import Combine
 
 
+/// A strictness stop expressed as a line in theta: percent below baseline
+/// = slope * theta + intercept. Evaluated with theta clamped to the span
+/// the line was fitted over, so an unusual camera angle cannot extrapolate
+/// its way to a nonsense tolerance (PITCH_TUNING.md).
+struct SRStrictnessLine: Sendable {
+	let slope: CGFloat
+	let intercept: CGFloat
+
+	func percent(theta: CGFloat, clampedTo range: ClosedRange<CGFloat>) -> CGFloat {
+		let clamped = min(max(theta, range.lowerBound), range.upperBound)
+		return self.slope * clamped + self.intercept
+	}
+}
+
+
 /// A value that can round-trip through UserDefaults.
 protocol PreferenceValue {
 	static func read(from defaults: UserDefaults, key: String) -> Self?
@@ -56,14 +71,13 @@ struct PostureBaseline: Equatable, Sendable {
 	var earGazeDelta: CGFloat?
 	var gazePitchDelta: CGFloat?
 
-	/// The bottom-of-screen leg of the gaze probe (three-gaze flow,
-	/// 2026-08-06): deltas of each ratio and the face pitch (degrees)
-	/// from the middle-of-screen baseline to looking at the screen's
-	/// bottom edge - the per-camera gaze envelope. Telemetry for the
-	/// strictness work; nothing consumes them at runtime.
-	var eyeBottomDelta: CGFloat?
-	var earBottomDelta: CGFloat?
-	var bottomPitchDelta: CGFloat?
+	/// The middle-of-screen face pitch in degrees, absolute rather than a
+	/// delta (added 2026-08-07). The face detector's zero is per camera,
+	/// so a live pitch reading means nothing on its own; this is the
+	/// reference it gets differenced against for the looking-down test.
+	/// Nil on entries calibrated before it, which turns that test off
+	/// until the camera is recalibrated.
+	var uprightFacePitch: CGFloat?
 
 	/// How far the ratio travels from upright to this user's own slouch on
 	/// this camera; nil while only the upright pose was measured.
@@ -241,6 +255,62 @@ final class SRSettings {
 	nonisolated static let lowCameraEyePercents: [CGFloat] = [8, 6.5, 5, 4, 3]
 	nonisolated static let highCameraEarPercents: [CGFloat] = [11, 9, 7, 5.5, 4.5]
 	nonisolated static let highCameraEyePercents: [CGFloat] = [12, 10, 8, 6.5, 5]
+
+	// Above the boundary the medium stop comes from a line in theta rather
+	// than the table above (PITCH_TUNING.md, 2026-08-07). Two ear lines:
+	// one for a gaze at the screen, one for a gaze below it, picked per
+	// window by whether the eye metric has dropped further than the ear
+	// one. The eye metric keeps a single line - no down-gaze eye percents
+	// have been decided, and the divergence test needs an ear reading it
+	// does not have when the eye metric is judging alone.
+	//
+	// Theta is clamped to the sampled span before evaluating: outside it
+	// these are extrapolation, and the notebook's policy is to clamp
+	// rather than extrapolate. Nothing has been measured above -0.6, so
+	// the lines are unconstrained on the far side of the gaze line and
+	// the clamp is what keeps a camera up there honest. An entry with no
+	// measured theta cannot evaluate a line at all and stays on the
+	// tables.
+	nonisolated static let highCameraFitThetaRange: ClosedRange<CGFloat> = -9.9...(-0.6)
+
+	// The ear lines, least squares over four monitor points spanning
+	// -9.9 to -0.6 (PITCH_TUNING.md). R2 0.89 and 0.99, max residual
+	// under 1 point - inside the decide-by-feel noise floor, so the fit
+	// is as good as the inputs allow.
+	nonisolated static let highCameraEarAtScreen = SRStrictnessLine(slope: 0.675055, intercept: 10.6384)
+	nonisolated static let highCameraEarLookingDown = SRStrictnessLine(slope: 2.115141, intercept: 26.9169)
+
+	// Not refitted. This still rests on two points, one of which was the
+	// row deleted as an ear outlier, so it is the weakest of the three
+	// and is due a collection pass of its own. It only judges when the
+	// ears are unavailable.
+	nonisolated static let highCameraEyeAtScreen = SRStrictnessLine(slope: 0.576923, intercept: 20.1346)
+
+	// Where "looking down" starts: this many degrees of face pitch below
+	// the middle-of-screen calibration pose - the same pose the baseline
+	// itself is captured at.
+	//
+	// Anchored there rather than to straight-ahead (changed 2026-08-07)
+	// for two reasons. Screen centre is the more repeatable of the two
+	// poses by a factor of about 2.2 across a day of calibrations, being
+	// a target the user can actually aim at where "straight ahead" gets
+	// interpreted afresh every time. And anchoring to ahead dragged the
+	// trigger around with theta while the screen stayed put: across four
+	// setups it landed anywhere from 0.05 to 16.9 degrees past the
+	// screen's bottom edge, so "looking down" meant a different gesture
+	// on each. Off screen centre it sits at a fixed depth and the only
+	// variation left is real screen height.
+	//
+	// 14 preserves the mean depth the ahead-anchored version had (14.4
+	// below centre), so this changes the anchor, not the strictness.
+	// Provisional (PITCH_TUNING.md).
+	nonisolated static let lookingDownPitchBelowScreenDegrees: CGFloat = 14
+
+	// Release lower than it engages, so a gaze resting on the boundary
+	// does not flip the stop every window. Sized from the measured
+	// flicker: the zero-divergence trigger it replaces changed verdict
+	// about once every 25 s (PITCH_TUNING.md).
+	nonisolated static let lookingDownPitchHysteresisDegrees: CGFloat = 3
 
 	// The derived-span mapping: gain scale = (rho / anchor rho) ^ exponent,
 	// clamped, one exponent per unit. Fitted 2026-08-06 from the first
@@ -457,9 +527,7 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 				eyeGazeDelta: fields["eyeGaze"].map { CGFloat($0) },
 				earGazeDelta: fields["earGaze"].map { CGFloat($0) },
 				gazePitchDelta: fields["pitchDelta"].map { CGFloat($0) },
-				eyeBottomDelta: fields["eyeBottom"].map { CGFloat($0) },
-				earBottomDelta: fields["earBottom"].map { CGFloat($0) },
-				bottomPitchDelta: fields["bottomPitch"].map { CGFloat($0) }
+				uprightFacePitch: fields["uprightPitch"].map { CGFloat($0) }
 			)
 		}
 		return result
@@ -490,14 +558,8 @@ extension Dictionary: PreferenceValue where Key == String, Value == PostureBasel
 			if let pitchDelta = baseline.gazePitchDelta {
 				fields["pitchDelta"] = Double(pitchDelta)
 			}
-			if let eyeBottom = baseline.eyeBottomDelta {
-				fields["eyeBottom"] = Double(eyeBottom)
-			}
-			if let earBottom = baseline.earBottomDelta {
-				fields["earBottom"] = Double(earBottom)
-			}
-			if let bottomPitch = baseline.bottomPitchDelta {
-				fields["bottomPitch"] = Double(bottomPitch)
+			if let uprightPitch = baseline.uprightFacePitch {
+				fields["uprightPitch"] = Double(uprightPitch)
 			}
 			raw[id] = fields
 		}

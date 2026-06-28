@@ -176,7 +176,67 @@ Notifications page (see UI/Settings/spec.md).
   ladders (SRSettings.lowCamera*/highCamera*Percents; the fixed
   slouchStrictnessIndex picks the stop - mediums 3 ears / 5 eyes below
   the boundary, the measured flat region, and 7 / 8 above it, still
-  being tuned). The breach drop is that percent of the metric's
+  being tuned).
+  Above the boundary, and only when the entry carries a measured theta,
+  the medium stop now comes from a line in theta instead of the table
+  (added 2026-08-07, provisional): percent = slope * theta + intercept,
+  with theta clamped to the span the line was fitted over
+  (SRSettings.highCameraFitThetaRange) so an unusual angle cannot
+  extrapolate its way to a nonsense tolerance. Three lines - ear at
+  screen, ear looking down, eye at screen. Below the boundary, and for
+  a pre-probe entry with no theta, nothing changed: the tables are
+  still the whole threshold and no down-gaze stop exists, so the
+  correction cannot fire there. The two ear lines are least squares
+  over four monitor points spanning -9.9 to -0.6 (R2 0.89 and 0.99, all
+  residuals under 1 point, which is the decide-by-feel noise floor); a
+  fifth point at -8.9 was deleted as an outlier, flagged by
+  leave-one-out on both metrics. The eye line is not refitted and still
+  rests on two points including that deleted row, making it the weakest
+  of the three; it only judges when the ears are unavailable
+  (PITCH_TUNING.md). The mechanism is the durable part, the numbers are
+  working data from one camera.
+  Which ear line applies is decided per window by head pitch, straight
+  off the face detector, against a fixed drop below the calibrated
+  middle-of-screen pose - the same pose the baseline itself is captured
+  at: PostureBaseline.uprightFacePitch (that pose's absolute pitch in
+  degrees, stored since 2026-08-07 precisely because the detector's
+  zero is per camera and a live reading means nothing without it) plus
+  SRSettings.lookingDownPitchBelowScreenDegrees. Down is
+  the positive pitch direction, so the drop adds. The anchor is per
+  camera; the drop is not. Latched with hysteresis
+  (lookingDownPitchHysteresisDegrees), engaging at the threshold and
+  releasing a few degrees under it, so a gaze resting on the boundary
+  does not flip the stop every window. An entry predating the pitch
+  reference, or a window with no face, holds the at-screen stop -
+  the stricter of the two.
+  Anchored at screen centre rather than straight-ahead since
+  2026-08-07. Screen centre is the more repeatable pose by about 2.2x
+  across a day of calibrations - it is a target the user can aim at,
+  where "straight ahead" is interpreted afresh each time - and the
+  ahead anchor dragged the trigger around with theta while the screen
+  stayed put, landing anywhere from 0.05 to 16.9 degrees past the
+  screen's bottom edge across four setups. Off screen centre the depth
+  is fixed and the only variation left is real screen height. Theta is
+  no longer part of the trigger at all; it still selects the regime and
+  evaluates the lines.
+  This replaced an eye-minus-ear divergence test the same day. Both
+  read head pitch, but the divergence read it indirectly, through a
+  geometric difference of a few points against comparable noise, and it
+  missed real down-gazes; it also needed both metrics at once, so it
+  went blind in exactly the eye-fallback case that needs the correction
+  most. Pitch survives losing the ears. What did not change: the eye
+  metric still has no down-gaze line and never gets the correction, no
+  eye down percents having been decided.
+  The drop is 20 degrees, which on every camera sampled so far lands
+  3.7 to 8.8 degrees past the screen's own bottom edge - clear of
+  ordinary low-screen reading, without waiting for the deepest possible
+  glance. Replayed against 103 windows of live pitch it fires in 18-46%
+  of them, between the 37-69% of the 15 degrees tried before it and the
+  0-11% of the 30 before that (PITCH_TUNING.md keeps all three; the
+  constant is the single thing to change).
+  The "Head pose:" line carries the live pitch, the threshold, the
+  resolved gaze, and the effective ear limit every window.
+  The breach drop is that percent of the metric's
   baseline, floored. A camera without a theta runs the looser high
   regime until recalibrated. The strictness slider is disconnected
   from slouch while this is in place (the intended end state: the
@@ -184,7 +244,12 @@ Notifications page (see UI/Settings/spec.md).
   and derived spans stay stored, dormant. A per-window
   "Below baseline:" line reports both metrics' current drop as a
   percent of baseline (positive = below), so tuning bands read
-  straight off the log. Since
+  straight off the log. A "Head pose:" line rides alongside it (added
+  2026-08-07): face-detector pitch and yaw in degrees plus the eye/ear
+  width ratio, all telemetry only - nothing reads them yet. They exist
+  to pick the trigger and threshold for a future
+  loosen-when-turned-away correction from measured numbers rather than
+  a guess (PITCH_TUNING.md). Since
   2026-08-06 the judged metric is ear-preferred: a window with an ear
   reading, on a camera whose entry has an ear baseline, is judged
   entirely in ear units (ear baseline, ear span, ear median); any other
@@ -525,14 +590,15 @@ Notifications page (see UI/Settings/spec.md).
   the lowest legitimate gaze so down-gazes never eat tolerance - worked
   at normal heights but collapsed sensitivity on very low screens,
   where the envelope is wide; superseded by middle-gaze baseline plus
-  the piecewise regimes, with the bottom gaze kept as a measured probe
-  instead of the anchor.)
-  No step counter, considered and rejected 2026-08-07: the flow's length
-  is genuinely unknown when it starts, because the bottom-gaze leg only
-  runs once theta clears the low-camera boundary, and theta is measured
-  during the look-ahead capture. A failed look-ahead skips the leg too,
-  so the total can shrink mid-flow. "Step 2 of 3" that then jumps to
-  finished is worse than no counter; the changing instruction and the
+  the piecewise regimes, with the bottom gaze kept for a while as a
+  measured probe instead of the anchor - and dropped entirely
+  2026-08-07, see the capture bullet.)
+  No step counter, considered and rejected 2026-08-07 when the flow was
+  still variable-length (the bottom-gaze leg ran only above the
+  boundary, so the total was unknown at the start and could shrink
+  mid-flow). The flow is fixed-length now that the leg is gone, so a
+  counter is buildable - it just is not worth it at two or three steps;
+  the changing instruction and the
   progress bar filling carry the forward motion instead.
 - Calibration capture (hybrid since 2026-08-03: the slouch pose runs
   only while no anchor exists - exactly once, ever; every later
@@ -566,32 +632,35 @@ Notifications page (see UI/Settings/spec.md).
   (overwriting, and clearing
   any stored slouched value: a new baseline must never pair with an old
   slouch - recalibrating after moving the screen would mix geometries).
-  Every run then walks the gaze probes, each resting for Begin:
-  lookAheadReady first - the same 3-2-1 and 5 s capture looking
-  directly ahead, which yields theta - then bottomReady, the same
-  looking at the screen's bottom edge (the gaze envelope), run only
-  when theta puts the camera in the high regime (above the -10
-  boundary): a high camera's baseline gaze sits at the top of the
-  working range, so legitimate down-gazes (keyboard, a lower screen)
-  drop far below it - the envelope worth measuring - while a low
-  camera's baseline is already near the gaze floor and the envelope is
-  thin, so the leg (and any run whose theta went unmeasured) skips -
-  the low-camera calibration stays one probe shorter. Hands on the
-  keyboard throughout. The deltas
-  against the middle-gaze upright capture - eye ratio, ear ratio (both
-  metrics, so the eye fallback gets its own numbers), and face pitch in
-  degrees from the face detector's observation, camera-relative, sign
-  settled empirically - are logged ("Calibration bottom-gaze captured" /
-  "Calibration gaze captured") and folded into the entry (eyeGaze,
-  earGaze, pitchDelta and eyeBottom, earBottom, bottomPitch fields).
-  The ahead pitch delta is theta, the regime selector for the piecewise
-  strictness; the bottom leg is telemetry (PITCH_TUNING.md). The probes
-  are auxiliary, so any failure (gates, timeout) logs a skip and the
-  flow moves on with nil deltas - they never rest, retry, or block.
+  Every run then walks one gaze probe, resting for Begin at
+  lookAheadReady: the same 3-2-1 and 5 s capture looking directly
+  ahead, which yields theta. Hands on the keyboard throughout. The
+  deltas against the middle-gaze upright capture - eye ratio, ear ratio
+  (both metrics, so the eye fallback gets its own numbers), and face
+  pitch in degrees from the face detector's observation,
+  camera-relative, sign settled empirically - are logged ("Calibration
+  gaze captured") and folded into the entry (eyeGaze, earGaze,
+  pitchDelta), alongside the absolute middle-of-screen pitch
+  (uprightFacePitch) the looking-down test needs. The ahead pitch delta
+  is theta, the regime selector and the input to the fitted lines. The
+  probe is auxiliary, so any failure (gates, timeout) logs a skip and
+  the flow moves on with nil deltas - it never rests, retries, or
+  blocks.
+  A second leg once ran here: bottom-of-screen, measuring the gaze
+  envelope, gated on theta clearing the -10 boundary. Removed
+  2026-08-07. It briefly fed the looking-down trigger, which was
+  anchored at the measured screen-bottom pitch; once that anchor moved
+  to a fixed drop below screen centre nothing read
+  eyeBottom/earBottom/bottomPitch at all, and the leg was costing a
+  gate, a Begin press and a 5 s capture on every high-camera
+  calibration to write three fields no one opened. Its fields are gone
+  from PostureBaseline too, so any values already on disk are dropped
+  on the next write. Recoverable by recalibration if the eye work ever
+  needs a measured envelope.
   After the probe a single-pose run goes straight to the finished
-  screen. A two-pose run rests at slouchReady: "Upright posture
-  captured. Now slouch the way you normally do, then press Begin" - the
-  pause tells the user what is coming and lets them start when ready.
+  screen. A two-pose run rests at slouchReady, status "Upright posture
+  captured" over the slouch instruction - the pause tells the user what
+  is coming and lets them start when ready.
   (An auto-started countdown was tried first and dropped 2026-08-04: it
   landed before the user realized a second pose was being asked for.)
   Begin starts a 3-2-1 (the countdown is

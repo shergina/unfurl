@@ -44,20 +44,17 @@ final class SRPostureCalibrationSession {
 	enum Pose: Equatable {
 		case upright
 		case slouched
-		/// The gaze probes: same capture machinery, eyes on the screen's
-		/// bottom edge / on the horizon instead of its middle. Auxiliary -
-		/// failures skip forward, never block the flow.
-		case lookingAtBottom
+		/// The gaze probe: same capture machinery, eyes on the horizon
+		/// instead of the screen's middle. Auxiliary - a failure skips
+		/// forward, never blocks the flow.
 		case lookingAhead
 	}
 
 	enum Phase: Equatable {
 		case positioning(guidance: Guidance, failure: Failure?)
-		/// The gates before the two gaze probes: bottomReady right after
-		/// the upright capture, lookAheadReady after the bottom probe;
-		/// Begin arms each. They carry no failure: a failed gaze capture
-		/// skips forward instead of resting.
-		case bottomReady
+		/// The gate before the gaze probe, right after the upright
+		/// capture; Begin arms it. Carries no failure: a failed gaze
+		/// capture skips forward instead of resting.
 		case lookAheadReady
 		/// The gate before the slouch pose: entered after the gaze probe
 		/// (and again, with the failure, after a failed slouch capture);
@@ -164,7 +161,7 @@ final class SRPostureCalibrationSession {
 			self.onPhase.send(.positioning(guidance: Self.guidance(for: sample), failure: failure))
 		case .capturing:
 			self.ingestWhileCapturing(sample)
-		case .countingDown, .done, .slouchReady, .bottomReady, .lookAheadReady:
+		case .countingDown, .done, .slouchReady, .lookAheadReady:
 			// The countdown ignores detection loss; capture pauses right
 			// away if the user is still gone. The ready gates wait for
 			// Begin - framing was already established by the upright
@@ -179,8 +176,6 @@ final class SRPostureCalibrationSession {
 		switch self.onPhase.value {
 		case .positioning(guidance: .good, _):
 			self.startCountdown(pose: .upright)
-		case .bottomReady:
-			self.startCountdown(pose: .lookingAtBottom)
 		case .lookAheadReady:
 			self.startCountdown(pose: .lookingAhead)
 		case .slouchReady:
@@ -329,11 +324,7 @@ final class SRPostureCalibrationSession {
 		case .upright:
 			// The guidance refreshes on the very next ingested frame.
 			self.onPhase.send(.positioning(guidance: .notVisible, failure: failure))
-		case .lookingAtBottom:
-			Self.logger.log("Calibration bottom-gaze capture skipped (\(String(describing: failure), privacy: .public))")
-			self.finishGazeProbes()
 		case .lookingAhead:
-			// Theta unknown, so no bottom leg either.
 			Self.logger.log("Calibration gaze capture skipped (\(String(describing: failure), privacy: .public))")
 			self.finishGazeProbes()
 		case .slouched:
@@ -341,7 +332,7 @@ final class SRPostureCalibrationSession {
 		}
 	}
 
-	/// The flow once the gaze probes are over, however they ended: report
+	/// The flow once the gaze probe is over, however it ended: report
 	/// the collected deltas, then the slouch pose for a two-pose run, else
 	/// done - the upright result was already saved by onUprightCaptured.
 	fileprivate func finishGazeProbes() {
@@ -396,25 +387,14 @@ final class SRPostureCalibrationSession {
 			self.uprightMedian = median
 			self.uprightEarMedian = earMedian
 			self.uprightPitchMedian = self.pitchSamples.count >= Self.minimumSampleCount ? Self.median(of: self.pitchSamples) : nil
+			self.probeResult.uprightPitch = self.uprightPitchMedian.map { $0 * 180 / .pi }
 			let rho = Self.median(of: self.rhoSamples)
 			let rhoText = rho.map { String(format: "%.4f", $0) } ?? "n/a"
 			Self.logger.log("Calibration upright captured: median \(String(format: "%.3f", median), privacy: .public), ear \(earText, privacy: .public), rho \(rhoText, privacy: .public) (\(count, privacy: .public) samples, \(self.earSamples.count, privacy: .public) ear)")
 			self.onUprightCaptured?(median, rho, earMedian)
 
-			// The look-ahead probe follows every upright capture; theta
-			// then decides whether the bottom-gaze leg runs at all.
+			// The look-ahead probe follows every upright capture.
 			self.onPhase.send(.lookAheadReady)
-
-		case .lookingAtBottom:
-			// Bottom-of-screen deltas vs the middle-gaze baseline: the
-			// per-camera gaze envelope (PITCH_TUNING.md).
-			let text = { (value: CGFloat?) in value.map { String(format: "%.3f", $0) } ?? "n/a" }
-			self.probeResult.bottomEyeDelta = self.uprightMedian.map { median - $0 }
-			self.probeResult.bottomEarDelta = self.uprightEarMedian.flatMap { upright in earMedian.map { $0 - upright } }
-			let bottomPitch = self.pitchSamples.count >= Self.minimumSampleCount ? Self.median(of: self.pitchSamples) : nil
-			self.probeResult.bottomPitchDelta = self.uprightPitchMedian.flatMap { upright in bottomPitch.map { ($0 - upright) * 180 / .pi } }
-			Self.logger.log("Calibration bottom-gaze captured: eye delta \(text(self.probeResult.bottomEyeDelta), privacy: .public), ear delta \(text(self.probeResult.bottomEarDelta), privacy: .public), pitch \(text(self.probeResult.bottomPitchDelta), privacy: .public) deg")
-			self.finishGazeProbes()
 
 		case .lookingAhead:
 			// Ahead deltas vs the middle-gaze baseline, per metric, plus
@@ -427,17 +407,7 @@ final class SRPostureCalibrationSession {
 			self.probeResult.aheadPitchDelta = self.uprightPitchMedian.flatMap { upright in aheadPitch.map { ($0 - upright) * 180 / .pi } }
 			Self.logger.log("Calibration gaze captured: eye delta \(text(self.probeResult.aheadEyeDelta), privacy: .public), ear delta \(text(self.probeResult.aheadEarDelta), privacy: .public), theta \(text(self.probeResult.aheadPitchDelta), privacy: .public) deg (\(count, privacy: .public) samples, \(self.earSamples.count, privacy: .public) ear, \(self.pitchSamples.count, privacy: .public) pitch)")
 
-			// Theta decides the bottom leg: a high camera's baseline gaze
-			// sits at the top of the working range, so legitimate
-			// down-gazes (keyboard, a lower screen) drop far below it -
-			// that envelope is worth measuring. A low camera's baseline is
-			// already near the gaze floor, the envelope is thin, and the
-			// leg (or with theta unmeasured, the guesswork) is skipped.
-			if let theta = self.probeResult.aheadPitchDelta, theta > SRSettings.lowCameraThetaBoundary {
-				self.onPhase.send(.bottomReady)
-			} else {
-				self.finishGazeProbes()
-			}
+			self.finishGazeProbes()
 
 		case .slouched:
 			// The span gates: a "slouch" at or above upright, or closer to it
@@ -474,11 +444,7 @@ final class SRPostureCalibrationSession {
 		switch self.capturePose {
 		case .upright:
 			self.onPhase.send(.positioning(guidance: .notVisible, failure: failure))
-		case .lookingAtBottom:
-			Self.logger.log("Calibration bottom-gaze capture skipped (\(String(describing: failure), privacy: .public))")
-			self.finishGazeProbes()
 		case .lookingAhead:
-			// Theta unknown, so no bottom leg either.
 			Self.logger.log("Calibration gaze capture skipped (\(String(describing: failure), privacy: .public))")
 			self.finishGazeProbes()
 		case .slouched:
@@ -494,10 +460,14 @@ final class SRPostureCalibrationSession {
 /// looking directly ahead (theta), per metric plus face pitch in
 /// degrees. Each field nil when its capture fell short or was skipped.
 struct SRGazeProbeResult {
+	/// The middle-of-screen face pitch itself, in degrees, not a delta.
+	/// Every other field here is relative to it, which is fine for fitting
+	/// but useless at runtime: comparing a live pitch reading against
+	/// calibration needs the absolute zero, and the face detector's zero
+	/// is per camera. Stored so the looking-down test has something to
+	/// difference against (PITCH_TUNING.md).
+	var uprightPitch: CGFloat?
 	var aheadEyeDelta: CGFloat?
 	var aheadEarDelta: CGFloat?
 	var aheadPitchDelta: CGFloat?
-	var bottomEyeDelta: CGFloat?
-	var bottomEarDelta: CGFloat?
-	var bottomPitchDelta: CGFloat?
 }

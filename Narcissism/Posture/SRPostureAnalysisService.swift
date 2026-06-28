@@ -101,18 +101,55 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				// looser high-camera regime until recalibrated. Spans stay
 				// stored but unresolved - the percent tables are the whole
 				// threshold while the collection runs.
-				let lowCamera = (entry?.gazePitchDelta).map { $0 <= SRSettings.lowCameraThetaBoundary } ?? false
+				let theta = entry?.gazePitchDelta
+				let lowCamera = theta.map { $0 <= SRSettings.lowCameraThetaBoundary } ?? false
 				let index = SRSettings.slouchStrictnessIndex
-				let earPercent = (lowCamera ? SRSettings.lowCameraEarPercents : SRSettings.highCameraEarPercents)[index]
-				let eyePercent = (lowCamera ? SRSettings.lowCameraEyePercents : SRSettings.highCameraEyePercents)[index]
+
+				// Above the boundary, with a theta to evaluate them at, the
+				// fitted lines replace the table's medium stop and a second
+				// ear percent comes along for windows where the gaze is
+				// below the screen. Everything else - the low regime, and a
+				// pre-probe entry whose theta was never measured - keeps the
+				// tables exactly as before, with no down-gaze percent, so
+				// the correction cannot fire there.
+				let earPercent: CGFloat
+				let eyePercent: CGFloat
+				let earLookingDownPercent: CGFloat?
+				let source: String
+				// Where the gaze counts as down: a fixed drop below the
+				// middle-of-screen pose the baseline was captured at. Down
+				// is the positive pitch direction, so the drop adds. Needs
+				// only the absolute reference, so an entry predating it
+				// keeps the at-screen stop for every window.
+				let lookingDownPitch = entry?.uprightFacePitch
+					.map { $0 + SRSettings.lookingDownPitchBelowScreenDegrees }
+
+				if !lowCamera, let theta {
+					let range = SRSettings.highCameraFitThetaRange
+					earPercent = SRSettings.highCameraEarAtScreen.percent(theta: theta, clampedTo: range)
+					eyePercent = SRSettings.highCameraEyeAtScreen.percent(theta: theta, clampedTo: range)
+					earLookingDownPercent = SRSettings.highCameraEarLookingDown.percent(theta: theta, clampedTo: range)
+					source = "high camera, fitted"
+				} else {
+					earPercent = (lowCamera ? SRSettings.lowCameraEarPercents : SRSettings.highCameraEarPercents)[index]
+					eyePercent = (lowCamera ? SRSettings.lowCameraEyePercents : SRSettings.highCameraEyePercents)[index]
+					earLookingDownPercent = nil
+					source = lowCamera ? "low camera, table" : "high camera, table (no theta)"
+				}
+
 				if entry != nil {
-					Self.logger.log("Strictness: ears \(String(format: "%.1f", earPercent), privacy: .public)%, eyes \(String(format: "%.1f", eyePercent), privacy: .public)% (\(lowCamera ? "low" : "high", privacy: .public) camera, theta \(entry?.gazePitchDelta.map { String(format: "%.1f", $0) } ?? "n/a", privacy: .public))")
+					let downText = earLookingDownPercent.map { String(format: "%.1f", $0) } ?? "n/a"
+					let pitchText = lookingDownPitch.map { String(format: "%.1f", $0) } ?? "n/a (recalibrate)"
+					Self.logger.log("Strictness: ears \(String(format: "%.1f", earPercent), privacy: .public)% (looking down \(downText, privacy: .public)% past pitch \(pitchText, privacy: .public) deg), eyes \(String(format: "%.1f", eyePercent), privacy: .public)% (\(source, privacy: .public), theta \(theta.map { String(format: "%.1f", $0) } ?? "n/a", privacy: .public))")
 				}
 				self.analysisQueue.async {
 					self.baselineSlouchRatio = baseline
 					self.baselineEarSlouchRatio = earBaseline
 					self.earBreachPercent = earPercent
+					self.earBreachPercentLookingDown = earLookingDownPercent
 					self.eyeBreachPercent = eyePercent
+					self.lookingDownPitchThreshold = lookingDownPitch
+					self.isLookingDown = false
 				}
 			}
 			.store(in: &self.cancellables)
@@ -322,6 +359,21 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// The regime-resolved breach percents (see the piecewise tables in
 	/// SRSettings), one per metric. Touched only on the analysis queue.
 	fileprivate nonisolated(unsafe) var earBreachPercent: CGFloat?
+
+	/// The ear stop to use instead while the gaze reads as below the
+	/// screen. Nil outside the fitted high-camera regime, which is what
+	/// keeps the correction from firing on a low camera or a pre-probe
+	/// entry (PITCH_TUNING.md).
+	fileprivate nonisolated(unsafe) var earBreachPercentLookingDown: CGFloat?
+
+	/// Face pitch, in degrees, past which the gaze counts as down - the
+	/// calibrated middle-of-screen pose plus a fixed drop. Nil when the
+	/// entry predates the pitch reference, which leaves the at-screen
+	/// stop in force for every window.
+	fileprivate nonisolated(unsafe) var lookingDownPitchThreshold: CGFloat?
+
+	/// Latched across windows so the stop releases lower than it engages.
+	fileprivate nonisolated(unsafe) var isLookingDown = false
 	fileprivate nonisolated(unsafe) var eyeBreachPercent: CGFloat?
 
 	/// Mirror of the shoulder strictness preference (see init): how far
@@ -532,18 +584,58 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			Self.logger.log("Below baseline: ears \(dropText(best.earSlouchRatio, self.baselineEarSlouchRatio), privacy: .public), eyes \(dropText(best.slouchRatio, self.baselineSlouchRatio), privacy: .public)")
 		}
 
+		// Head-pose telemetry for the strictness-loosening experiment
+		// (PITCH_TUNING.md). Nothing consumes these yet: they are here so a
+		// tuning session can be replayed to pick the trigger and its
+		// threshold from real numbers instead of a guess. Pitch and yaw come
+		// off the face detector (camera-relative, so every camera has its
+		// own zero); the eye/ear ratio comes off the same pose observation
+		// the slouch metrics do.
 		// Both rolling medians update every window, measured or not (nil
 		// ages stale readings out during blindness); the chosen metric's
 		// median drives the tracker's breach verdict below.
 		let recentEarMedian = self.pushRecent(best?.earSlouchRatio, into: &self.recentEarSlouchRatios)
 		let recentEyeMedian = self.pushRecent(best?.slouchRatio, into: &self.recentSlouchRatios)
 
+		// Gaze test for the looking-down stop (PITCH_TUNING.md): head pitch
+		// straight off the face detector, against the calibrated pitch of
+		// the screen's bottom edge. This replaced an eye-minus-ear
+		// divergence test on 2026-08-07 - both read head pitch, but the
+		// divergence read it indirectly through a geometric difference of
+		// a few points against comparable noise, and it missed real
+		// down-gazes. Pitch also survives losing the ears, which the
+		// divergence test could not: it needed both metrics, so it went
+		// blind in exactly the eye-fallback case that needs it most.
+		//
+		// Latched with hysteresis: engage at the threshold, release a few
+		// degrees under it, so a gaze resting on the boundary does not
+		// flip the stop every window.
+		let livePitchDegrees = self.lastFacePitch.map { $0 * 180 / .pi }
+		if let threshold = self.lookingDownPitchThreshold, let pitch = livePitchDegrees {
+			let release = threshold - SRSettings.lookingDownPitchHysteresisDegrees
+			self.isLookingDown = self.isLookingDown ? (pitch > release) : (pitch > threshold)
+		} else {
+			// No reference, or no face this window: assume the gaze is on
+			// the screen, which selects the stricter of the two stops.
+			self.isLookingDown = false
+		}
+		let lookingDown = self.isLookingDown
+		let earPercent = (lookingDown ? self.earBreachPercentLookingDown : nil) ?? self.earBreachPercent
+
+		let degreesText = { (radians: CGFloat?) in
+			radians.map { String(format: "%+.1f", $0 * 180 / .pi) } ?? "n/a"
+		}
+		let eyeEarText = best?.eyeEarWidthRatio.map { String(format: "%.3f", $0) } ?? "n/a"
+		let thresholdText = self.lookingDownPitchThreshold.map { String(format: "%.1f", $0) } ?? "n/a"
+		let earLimitText = earPercent.map { String(format: "%.1f", $0) } ?? "n/a"
+		Self.logger.log("Head pose: pitch \(degreesText(self.lastFacePitch), privacy: .public) deg, yaw \(degreesText(self.lastFaceYaw), privacy: .public) deg, eye/ear \(eyeEarText, privacy: .public), gaze \(lookingDown ? "down" : "at-screen", privacy: .public) (past \(thresholdText, privacy: .public) deg), ear limit \(earLimitText, privacy: .public)%")
+
 		// The metric for this window: ears whenever this camera has an ear
 		// baseline and the window measured an ear - immune to the downward
 		// keyboard glance - else the eye metric (headphones, a hood), each
 		// judged against its own regime percent. Units never mix.
 		let metric: (name: String, ratio: CGFloat, median: CGFloat?, baseline: CGFloat, percent: CGFloat)?
-		if let earBaseline = self.baselineEarSlouchRatio, let ratio = best?.earSlouchRatio, let percent = self.earBreachPercent {
+		if let earBaseline = self.baselineEarSlouchRatio, let ratio = best?.earSlouchRatio, let percent = earPercent {
 			metric = ("ears", ratio, recentEarMedian, earBaseline, percent)
 		} else if let eyeBaseline = self.baselineSlouchRatio, let ratio = best?.slouchRatio, let percent = self.eyeBreachPercent {
 			metric = ("eyes", ratio, recentEyeMedian, eyeBaseline, percent)
@@ -750,6 +842,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var lastFaceTime = CMTime.invalid
 	/// The winning face's head pitch, kept in step with the box.
 	fileprivate nonisolated(unsafe) var lastFacePitch: CGFloat?
+	/// Head turn off the camera axis, same observation. Telemetry only for
+	/// now: a candidate trigger for loosening strictness when the head is
+	/// turned away (PITCH_TUNING.md).
+	fileprivate nonisolated(unsafe) var lastFaceYaw: CGFloat?
 	fileprivate nonisolated(unsafe) var adaptiveCanvas: CVPixelBuffer?
 	fileprivate nonisolated(unsafe) var didLogAdaptiveCanvasFailure = false
 	fileprivate nonisolated(unsafe) var didLogFaceFailure = false
@@ -780,6 +876,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			if self.lastFaceTime.isValid, timestamp - self.lastFaceTime > Self.faceMemory {
 				self.smoothedFaceBox = nil
 				self.lastFacePitch = nil
+				self.lastFaceYaw = nil
 			}
 			return
 		}
@@ -790,6 +887,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// calibration gaze capture; sign convention is settled empirically
 		// there.
 		self.lastFacePitch = observation.pitch.map { CGFloat(truncating: $0) }
+		self.lastFaceYaw = observation.yaw.map { CGFloat(truncating: $0) }
 
 		if let previous = self.smoothedFaceBox {
 			let alpha = Self.faceSmoothing
@@ -970,8 +1068,16 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		var slouchRatio: CGFloat?
 		var personHeightFraction: CGFloat?
 		var eyeShoulderWidthRatio: CGFloat?
+		var eyeEarWidthRatio: CGFloat?
 		var leftEyePoint: CGPoint?
 		var rightEyePoint: CGPoint?
+
+		// Fetched before the eye block so the head-pose ratio below can pair
+		// each eye with the ear on its own side; the ear-anchored slouch
+		// ratio further down uses the same two points.
+		let leftEar = (try? observation.recognizedPoint(.leftEar)).flatMap { $0.confidence > Self.minimumJointConfidence ? $0 : nil }
+		let rightEar = (try? observation.recognizedPoint(.rightEar)).flatMap { $0.confidence > Self.minimumJointConfidence ? $0 : nil }
+
 		if
 			let leftEye = try? observation.recognizedPoint(.leftEye),
 			let rightEye = try? observation.recognizedPoint(.rightEye),
@@ -993,6 +1099,22 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			let eyeDistanceInPixels = hypot((leftEye.x - rightEye.x) * width, (leftEye.y - rightEye.y) * height)
 			eyeShoulderWidthRatio = eyeDistanceInPixels / distanceInPixels
 
+			// Candidate head-pose signal, telemetry only for now
+			// (PITCH_TUNING.md). Both terms are head-scale, so camera
+			// distance cancels and only pose moves it: turning the head
+			// shortens the eye separation while the eye-to-ear distance
+			// swings toward the head's depth, so the ratio falls from both
+			// ends at once. Same-side pairs only, since the far ear
+			// occludes on a turn - which is exactly when this matters - and
+			// the longer pair wins when both sides are visible.
+			let eyeEarDistances = [(leftEar, leftEye), (rightEar, rightEye)].compactMap { ear, eye -> CGFloat? in
+				guard let ear else { return nil }
+				return hypot((ear.x - eye.x) * width, (ear.y - eye.y) * height)
+			}
+			if let eyeEarDistance = eyeEarDistances.max(), eyeEarDistance > 0 {
+				eyeEarWidthRatio = eyeDistanceInPixels / eyeEarDistance
+			}
+
 			// The slouch ratio from VISION.md: the vertical drop from eye
 			// level to shoulder level, over shoulder width. Heights are
 			// vertical only, so head tilt does not pollute it, and the
@@ -1013,8 +1135,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// glance at the keyboard moves the eyes but not this ratio; it is
 		// the preferred evaluation metric (see spec.md). One confident ear
 		// is enough - both sit at essentially the same height.
-		let leftEar = (try? observation.recognizedPoint(.leftEar)).flatMap { $0.confidence > Self.minimumJointConfidence ? $0 : nil }
-		let rightEar = (try? observation.recognizedPoint(.rightEar)).flatMap { $0.confidence > Self.minimumJointConfidence ? $0 : nil }
 		var earSlouchRatio: CGFloat?
 		let ears = [leftEar, rightEar].compactMap { $0 }
 		if !ears.isEmpty {
@@ -1037,6 +1157,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			earSlouchRatio: earSlouchRatio,
 			personHeightFraction: personHeightFraction,
 			eyeShoulderWidthRatio: eyeShoulderWidthRatio,
+			eyeEarWidthRatio: eyeEarWidthRatio,
 			shoulderTiltDegrees: tiltDegrees,
 			joints: SRPostureJoints(
 				leftShoulder: remapToFrame(left),
@@ -1089,6 +1210,13 @@ fileprivate struct ShoulderMeasurement {
 	/// Eye separation over shoulder separation (the per-camera geometry
 	/// probe; see analyzeShoulders). Nil whenever the eye heights are.
 	let eyeShoulderWidthRatio: CGFloat?
+
+	/// Eye separation over the eye-to-ear distance on the same side, both
+	/// head-scale, so camera distance cancels. Telemetry only for now: a
+	/// candidate head-pose signal for loosening the strictness when the
+	/// head is turned or tilted away (PITCH_TUNING.md). Nil unless both
+	/// eyes and at least one same-side ear cleared the confidence floor.
+	let eyeEarWidthRatio: CGFloat?
 
 	/// The angle of the shoulder line off horizontal, in degrees. Positive
 	/// means the subject's anatomical left shoulder is higher; 0 is level.

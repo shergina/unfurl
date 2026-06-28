@@ -181,7 +181,6 @@
 // through the countdown and the capture.
 "posture.calibration.instruction.middle" = "Look at the middle of your screen";
 "posture.calibration.instruction.ahead" = "Look straight ahead";
-"posture.calibration.instruction.bottom" = "Look at the bottom of your screen";
 "posture.calibration.instruction.slouch" = "Slouch the way you normally do";
 // The hold slot: the part that does not change between poses.
 "posture.calibration.hold" = "Best posture, hands on your keyboard";
