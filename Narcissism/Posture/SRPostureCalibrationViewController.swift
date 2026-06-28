@@ -16,6 +16,33 @@ import Combine
 @MainActor
 final class SRPostureCalibrationViewController: NSViewController {
 
+	/// Shared by every page of the calibration window, so the window never
+	/// changes size mid-flow.
+	static let contentSize = CGSize(width: 480.0, height: 520.0)
+
+	/// Where the action buttons sit above the bottom edge. Derived from the
+	/// layout below, and reused by the reminders page to line its Ready
+	/// button up with Begin.
+	static let actionButtonBottomInset = CGFloat(26)
+
+	/// The content above the action buttons. The welcome embed hides the
+	/// inline buttons and sizes itself to exactly this, so the two layouts
+	/// cannot drift apart (UI/Welcome/spec.md).
+	static let embeddedContentHeight = CGFloat(454)
+
+	/// The guidance block's reserved band. Everything below is positioned
+	/// from the band rather than from the text, so the progress bar and the
+	/// buttons never hop as lines come and go.
+	///
+	/// Sized for the two-line block every normal step shows (39pt), not for
+	/// the three-line worst case (59pt): reserving the worst case left ~27pt
+	/// of dead air under the text on every screen the user actually sees.
+	/// The block is centered, so the three-line states overflow the band by
+	/// ~7pt at each end - which is free, because the only states that reach
+	/// three lines (a capture failure, and slouchReady) are exactly the ones
+	/// with the progress bar hidden underneath them.
+	fileprivate static let guidanceBandHeight = CGFloat(46)
+
 	let session = SRPostureCalibrationSession()
 
 	/// True once a baseline was saved; the window controller uses it to
@@ -40,7 +67,10 @@ final class SRPostureCalibrationViewController: NSViewController {
 	fileprivate var placeholderView: SRCameraPlaceholerView!
 	fileprivate var cameraView: SRPostureCalibrationCameraView!
 	fileprivate var countdownLabel: NSTextField!
-	fileprivate var guidanceLabel: NSTextField!
+	fileprivate var guidanceStack: NSStackView!
+	fileprivate var statusLabel: NSTextField!
+	fileprivate var instructionLabel: NSTextField!
+	fileprivate var holdLabel: NSTextField!
 	fileprivate var progressIndicator: NSProgressIndicator!
 	fileprivate var beginButton: NSButton!
 	fileprivate var doneButton: NSButton!
@@ -48,12 +78,12 @@ final class SRPostureCalibrationViewController: NSViewController {
 	fileprivate var cancellables = Set<AnyCancellable>()
 
 	override func loadView() {
-		self.view = NSView(frame: CGRect(origin: .zero, size: CGSize(width: 480.0, height: 500.0)))
+		self.view = NSView(frame: CGRect(origin: .zero, size: Self.contentSize))
 
 		// The window sizes itself from this, not from the fitting size - a
 		// long guidance line must wrap, never widen the window (and with it
 		// the preview, whose height rides the width).
-		self.preferredContentSize = CGSize(width: 480.0, height: 500.0)
+		self.preferredContentSize = Self.contentSize
 
 		// Placeholder behind the preview, panel-style: when the camera is
 		// not delivering, it says why (incl. the System Settings button).
@@ -67,22 +97,29 @@ final class SRPostureCalibrationViewController: NSViewController {
 
 		self.countdownLabel = NSTextField(labelWithString: "")
 		self.countdownLabel.translatesAutoresizingMaskIntoConstraints = false
-		self.countdownLabel.font = NSFont.systemFont(ofSize: 96.0, weight: .bold)
+		// Deliberately smaller than it wants to be: the digit is a timer,
+		// the instruction below it is the thing to read, and at 96pt the
+		// digit won that contest.
+		self.countdownLabel.font = NSFont.systemFont(ofSize: 64.0, weight: .bold)
 		self.countdownLabel.textColor = .white
 		self.countdownLabel.alignment = .center
 		self.countdownLabel.isHidden = true
 		self.view.addSubview(self.countdownLabel)
 
-		self.guidanceLabel = NSTextField(labelWithString: "")
-		self.guidanceLabel.translatesAutoresizingMaskIntoConstraints = false
-		self.guidanceLabel.font = NSFont.systemFont(ofSize: 13.0, weight: .medium)
-		self.guidanceLabel.alignment = .center
-		self.guidanceLabel.maximumNumberOfLines = 0
-		self.guidanceLabel.lineBreakMode = .byWordWrapping
-		// Window width minus the margins; keeps the multi-line intrinsic
-		// height honest.
-		self.guidanceLabel.preferredMaxLayoutWidth = 440.0
-		self.view.addSubview(self.guidanceLabel)
+		// Three fixed slots: an optional status line (a failure, or the
+		// upright confirmation), the pose instruction, and the line that
+		// does not change between poses. One shape on every screen, so the
+		// only thing the eye has to find is which instruction is showing.
+		self.statusLabel = Self.slotLabel(font: NSFont.systemFont(ofSize: 13.0), color: .secondaryLabelColor)
+		self.instructionLabel = Self.slotLabel(font: NSFont.systemFont(ofSize: 15.0, weight: .semibold), color: .labelColor)
+		self.holdLabel = Self.slotLabel(font: NSFont.systemFont(ofSize: 13.0), color: .secondaryLabelColor)
+
+		self.guidanceStack = NSStackView(views: [self.statusLabel, self.instructionLabel, self.holdLabel])
+		self.guidanceStack.orientation = .vertical
+		self.guidanceStack.alignment = .centerX
+		self.guidanceStack.spacing = 4.0
+		self.guidanceStack.translatesAutoresizingMaskIntoConstraints = false
+		self.view.addSubview(self.guidanceStack)
 
 		self.progressIndicator = NSProgressIndicator()
 		self.progressIndicator.translatesAutoresizingMaskIntoConstraints = false
@@ -196,12 +233,21 @@ final class SRPostureCalibrationViewController: NSViewController {
 				self.countdownLabel.centerXAnchor.constraint(equalTo: self.cameraView.centerXAnchor),
 				self.countdownLabel.centerYAnchor.constraint(equalTo: self.cameraView.centerYAnchor),
 
-				self.guidanceLabel.topAnchor.constraint(equalTo: self.placeholderView.bottomAnchor, constant: 16.0),
-				self.guidanceLabel.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
-				self.guidanceLabel.leadingAnchor.constraint(greaterThanOrEqualTo: self.view.leadingAnchor, constant: kMargin),
-				self.guidanceLabel.trailingAnchor.constraint(lessThanOrEqualTo: self.view.trailingAnchor, constant: -kMargin),
+				// Centered in the reserved band, which starts 16 below the
+				// preview.
+				self.guidanceStack.centerYAnchor.constraint(
+					equalTo: self.placeholderView.bottomAnchor,
+					constant: 16.0 + Self.guidanceBandHeight / 2.0
+				),
+				self.guidanceStack.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: kMargin),
+				self.guidanceStack.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -kMargin),
 
-				self.progressIndicator.topAnchor.constraint(equalTo: self.guidanceLabel.bottomAnchor, constant: 12.0),
+				// Hung off the band, not off the text: the bar and the
+				// buttons hold still while the lines above them change.
+				self.progressIndicator.topAnchor.constraint(
+					equalTo: self.placeholderView.bottomAnchor,
+					constant: 16.0 + Self.guidanceBandHeight + 12.0
+				),
 				self.progressIndicator.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: 60.0),
 				self.progressIndicator.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -60.0),
 
@@ -247,7 +293,14 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = !self.showsActionButtons
 			self.beginButton.isEnabled = (guidance == .good)
-			self.guidanceLabel.stringValue = Self.text(for: guidance, failure: failure)
+			// Bad framing takes the instruction slot for itself: nothing else
+			// matters until the camera can see the user, and Begin is
+			// disabled anyway.
+			self.setGuidance(
+				status: Self.failureText(failure),
+				instruction: Self.guidanceText(guidance),
+				hold: guidance == .good ? Self.hold(for: .upright) : nil
+			)
 
 		case .bottomReady:
 			// The gaze probes' gates; Begin arms each, ungated on guidance -
@@ -257,7 +310,10 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = !self.showsActionButtons
 			self.beginButton.isEnabled = true
-			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.bottom-ready", comment: "")
+			self.setGuidance(
+				instruction: Self.instruction(for: .lookingAtBottom),
+				hold: Self.hold(for: .lookingAtBottom)
+			)
 
 		case .lookAheadReady:
 			self.countdownLabel.isHidden = true
@@ -265,7 +321,10 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = !self.showsActionButtons
 			self.beginButton.isEnabled = true
-			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.look-ahead-ready", comment: "")
+			self.setGuidance(
+				instruction: Self.instruction(for: .lookingAhead),
+				hold: Self.hold(for: .lookingAhead)
+			)
 
 		case .slouchReady(let failure):
 			// The gate before the slouch pose (and its resting state after
@@ -276,7 +335,14 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = !self.showsActionButtons
 			self.beginButton.isEnabled = true
-			self.guidanceLabel.stringValue = Self.slouchText(failure: failure)
+			self.setGuidance(
+				// What just happened - the failure, or the upright capture
+				// landing - above the instruction.
+				status: Self.failureText(failure)
+					?? NSLocalizedString("posture.calibration.upright-captured", comment: ""),
+				instruction: Self.instruction(for: .slouched),
+				hold: Self.hold(for: .slouched)
+			)
 
 		case .countingDown(let pose, let remaining):
 			self.countdownLabel.isHidden = false
@@ -284,41 +350,33 @@ final class SRPostureCalibrationViewController: NSViewController {
 			self.progressIndicator.isHidden = true
 			self.progressIndicator.doubleValue = 0
 			self.beginButton.isHidden = true
-			// The slouch and gaze countdowns carry the instruction: those
-			// three seconds are the time to settle into the pose.
-			let countdownKey: String
-			switch pose {
-			case .upright: countdownKey = "posture.calibration.capturing"
-			case .lookingAtBottom: countdownKey = "posture.calibration.bottom-instruction"
-			case .lookingAhead: countdownKey = "posture.calibration.look-ahead-instruction"
-			case .slouched: countdownKey = "posture.calibration.slouch-instruction"
-			}
-			self.guidanceLabel.stringValue = NSLocalizedString(countdownKey, comment: "")
+			// The instruction carries straight through the countdown - those
+			// three seconds are the time to settle into the pose, and someone
+			// who pressed Begin without reading still gets it before the
+			// first sample.
+			self.setGuidance(instruction: Self.instruction(for: pose), hold: Self.hold(for: pose))
 
 		case .capturing(let pose, let sampledSeconds, let paused):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = sampledSeconds
 			self.beginButton.isHidden = true
-			let key: String
-			if paused {
-				key = "posture.calibration.paused"
-			} else {
-				switch pose {
-				case .upright: key = "posture.calibration.capturing"
-				case .lookingAtBottom: key = "posture.calibration.bottom-capturing"
-				case .lookingAhead: key = "posture.calibration.look-ahead-capturing"
-				case .slouched: key = "posture.calibration.slouch-capturing"
-				}
-			}
-			self.guidanceLabel.stringValue = NSLocalizedString(key, comment: "")
+			// Still the same instruction: the pose is being recorded right
+			// now, so this is the worst moment to stop saying what it is.
+			self.setGuidance(
+				instruction: Self.instruction(for: pose),
+				hold: NSLocalizedString(
+					paused ? "posture.calibration.paused" : "posture.calibration.measuring",
+					comment: ""
+				)
+			)
 
 		case .done(let baseline, let slouched, let earBaseline, let earSlouched):
 			self.countdownLabel.isHidden = true
 			self.progressIndicator.isHidden = false
 			self.progressIndicator.doubleValue = self.progressIndicator.maxValue
 			self.beginButton.isHidden = true
-			self.guidanceLabel.stringValue = NSLocalizedString("posture.calibration.finished", comment: "")
+			self.setGuidance(instruction: NSLocalizedString("posture.calibration.finished", comment: ""))
 			// A single-pose run (slouched == nil) was fully saved by
 			// saveUpright; a two-pose run saves the pairs and, while a
 			// unit is missing, refreshes the anchor.
@@ -336,51 +394,84 @@ final class SRPostureCalibrationViewController: NSViewController {
 		}
 	}
 
-	/// The slouch pose's guidance: what just happened on the first line -
-	/// the upright capture landing, or the failure - then the instruction
-	/// with its press-Begin cue, mirroring the positioning text.
-	fileprivate static func slouchText(failure: SRPostureCalibrationSession.Failure?) -> String {
-		var lines: [String] = []
-		switch failure {
-		case .timedOut:
-			lines.append(NSLocalizedString("posture.calibration.failed.timeout", comment: ""))
-		case .unstableReadings:
-			lines.append(NSLocalizedString("posture.calibration.failed.unstable", comment: ""))
-		case .notSlouched:
-			lines.append(NSLocalizedString("posture.calibration.failed.not-slouched", comment: ""))
-		case nil:
-			lines.append(NSLocalizedString("posture.calibration.upright-captured", comment: ""))
-		}
-		lines.append(NSLocalizedString("posture.calibration.slouch-ready", comment: ""))
-		return lines.joined(separator: "\n")
+	fileprivate static func slotLabel(font: NSFont, color: NSColor) -> NSTextField {
+		let label = NSTextField(labelWithString: "")
+		label.translatesAutoresizingMaskIntoConstraints = false
+		label.font = font
+		label.textColor = color
+		label.alignment = .center
+		label.maximumNumberOfLines = 0
+		label.lineBreakMode = .byWordWrapping
+		// Window width minus the margins; keeps the multi-line intrinsic
+		// height honest.
+		label.preferredMaxLayoutWidth = 440.0
+		return label
 	}
 
-	/// Failure explanation first, live guidance on the next line.
-	fileprivate static func text(for guidance: SRPostureCalibrationSession.Guidance, failure: SRPostureCalibrationSession.Failure?) -> String {
-		var lines: [String] = []
+	/// Fills the three slots at once. An omitted slot is hidden, which the
+	/// stack collapses, so the block stays centered in its band whatever is
+	/// showing.
+	fileprivate func setGuidance(status: String? = nil, instruction: String, hold: String? = nil) {
+		self.statusLabel.stringValue = status ?? ""
+		self.statusLabel.isHidden = (status == nil)
+		self.instructionLabel.stringValue = instruction
+		self.holdLabel.stringValue = hold ?? ""
+		self.holdLabel.isHidden = (hold == nil)
+	}
+
+	/// The instruction slot's line for a pose - the same words at the gate,
+	/// through the countdown, and during the capture. It never swaps out
+	/// from under someone who read it before pressing Begin.
+	fileprivate static func instruction(for pose: SRPostureCalibrationSession.Pose) -> String {
+		switch pose {
+		case .upright:
+			return NSLocalizedString("posture.calibration.instruction.middle", comment: "")
+		case .lookingAhead:
+			return NSLocalizedString("posture.calibration.instruction.ahead", comment: "")
+		case .lookingAtBottom:
+			return NSLocalizedString("posture.calibration.instruction.bottom", comment: "")
+		case .slouched:
+			return NSLocalizedString("posture.calibration.instruction.slouch", comment: "")
+		}
+	}
+
+	/// The hold slot: best posture through every pose that measures it. The
+	/// slouch pose is the one that contradicts it, so it asks for the hands
+	/// alone.
+	fileprivate static func hold(for pose: SRPostureCalibrationSession.Pose) -> String {
+		pose == .slouched
+			? NSLocalizedString("posture.calibration.hold.slouch", comment: "")
+			: NSLocalizedString("posture.calibration.hold", comment: "")
+	}
+
+	fileprivate static func failureText(_ failure: SRPostureCalibrationSession.Failure?) -> String? {
 		switch failure {
 		case .timedOut:
-			lines.append(NSLocalizedString("posture.calibration.failed.timeout", comment: ""))
+			return NSLocalizedString("posture.calibration.failed.timeout", comment: "")
 		case .unstableReadings:
-			lines.append(NSLocalizedString("posture.calibration.failed.unstable", comment: ""))
+			return NSLocalizedString("posture.calibration.failed.unstable", comment: "")
 		case .notSlouched:
-			// Slouch-phase failures land at slouchReady, not here; carried
-			// for exhaustiveness.
-			lines.append(NSLocalizedString("posture.calibration.failed.not-slouched", comment: ""))
+			// Slouch-phase failures land at slouchReady, not in positioning;
+			// carried for exhaustiveness.
+			return NSLocalizedString("posture.calibration.failed.not-slouched", comment: "")
 		case nil:
-			break
+			return nil
 		}
+	}
+
+	/// What the framing gate has to say. Only reached while it is unhappy -
+	/// a good reading shows the pose instruction instead.
+	fileprivate static func guidanceText(_ guidance: SRPostureCalibrationSession.Guidance) -> String {
 		switch guidance {
 		case .notVisible:
-			lines.append(NSLocalizedString("posture.calibration.guidance.not-visible", comment: ""))
+			return NSLocalizedString("posture.calibration.guidance.not-visible", comment: "")
 		case .faceNotVisible:
-			lines.append(NSLocalizedString("posture.calibration.guidance.face-not-visible", comment: ""))
+			return NSLocalizedString("posture.calibration.guidance.face-not-visible", comment: "")
 		case .tooFar:
-			lines.append(NSLocalizedString("posture.calibration.guidance.too-far", comment: ""))
+			return NSLocalizedString("posture.calibration.guidance.too-far", comment: "")
 		case .good:
-			lines.append(NSLocalizedString("posture.calibration.guidance.good", comment: ""))
+			return Self.instruction(for: .upright)
 		}
-		return lines.joined(separator: "\n")
 	}
 
 	/// Saved the moment the upright capture passes its gates, with the

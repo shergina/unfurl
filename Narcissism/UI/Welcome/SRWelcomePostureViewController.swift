@@ -109,11 +109,15 @@ final class SRWelcomePostureViewController: NSViewController {
 
 			// The embedded content is edge to edge like its standalone
 			// window; its internals are top-anchored, and with the inline
-			// buttons off it ends at the progress bar.
+			// buttons off it ends at the progress bar. The height comes from
+			// the calibration layout itself - nothing here clips, so the two
+			// must not drift apart or the guidance draws over the buttons.
 			calibrationView.topAnchor.constraint(equalTo: bodyView.bottomAnchor, constant: 20),
 			calibrationView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
 			calibrationView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-			calibrationView.heightAnchor.constraint(equalToConstant: 450),
+			calibrationView.heightAnchor.constraint(
+				equalToConstant: SRPostureCalibrationViewController.embeddedContentHeight
+			),
 
 			self.backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
 			self.backButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30),

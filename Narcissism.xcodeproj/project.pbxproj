@@ -31,6 +31,7 @@
 		59D0C00BD0C00BD0C00BD00B /* SRPostureCalibrationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00AD0C00AD0C00AD00A /* SRPostureCalibrationSession.swift */; };
 		59D0C00DD0C00DD0C00DD00D /* SRPostureCalibrationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00CD0C00CD0C00CD00C /* SRPostureCalibrationViewController.swift */; };
 		59D0C00FD0C00FD0C00FD00F /* SRPostureCalibrationWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C00ED0C00ED0C00ED00E /* SRPostureCalibrationWindowController.swift */; };
+		59D0C0ABD0C0ABD0C0ABD0AB /* SRGoodPostureReminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C0AAD0C0AAD0C0AAD0AA /* SRGoodPostureReminders.swift */; };
 		59D0C011D0C011D0C011D011 /* SRPostureCalibrationCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D0C010D0C010D0C010D010 /* SRPostureCalibrationCameraView.swift */; };
 		592F534B1B37064D00F879FD /* SRMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534A1B37064D00F879FD /* SRMenuController.swift */; };
 		592F534F1B37349600F879FD /* SRDockTileCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592F534E1B37349600F879FD /* SRDockTileCameraView.swift */; };
@@ -83,6 +84,7 @@
 		59D0C00AD0C00AD0C00AD00A /* SRPostureCalibrationSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPostureCalibrationSession.swift; sourceTree = "<group>"; };
 		59D0C00CD0C00CD0C00CD00C /* SRPostureCalibrationViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPostureCalibrationViewController.swift; sourceTree = "<group>"; };
 		59D0C00ED0C00ED0C00ED00E /* SRPostureCalibrationWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPostureCalibrationWindowController.swift; sourceTree = "<group>"; };
+		59D0C0AAD0C0AAD0C0AAD0AA /* SRGoodPostureReminders.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRGoodPostureReminders.swift; sourceTree = "<group>"; };
 		59D0C010D0C010D0C010D010 /* SRPostureCalibrationCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPostureCalibrationCameraView.swift; sourceTree = "<group>"; };
 		59D0C004D0C004D0C004D004 /* VISION.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = VISION.md; sourceTree = "<group>"; };
 		59D0C005D0C005D0C005D005 /* spec.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = spec.md; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 				59D0C00AD0C00AD0C00AD00A /* SRPostureCalibrationSession.swift */,
 				59D0C00CD0C00CD0C00CD00C /* SRPostureCalibrationViewController.swift */,
 				59D0C00ED0C00ED0C00ED00E /* SRPostureCalibrationWindowController.swift */,
+				59D0C0AAD0C0AAD0C0AAD0AA /* SRGoodPostureReminders.swift */,
 				59D0C010D0C010D0C010D010 /* SRPostureCalibrationCameraView.swift */,
 				59D0C007D0C007D0C007D007 /* SRPostureDebugCameraView.swift */,
 				59D0C008D0C008D0C008D008 /* SRPostureNoteController.swift */,
@@ -521,6 +524,7 @@
 				59D0C00BD0C00BD0C00BD00B /* SRPostureCalibrationSession.swift in Sources */,
 				59D0C00DD0C00DD0C00DD00D /* SRPostureCalibrationViewController.swift in Sources */,
 				59D0C00FD0C00FD0C00FD00F /* SRPostureCalibrationWindowController.swift in Sources */,
+				59D0C0ABD0C0ABD0C0ABD0AB /* SRGoodPostureReminders.swift in Sources */,
 				59D0C011D0C011D0C011D011 /* SRPostureCalibrationCameraView.swift in Sources */,
 				59D0C006D0C006D0C006D006 /* SRPostureDebugCameraView.swift in Sources */,
 				59D0C009D0C009D0C009D009 /* SRPostureNoteController.swift in Sources */,

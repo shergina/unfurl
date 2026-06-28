@@ -22,39 +22,9 @@ class SRWelcomeGoodPostureViewController: NSViewController {
 	override func loadView() {
 		let view = NSView()
 
-		let titleView = SRWelcomeRows.label(
-			NSLocalizedString("welcome.good-posture.title", comment: ""),
-			font: NSFont.systemFont(ofSize: 20, weight: .bold)
-		)
-		titleView.alignment = .center
-
-		let rows = NSStackView(views: [
-			SRWelcomeRows.row(
-				symbol: "chair",
-				titleKey: "welcome.good-posture.hips.title",
-				bodyKey: "welcome.good-posture.hips.body"
-			),
-			SRWelcomeRows.row(
-				symbol: "arrow.up.to.line",
-				titleKey: "welcome.good-posture.tall.title",
-				bodyKey: "welcome.good-posture.tall.body"
-			),
-			SRWelcomeRows.row(
-				symbol: "figure.arms.open",
-				titleKey: "welcome.good-posture.shoulders.title",
-				bodyKey: "welcome.good-posture.shoulders.body"
-			),
-		])
-		rows.orientation = .vertical
-		rows.alignment = .leading
-		rows.spacing = 18
-		rows.translatesAutoresizingMaskIntoConstraints = false
-
-		let stack = NSStackView(views: [titleView, rows])
-		stack.orientation = .vertical
-		stack.alignment = .centerX
-		stack.spacing = 24
-		stack.translatesAutoresizingMaskIntoConstraints = false
+		// The same reminders the calibration window shows before its capture
+		// page; defined once in SRGoodPostureReminders.
+		let stack = SRGoodPostureReminders.contentView()
 		view.addSubview(stack)
 
 		func button(_ title: String, action: Selector) -> NSButton {
@@ -74,7 +44,7 @@ class SRWelcomeGoodPostureViewController: NSViewController {
 			action: #selector(self.laterPressed(_:))
 		)
 		let readyButton = button(
-			NSLocalizedString("welcome.ready.ready", comment: ""),
+			NSLocalizedString("posture.good.ready", comment: ""),
 			action: #selector(self.readyPressed(_:))
 		)
 		readyButton.keyEquivalent = "\r"
@@ -82,8 +52,6 @@ class SRWelcomeGoodPostureViewController: NSViewController {
 		NSLayoutConstraint.activate([
 			view.widthAnchor.constraint(equalToConstant: SRWelcomeWindowController.pageSize.width),
 			view.heightAnchor.constraint(equalToConstant: SRWelcomeWindowController.pageSize.height),
-
-			rows.widthAnchor.constraint(equalToConstant: SRWelcomeRows.textWidth),
 
 			backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
 			backButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30),

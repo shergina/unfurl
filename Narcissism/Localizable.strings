@@ -151,13 +151,17 @@
 "welcome.ready.camera.title" = "A clear view";
 "welcome.ready.camera.body" = "Make sure nothing is covering the camera.";
 "welcome.ready.ready" = "Ready";
-"welcome.good-posture.title" = "What does good posture look like?";
-"welcome.good-posture.hips.title" = "Hips back";
-"welcome.good-posture.hips.body" = "All the way back in the chair, so your lower back is supported. Perching on the front edge is what pulls you into a slouch.";
-"welcome.good-posture.tall.title" = "Sit tall";
-"welcome.good-posture.tall.body" = "Imagine a string lifting the top of your head toward the ceiling.";
-"welcome.good-posture.shoulders.title" = "Shoulders down and level";
-"welcome.good-posture.shoulders.body" = "Let them relax away from your ears.";
+// Good posture reminders - shared by the welcome flow's good-posture page
+// and the calibration window's first page.
+"posture.good.title" = "What does good posture look like?";
+"posture.good.body" = "Hold this while the camera measures you. It becomes the baseline you are coached toward.";
+"posture.good.ready" = "Ready";
+"posture.good.hips.title" = "Hips back";
+"posture.good.hips.body" = "All the way back in the chair, so your lower back is supported. Perching on the front edge is what pulls you into a slouch.";
+"posture.good.tall.title" = "Sit tall";
+"posture.good.tall.body" = "Imagine a string lifting the top of your head toward the ceiling.";
+"posture.good.shoulders.title" = "Shoulders down and level";
+"posture.good.shoulders.body" = "Let them relax away from your ears.";
 
 // Posture corner note
 "posture.note.slouching" = "Sit up straight";
@@ -167,28 +171,27 @@
 
 // Posture calibration window
 "posture.calibration.title" = "Posture Calibration";
+"posture.calibration.begin" = "Begin";
+"posture.calibration.accept" = "Looks Good";
+"posture.calibration.redo" = "Try Again";
 "posture.calibration.guidance.not-visible" = "Can't see you - make sure you are in front of the camera.";
 "posture.calibration.guidance.face-not-visible" = "Can't see your face clearly - face the camera.";
 "posture.calibration.guidance.too-far" = "Move a little closer to the camera.";
-"posture.calibration.guidance.good" = "Sit up straight with your best posture, hands on your keyboard, and look at the middle of your screen, then press Begin.";
-"posture.calibration.begin" = "Begin";
-"posture.calibration.capturing" = "Measuring your posture - hold still.";
+// The instruction slot: one line per pose, held unchanged from the gate
+// through the countdown and the capture.
+"posture.calibration.instruction.middle" = "Look at the middle of your screen";
+"posture.calibration.instruction.ahead" = "Look straight ahead";
+"posture.calibration.instruction.bottom" = "Look at the bottom of your screen";
+"posture.calibration.instruction.slouch" = "Slouch the way you normally do";
+// The hold slot: the part that does not change between poses.
+"posture.calibration.hold" = "Best posture, hands on your keyboard";
+"posture.calibration.hold.slouch" = "Hands on your keyboard";
+"posture.calibration.measuring" = "Hold still - measuring.";
 "posture.calibration.paused" = "Can't see you - measurement paused.";
+"posture.calibration.upright-captured" = "Upright posture captured.";
+"posture.calibration.finished" = "Calibration finished.";
 "posture.calibration.failed.timeout" = "Couldn't get a steady reading. Adjust your position and try again.";
 "posture.calibration.failed.unstable" = "The readings varied too much. Sit still and try again.";
-"posture.calibration.finished" = "Calibration finished.";
-"posture.calibration.accept" = "Looks Good";
-"posture.calibration.redo" = "Try Again";
-"posture.calibration.upright-captured" = "Upright posture captured.";
-"posture.calibration.bottom-ready" = "Got it. Now look at the bottom of your screen, hands still on your keyboard, then press Begin.";
-"posture.calibration.bottom-instruction" = "Look at the bottom of your screen.";
-"posture.calibration.bottom-capturing" = "Keep looking at the bottom - measuring.";
-"posture.calibration.look-ahead-ready" = "Got it. Now keep your hands on your keyboard and look directly ahead of you, then press Begin.";
-"posture.calibration.look-ahead-instruction" = "Look directly ahead of you.";
-"posture.calibration.look-ahead-capturing" = "Keep looking ahead - measuring.";
-"posture.calibration.slouch-ready" = "Now slouch the way you normally do, then press Begin.";
-"posture.calibration.slouch-instruction" = "Now slouch the way you normally do.";
-"posture.calibration.slouch-capturing" = "Hold that slouch - measuring.";
 "posture.calibration.failed.not-slouched" = "That didn't read as a slouch.";
 
 // New-camera calibration nudge (system notification)

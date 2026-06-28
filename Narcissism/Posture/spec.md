@@ -436,19 +436,89 @@ Notifications page (see UI/Settings/spec.md).
   that rule: the window is part of the measurement (the user must face
   the camera being calibrated, or the baseline encodes an off-axis
   pose), the Display Calibrator Assistant precedent.
-  Content: a live always-mirrored
+  Two pages, both laid out at one shared size
+  (SRPostureCalibrationViewController.contentSize, 480x520), so the
+  window never resizes mid-flow - it is floating and centered, so a
+  resize would move it under a user who is trying to hold still.
+- Calibration reminders page (added 2026-08-07): the window opens on the
+  good-posture reminders (hips back, sit tall, shoulders level) with a
+  Ready button, and only then swaps in the capture page. The list is
+  SRGoodPostureReminders, defined once and shared with the welcome
+  flow's good-posture page, which is why those strings are namespaced
+  posture.good rather than welcome. A one-line secondary subtitle under
+  the title says what the list is for ("Hold this while the camera
+  measures you. It becomes the baseline you are coached toward"), added
+  2026-08-07 against screenshots: both hosts show this page in a window
+  sized for the camera page, and without it a 234pt list floated
+  between two ~120pt voids and read as content that failed to fill the
+  window. Redistributing that whitespace does not fix it - the page
+  needs something that earns the space, and the stakes are the one
+  thing worth saying here. Row spacing is 22 for the same reason. This
+  is not in tension with the less-text goal, which is about the capture
+  screens, where text competes with a button press; this page's whole
+  job is to be read before anything is measured.
+  Shown before every calibration, not
+  only the first: the baseline is whatever the user happens to hold
+  during the capture, and a bad one fails silently - the app goes on
+  confidently coaching toward a slouch and the user has no way to tell.
+  One extra click is the whole cost. Ready is deliberately not Begin
+  (nothing is measured on this page, so hammering Return past it costs
+  nothing), and its button sits at the same height as Begin so the
+  pages do not shuffle. The capture page's view is loaded when the
+  window opens, not when Ready is pressed, so the camera warms up and
+  the framing guidance is already settled when the page appears. The
+  welcome flow does not get this page - its own good-posture page
+  already sits immediately before the camera page.
+  Capture page content: a live always-mirrored
   preview, the panel's placeholder behind it so
-  camera failures and permission denials explain themselves in-window, a
-  guidance line (can't see you / face the camera / move closer / sit up
-  straight), and a Begin button enabled only while framing is good:
+  camera failures and permission denials explain themselves in-window,
+  the guidance block (below), and a Begin button enabled only while
+  framing is good:
   confident shoulders, measurable eyes, shoulder width at least 0.15 of
-  the frame width (below that reads as sitting too far away). The
-  sit-up-straight line also says to rest your hands on the keyboard
-  (added 2026-08-06): hands on keys pin the sitting distance to real
-  working posture, observed to make the captured distance far more
-  repeatable than a free-floating "sit straight". It also says to look
-  at the middle of the screen - the working gaze, the reference both
-  gaze probes difference against. (Wording history, all 2026-08-06:
+  the frame width (below that reads as sitting too far away). While the
+  window is open the per-window evaluation is muted exactly as when
+  uncalibrated, so the corner note never nags mid-calibration; trackers
+  restart clean after it closes.
+- Guidance block (three slots, added 2026-08-07; replaced a single
+  centered paragraph): an optional status line (a capture failure, or
+  the upright confirmation), the pose instruction in 15pt semibold, and
+  a hold line in 13pt secondary. Every screen has the same shape, so
+  the only thing the eye has to find is which instruction is showing;
+  the previous run-on sentences differed in shape per step and buried
+  the part that changed mid-clause, which is what let people press
+  Begin without registering where to look. The instruction is one short
+  line per pose - middle of your screen, straight ahead, slouch the way
+  you normally do - and is held unchanged from
+  the gate through the countdown and the capture, so it never swaps out
+  from under someone who read it, and the pose is still named on screen
+  while it is being recorded. (Before this, both the upright countdown
+  and its capture said only "Measuring your posture - hold still",
+  dropping the gaze and posture instruction for the entire five seconds
+  that were actually being measured.) The hold line carries the part
+  that does not change - best posture, hands on your keyboard - on
+  every pose except the slouch, which contradicts it and asks for the
+  hands alone; during a capture it becomes "Hold still - measuring" or
+  the paused note. Sizing (settled 2026-08-07 against screenshots): the
+  band is 46pt, the two-line height every normal step shows, not the
+  59pt three-line worst case - reserving the worst case left about 27pt
+  of dead air under the text on every screen a user actually sees, on
+  top of the 20pt the hidden progress bar reserves anyway, and the
+  lower panel read as unfinished. The block is centered, so the
+  three-line states overflow the band by about 7pt at each end, which
+  costs nothing: the only states that reach three lines (a capture
+  failure, and slouchReady) are exactly the ones with the progress bar
+  hidden below them, so the growth lands in empty space and nothing
+  moves. Hands on keys pin the sitting distance to real
+  working posture (added 2026-08-06), observed to make the captured
+  distance far more repeatable than a free-floating "sit straight"; the
+  middle-of-screen gaze is the working gaze, the reference both gaze
+  probes difference against. No slot says "press Begin": Begin is the
+  only enabled control on screen, and repeating the cue on four screens
+  was pure text tax. Everything below the band is positioned from the
+  band, not from the text, so the progress bar and the buttons hold
+  still as lines come and go - they used to hop whenever the wrap count
+  changed.
+  (Wording history, all 2026-08-06:
   "look at yourself" pinned the gaze to wherever the calibration window
   sat, reading tall on a large monitor; "middle of your screen" fixed
   that; "bottom of your screen" - the lower-envelope idea, baseline at
@@ -456,16 +526,24 @@ Notifications page (see UI/Settings/spec.md).
   at normal heights but collapsed sensitivity on very low screens,
   where the envelope is wide; superseded by middle-gaze baseline plus
   the piecewise regimes, with the bottom gaze kept as a measured probe
-  instead of the anchor.) While the
-  window is open the per-window evaluation is muted exactly as when
-  uncalibrated, so the corner note never nags mid-calibration; trackers
-  restart clean after it closes.
+  instead of the anchor.)
+  No step counter, considered and rejected 2026-08-07: the flow's length
+  is genuinely unknown when it starts, because the bottom-gaze leg only
+  runs once theta clears the low-camera boundary, and theta is measured
+  during the look-ahead capture. A failed look-ahead skips the leg too,
+  so the total can shrink mid-flow. "Step 2 of 3" that then jumps to
+  finished is worse than no counter; the changing instruction and the
+  progress bar filling carry the forward motion instead.
 - Calibration capture (hybrid since 2026-08-03: the slouch pose runs
   only while no anchor exists - exactly once, ever; every later
   calibration is single-pose and derives its span, see the anchor bullet
   below): Begin starts a 3-2-1 countdown (which ignores detection
   loss), then collects the per-frame slouch ratio until 5 seconds of
-  sampling at the 4/s analysis rate (~20 samples). One unusable frame
+  sampling at the 4/s analysis rate (~20 samples). The countdown digit
+  is 64pt, down from 96pt (2026-08-07): those three seconds are the
+  built-in margin for someone who pressed Begin without reading, so the
+  instruction under the digit has to outweigh it, and at 96pt the digit
+  won. One unusable frame
   contributes nothing but does not pause; ~1 s of consecutive loss pauses
   the clock with "can't see you" (the lead-in frames are refunded), and
   resuming costs ~1 s of continuous detection, deliberately unsampled -

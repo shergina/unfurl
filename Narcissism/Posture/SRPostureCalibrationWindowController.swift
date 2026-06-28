@@ -33,7 +33,7 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 
 	override func loadWindow() {
 		self.window = NSWindow(
-			contentRect: CGRect(x: 0.0, y: 0.0, width: 480.0, height: 500.0),
+			contentRect: CGRect(origin: .zero, size: SRPostureCalibrationViewController.contentSize),
 			styleMask: [.titled, .closable, .unifiedTitleAndToolbar],
 			backing: .buffered,
 			defer: true
@@ -52,9 +52,23 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 
 		let viewController = SRPostureCalibrationViewController()
 		self.calibrationViewController = viewController
-		self.contentViewController = viewController
-
 		viewController.onFinished = { [weak self] in self?.close() }
+
+		// Load the capture page now but show it second: its subscriptions go
+		// live immediately, so the camera has the whole reminders page to
+		// warm up and the framing guidance is already right when it appears.
+		_ = viewController.view
+
+		// The reminders come first, on every calibration - the baseline is
+		// whatever the user holds during the capture, and a bad one fails
+		// silently. Both pages are contentSize, so the window does not
+		// resize mid-flow (it is floating and centered, so a resize would
+		// move it under a user who is trying to hold still).
+		let remindersViewController = SRPostureRemindersViewController()
+		remindersViewController.onReady = { [weak self] in
+			self?.contentViewController = self?.calibrationViewController
+		}
+		self.contentViewController = remindersViewController
 
 		// Center on the display of the camera being calibrated: the user
 		// calibrates looking through that camera, so the window belongs on
