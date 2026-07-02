@@ -173,10 +173,44 @@ Notifications page (see UI/Settings/spec.md).
   gaze angle theta (middle-of-screen to straight-ahead, from the gaze
   probe; negative = screen below the gaze line) picks a regime at the
   -10 degree boundary, and each regime carries per-metric percent
-  ladders (SRSettings.lowCamera*/highCamera*Percents; the fixed
-  slouchStrictnessIndex picks the stop - mediums 3 ears / 5 eyes below
-  the boundary, the measured flat region, and 7 / 8 above it, still
-  being tuned).
+  ladders (SRSettings.lowCamera*/highCamera*Percents - mediums 3 ears /
+  5 eyes below the boundary, the measured flat region, and 7 / 8 above
+  it, still being tuned).
+  Which of the five stops applies is the Settings page's slouch
+  strictness slider, live since 2026-08-08 (it stored a value nothing
+  read before that). It writes PostureSlouchStrictnessIndex, a fresh key
+  defaulting to the middle stop - which is what shipped hardcoded - so
+  no one inherits a position from the inert control, and
+  PostureSlouchDepthTolerance is left declared but dead. The index rides
+  the same sink as the baseline and the camera, so moving the slider
+  lands on the next window rather than the next calibration, and it is
+  clamped on read: the preference is a stored number and must not index
+  off the end of a ladder.
+  Below the boundary the index picks a hand-tuned stop straight from the
+  table. Above it the fitted line is the middle stop and a multiplier
+  ladder moves it: highCameraAtScreenLadder [1.8, 1.5, 1.0, 0.85, 0.7]
+  for both at-screen lines, and highCameraLookingDownLadder
+  [1.25, 1.1, 1.0, 0.9, 0.8] for the down-gaze one. The at-screen ladder
+  spreads wider at the relaxed end and less far at the strict end than
+  the low tables imply about themselves ([1.6, 1.2, 1.0, 0.8, 0.6]
+  ears), so a slider position is not quite the same relative strictness
+  across the boundary - relaxed is looser above it, strict is milder.
+  The down ladder is tighter on purpose: sharing
+  the at-screen one multiplies an already-large tolerance, and on a
+  shallow camera the relaxed stop reached 38 percent, which never fires.
+  It is sized so a notch moves the down tolerance by roughly the points
+  it moves the at-screen one (solving that across the sampled thetas
+  gives 1.20-1.33 relaxed, 0.74-0.84 strict). Both ladders keep 1.0 in
+  the middle - that is the value the decisions were made at. The down
+  stop stays looser than the at-screen stop at every stop and theta,
+  which the ordering depends on - but after the at-screen ladder widened
+  to 1.8 the margin at the relaxed stop on a near-boundary camera is
+  only about 0.35 points, so the down correction is close to a no-op in
+  that one corner. Widening at-screen further, or tightening the down
+  ladder, inverts it. Recorded cost: at the shallow end the
+  down stops land about a point apart, which is the decide-by-feel noise
+  floor, so adjacent notches may be indistinguishable there even though
+  the full sweep is not (PITCH_TUNING.md).
   Above the boundary, and only when the entry carries a measured theta,
   the medium stop now comes from a line in theta instead of the table
   (added 2026-08-07, provisional): percent = slope * theta + intercept,

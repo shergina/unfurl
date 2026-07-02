@@ -89,9 +89,14 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// ride a baselines write, so this sink stays current. Worst case a
 		// frame races the initial push, sees nil, and one window goes
 		// unevaluated.
+		// The strictness index rides the same sink so moving the slider
+		// takes effect on the next window rather than the next calibration.
 		SRSettings.sharedInstance.postureBaselines.publisher
-			.combineLatest(self.cameraService.onSelectedDeviceID)
-			.sink { [unowned self] baselines, deviceID in
+			.combineLatest(
+				self.cameraService.onSelectedDeviceID,
+				SRSettings.sharedInstance.postureSlouchStrictnessIndex.publisher
+			)
+			.sink { [unowned self] baselines, deviceID, strictnessIndex in
 				let entry = baselines[deviceID]
 				let baseline: CGFloat? = (entry?.slouchRatio ?? 0) > 0 ? entry?.slouchRatio : nil
 				let earBaseline: CGFloat? = (entry?.earSlouchRatio ?? 0) > 0 ? entry?.earSlouchRatio : nil
@@ -103,7 +108,13 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				// threshold while the collection runs.
 				let theta = entry?.gazePitchDelta
 				let lowCamera = theta.map { $0 <= SRSettings.lowCameraThetaBoundary } ?? false
-				let index = SRSettings.slouchStrictnessIndex
+				// The slider's stop. Clamped rather than trusted: the
+				// preference is a stored number, and a stale or hand-edited
+				// one must not index off the end of a ladder.
+				let index = min(
+					max(Int(strictnessIndex.rounded()), 0),
+					SRSettings.highCameraAtScreenLadder.count - 1
+				)
 
 				// Above the boundary, with a theta to evaluate them at, the
 				// fitted lines replace the table's medium stop and a second
@@ -125,10 +136,15 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 					.map { $0 + SRSettings.lookingDownPitchBelowScreenDegrees }
 
 				if !lowCamera, let theta {
+					// The fitted line is the middle stop; the ladder moves it.
+					// Looking down gets its own, tighter ladder - see the
+					// comment on highCameraLookingDownLadder.
 					let range = SRSettings.highCameraFitThetaRange
-					earPercent = SRSettings.highCameraEarAtScreen.percent(theta: theta, clampedTo: range)
-					eyePercent = SRSettings.highCameraEyeAtScreen.percent(theta: theta, clampedTo: range)
-					earLookingDownPercent = SRSettings.highCameraEarLookingDown.percent(theta: theta, clampedTo: range)
+					let atScreen = SRSettings.highCameraAtScreenLadder[index]
+					let lookingDown = SRSettings.highCameraLookingDownLadder[index]
+					earPercent = SRSettings.highCameraEarAtScreen.percent(theta: theta, clampedTo: range) * atScreen
+					eyePercent = SRSettings.highCameraEyeAtScreen.percent(theta: theta, clampedTo: range) * atScreen
+					earLookingDownPercent = SRSettings.highCameraEarLookingDown.percent(theta: theta, clampedTo: range) * lookingDown
 					source = "high camera, fitted"
 				} else {
 					earPercent = (lowCamera ? SRSettings.lowCameraEarPercents : SRSettings.highCameraEarPercents)[index]
@@ -140,7 +156,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				if entry != nil {
 					let downText = earLookingDownPercent.map { String(format: "%.1f", $0) } ?? "n/a"
 					let pitchText = lookingDownPitch.map { String(format: "%.1f", $0) } ?? "n/a (recalibrate)"
-					Self.logger.log("Strictness: ears \(String(format: "%.1f", earPercent), privacy: .public)% (looking down \(downText, privacy: .public)% past pitch \(pitchText, privacy: .public) deg), eyes \(String(format: "%.1f", eyePercent), privacy: .public)% (\(source, privacy: .public), theta \(theta.map { String(format: "%.1f", $0) } ?? "n/a", privacy: .public))")
+					Self.logger.log("Strictness: ears \(String(format: "%.1f", earPercent), privacy: .public)% (looking down \(downText, privacy: .public)% past pitch \(pitchText, privacy: .public) deg), eyes \(String(format: "%.1f", eyePercent), privacy: .public)% (\(source, privacy: .public), theta \(theta.map { String(format: "%.1f", $0) } ?? "n/a", privacy: .public), stop \(index, privacy: .public) of \(SRSettings.highCameraAtScreenLadder.count - 1, privacy: .public))")
 				}
 				self.analysisQueue.async {
 					self.baselineSlouchRatio = baseline

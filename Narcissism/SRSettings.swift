@@ -211,6 +211,12 @@ final class SRSettings {
 	// between the shoulders as a fraction of their separation, i.e. the
 	// tilt's slope (0.12 relaxed ... 0.04 strict).
 	let postureSlouchDepthTolerance: Preference<CGFloat>
+	// Which stop of the five-step strictness ladder the slouch slider sits
+	// on, 0 = most relaxed. Replaced PostureSlouchDepthTolerance as the
+	// slider's backing store when the ladder became per-regime; a fresh key
+	// so nobody inherits a position from the old inert control, and the
+	// default is the middle stop, which is what shipped hardcoded before.
+	let postureSlouchStrictnessIndex: Preference<CGFloat>
 	let postureShoulderTolerance: Preference<CGFloat>
 	// Legacy slouch tolerance (fraction below baseline), read once to seed
 	// the depth tolerance; never written again.
@@ -250,7 +256,39 @@ final class SRSettings {
 	// state: the slider picks this index into the active camera's
 	// regime.
 	nonisolated static let lowCameraThetaBoundary: CGFloat = -10
-	nonisolated static let slouchStrictnessIndex = 2
+
+	// The strictness ladder, five stops, relaxed first - the slider picks
+	// the index (PostureSlouchStrictnessIndex, default 2 = the middle).
+	// Below the boundary the index selects a hand-tuned stop from the
+	// tables; above it the fitted line gives the middle stop and these
+	// multiply it.
+	//
+	// The at-screen ladder spreads wider at the relaxed end and less far
+	// at the strict end than the low tables imply about themselves
+	// ([1.6, 1.2, 1.0, 0.8, 0.6] for ears), so a slider position is not
+	// quite the same relative strictness on either side of the boundary -
+	// relaxed is looser above it, strict is milder.
+	//
+	// The looking-down ladder is deliberately tighter. Sharing the
+	// at-screen one multiplies an already-large tolerance: on a shallow
+	// camera the relaxed stop reached 38 percent, which is "never fires".
+	// These are sized so one notch moves the down tolerance by roughly
+	// the same number of points it moves the at-screen one - solving for
+	// that across the sampled thetas gives 1.20 to 1.33 at the relaxed
+	// end and 0.74 to 0.84 at the strict end, hence 1.25 and 0.8. The
+	// middle stop stays 1.0 on both: that is the fitted value the
+	// decisions were made at (PITCH_TUNING.md).
+	//
+	// The two ladders must keep the down stop looser than the at-screen
+	// stop everywhere, or looking away would be judged harder than
+	// looking at the screen. The pairing below holds, but only just: at
+	// the relaxed stop on a near-boundary camera the margin narrows to
+	// about 0.35 points, so the down correction is close to a no-op in
+	// that corner. Widening the at-screen ladder further, or tightening
+	// the down one, is what would break it.
+	nonisolated static let highCameraAtScreenLadder: [CGFloat] = [1.8, 1.5, 1.0, 0.85, 0.7]
+	nonisolated static let highCameraLookingDownLadder: [CGFloat] = [1.25, 1.1, 1.0, 0.9, 0.8]
+	nonisolated static let defaultSlouchStrictnessIndex: CGFloat = 2
 	nonisolated static let lowCameraEarPercents: [CGFloat] = [4, 3, 2.5, 2, 1.5]
 	nonisolated static let lowCameraEyePercents: [CGFloat] = [8, 6.5, 5, 4, 3]
 	nonisolated static let highCameraEarPercents: [CGFloat] = [11, 9, 7, 5.5, 4.5]
@@ -357,6 +395,7 @@ final class SRSettings {
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
 		self.postureSlouchDepthTolerance = Preference("PostureSlouchDepthTolerance", default: 0.30, defaults: defaults)
+		self.postureSlouchStrictnessIndex = Preference("PostureSlouchStrictnessIndex", default: SRSettings.defaultSlouchStrictnessIndex, defaults: defaults)
 		self.postureSlouchTolerance = Preference("PostureSlouchTolerance", default: 0.06, defaults: defaults)
 		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.10, defaults: defaults)
 
