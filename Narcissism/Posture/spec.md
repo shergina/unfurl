@@ -586,7 +586,8 @@ Notifications page (see UI/Settings/spec.md).
   the previous run-on sentences differed in shape per step and buried
   the part that changed mid-clause, which is what let people press
   Begin without registering where to look. The instruction is one short
-  line per pose - middle of your screen, straight ahead, slouch the way
+  line per pose - turn your head to look at the middle of your screen,
+  turn your head to look straight ahead, slouch the way
   you normally do - and is held unchanged from
   the gate through the countdown and the capture, so it never swaps out
   from under someone who read it, and the pose is still named on screen
@@ -626,7 +627,14 @@ Notifications page (see UI/Settings/spec.md).
   where the envelope is wide; superseded by middle-gaze baseline plus
   the piecewise regimes, with the bottom gaze kept for a while as a
   measured probe instead of the anchor - and dropped entirely
-  2026-08-07, see the capture bullet.)
+  2026-08-07, see the capture bullet.
+  Both gaze lines became "turn your head to look at ..." 2026-08-09:
+  what the probe measures is head pitch from the face observation, so
+  someone who obeys a bare "look at" with their eyes alone holds their
+  head still and hands back a theta near zero, silently miscalibrating
+  the strictness regime. The target is left abstract - "straight ahead",
+  not "past your screen" - because it has to read the same whether the
+  camera sits above or below eye level.)
   No step counter, considered and rejected 2026-08-07 when the flow was
   still variable-length (the bottom-gaze leg ran only above the
   boundary, so the total was unknown at the start and could shrink

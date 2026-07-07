@@ -178,9 +178,11 @@
 "posture.calibration.guidance.face-not-visible" = "Can't see your face clearly - face the camera.";
 "posture.calibration.guidance.too-far" = "Move a little closer to the camera.";
 // The instruction slot: one line per pose, held unchanged from the gate
-// through the countdown and the capture.
-"posture.calibration.instruction.middle" = "Look at the middle of your screen";
-"posture.calibration.instruction.ahead" = "Look straight ahead";
+// through the countdown and the capture. The gaze lines say "turn your
+// head" because the probe measures head pitch - eyes-only compliance
+// gives a theta of zero.
+"posture.calibration.instruction.middle" = "Turn your head to look at the middle of your screen";
+"posture.calibration.instruction.ahead" = "Turn your head to look straight ahead";
 "posture.calibration.instruction.slouch" = "Slouch the way you normally do";
 // The hold slot: the part that does not change between poses.
 "posture.calibration.hold" = "Best posture, hands on your keyboard";
