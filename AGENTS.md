@@ -43,7 +43,7 @@ These distill `.spec/constitution.md`; the constitution wins if they ever confli
 
 - Build: `xcodebuild -workspace Narcissism.xcworkspace -scheme Narcissism -configuration Debug -destination 'platform=macOS' build`
 - The app is an `LSUIElement` agent: no Dock icon or main window by default; its UI is the menu-bar item, the floating panel, and (when enabled) the Dock tile.
-- Development builds are ad-hoc signed, so each rebuild re-prompts for camera access. That is a signing artifact, not a bug.
+- Development builds sign with a real Apple Development cert, so macOS keeps the camera grant across rebuilds. The team id lives in `Build Configurations/Configurations/Debug.xcconfig`; change it if you sign in with a different Apple ID. Ad-hoc signing (`CODE_SIGN_IDENTITY = -`) also builds, but re-prompts for camera access every time.
 - Verify camera-facing changes by actually running the app and observing the surface, including the permission-denied path.
 
 ## Spec formatting rules (when editing specs)
