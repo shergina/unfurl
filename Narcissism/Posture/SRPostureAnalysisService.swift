@@ -78,17 +78,12 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	override init() {
 		super.init()
 
-		// Mirror the active camera's baseline and effective slouch span onto
-		// the analysis queue, where they are consumed. Keyed by the device
-		// actually in use, so switching cameras swaps both (an uncalibrated
-		// camera reads nil, which suppresses the slouch alert exactly as
-		// before calibration; an entry without measured or derived span
-		// reads nil and is judged against the nominal one). The effective
-		// span resolves measured-over-derived on the main actor (see
-		// SRSettings.postureEffectiveSlouchSpan); anchor changes always
-		// ride a baselines write, so this sink stays current. Worst case a
-		// frame races the initial push, sees nil, and one window goes
-		// unevaluated.
+		// Mirror the active camera's baseline and breach percents onto the
+		// analysis queue, where they are consumed. Keyed by the device
+		// actually in use, so switching cameras swaps them (an
+		// uncalibrated camera reads nil, which suppresses the slouch alert
+		// exactly as before calibration). Worst case a frame races the
+		// initial push, sees nil, and one window goes unevaluated.
 		// The strictness index rides the same sink so moving the slider
 		// takes effect on the next window rather than the next calibration.
 		SRSettings.sharedInstance.postureBaselines.publisher
@@ -100,14 +95,22 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				let entry = baselines[deviceID]
 				let baseline: CGFloat? = (entry?.slouchRatio ?? 0) > 0 ? entry?.slouchRatio : nil
 				let earBaseline: CGFloat? = (entry?.earSlouchRatio ?? 0) > 0 ? entry?.earSlouchRatio : nil
-				// Piecewise strictness (PITCH_TUNING.md): the entry's gaze
-				// angle picks the regime, the fixed index picks the stop
-				// from each metric's percent table. Missing theta = the
-				// looser high-camera regime until recalibrated. Spans stay
-				// stored but unresolved - the percent tables are the whole
-				// threshold while the collection runs.
+				// Piecewise strictness (PITCH_TUNING.md): the regime is
+				// which side of the user's level gaze the camera sits, the
+				// fixed index picks the stop. Theta cannot classify the
+				// camera - both probe legs are camera-relative, so the
+				// camera cancels out of their difference and theta only
+				// measures the screen centre's depth below level. The ahead
+				// pitch (upright + theta) keeps the camera term: positive =
+				// camera above the gaze line. Entries predating
+				// uprightFacePitch fall back to the old theta proxy;
+				// missing theta = the looser high-camera regime until
+				// recalibrated.
 				let theta = entry?.gazePitchDelta
-				let lowCamera = theta.map { $0 <= SRSettings.lowCameraThetaBoundary } ?? false
+				let aheadPitch = entry?.uprightFacePitch.flatMap { upright in theta.map { upright + $0 } }
+				let lowCamera = aheadPitch.map { $0 <= SRSettings.lowCameraAheadPitchBoundary }
+					?? theta.map { $0 <= SRSettings.lowCameraThetaBoundary }
+					?? false
 				// The slider's stop. Clamped rather than trusted: the
 				// preference is a stored number, and a stale or hand-edited
 				// one must not index off the end of a ladder.
@@ -135,6 +138,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				let lookingDownPitch = entry?.uprightFacePitch
 					.map { $0 + SRSettings.lookingDownPitchBelowScreenDegrees }
 
+				// Named in the log so replayed sessions can tell which rule
+				// classified the camera.
+				let regimeLabel = aheadPitch.map { String(format: "ahead %+.1f deg", $0) }
+					?? (theta != nil ? "legacy theta" : "no theta")
 				if !lowCamera, let theta {
 					// The fitted line is the middle stop; the ladder moves it.
 					// Looking down gets its own, tighter ladder - see the
@@ -145,12 +152,12 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 					earPercent = SRSettings.highCameraEarAtScreen.percent(theta: theta, clampedTo: range) * atScreen
 					eyePercent = SRSettings.highCameraEyeAtScreen.percent(theta: theta, clampedTo: range) * atScreen
 					earLookingDownPercent = SRSettings.highCameraEarLookingDown.percent(theta: theta, clampedTo: range) * lookingDown
-					source = "high camera, fitted"
+					source = "high camera, fitted (\(regimeLabel))"
 				} else {
 					earPercent = (lowCamera ? SRSettings.lowCameraEarPercents : SRSettings.highCameraEarPercents)[index]
 					eyePercent = (lowCamera ? SRSettings.lowCameraEyePercents : SRSettings.highCameraEyePercents)[index]
 					earLookingDownPercent = nil
-					source = lowCamera ? "low camera, table" : "high camera, table (no theta)"
+					source = lowCamera ? "low camera, table (\(regimeLabel))" : "high camera, table (\(regimeLabel))"
 				}
 
 				if entry != nil {
@@ -550,7 +557,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			shoulderWidthFraction: best?.fractionOfWidth,
 			slouchRatio: best?.slouchRatio,
 			earSlouchRatio: best?.earSlouchRatio,
-			eyeShoulderWidthRatio: best?.eyeShoulderWidthRatio,
 			facePitch: self.lastFacePitch,
 			joints: best?.joints
 		)
@@ -1083,7 +1089,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		var eyeHeightPixels: CGFloat?
 		var slouchRatio: CGFloat?
 		var personHeightFraction: CGFloat?
-		var eyeShoulderWidthRatio: CGFloat?
 		var eyeEarWidthRatio: CGFloat?
 		var leftEyePoint: CGPoint?
 		var rightEyePoint: CGPoint?
@@ -1106,14 +1111,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			eyeHeightFraction = fraction
 			eyeHeightPixels = fraction * height * frameRect.height
 
-			// The eye separation over the shoulder separation, both
-			// aspect-correct in pixels. Both segments are horizontal in the
-			// world, so this ratio encodes only anatomy times perspective -
-			// which of the two segments sits closer to the camera - making
-			// it the per-camera geometry probe the derived slouch span is
-			// scaled by (see Posture/spec.md).
+			// Aspect-correct eye separation in pixels, the head-scale term
+			// the ratio below is built from.
 			let eyeDistanceInPixels = hypot((leftEye.x - rightEye.x) * width, (leftEye.y - rightEye.y) * height)
-			eyeShoulderWidthRatio = eyeDistanceInPixels / distanceInPixels
 
 			// Candidate head-pose signal, telemetry only for now
 			// (PITCH_TUNING.md). Both terms are head-scale, so camera
@@ -1172,7 +1172,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			slouchRatio: slouchRatio,
 			earSlouchRatio: earSlouchRatio,
 			personHeightFraction: personHeightFraction,
-			eyeShoulderWidthRatio: eyeShoulderWidthRatio,
 			eyeEarWidthRatio: eyeEarWidthRatio,
 			shoulderTiltDegrees: tiltDegrees,
 			joints: SRPostureJoints(
@@ -1222,10 +1221,6 @@ fileprivate struct ShoulderMeasurement {
 	/// top (half the eye-to-shoulder drop above the eyes). Nil whenever
 	/// the eye heights are.
 	let personHeightFraction: CGFloat?
-
-	/// Eye separation over shoulder separation (the per-camera geometry
-	/// probe; see analyzeShoulders). Nil whenever the eye heights are.
-	let eyeShoulderWidthRatio: CGFloat?
 
 	/// Eye separation over the eye-to-ear distance on the same side, both
 	/// head-scale, so camera distance cancels. Telemetry only for now: a
@@ -1371,14 +1366,12 @@ struct SRPostureWindowSample: Sendable {
 
 /// One analyzed frame's readings, padded pipeline preferred: shoulder
 /// width as a fraction of the frame, the slouch ratio (nil without eyes),
-/// its ear-anchored variant (nil without an ear), the eye:shoulder width
-/// ratio (the geometry probe, nil without eyes), and the joints. All nil
+/// its ear-anchored variant (nil without an ear), and the joints. All nil
 /// when nothing measured.
 struct SRPostureFrameSample: Sendable {
 	let shoulderWidthFraction: CGFloat?
 	let slouchRatio: CGFloat?
 	let earSlouchRatio: CGFloat?
-	let eyeShoulderWidthRatio: CGFloat?
 	/// Head pitch from the face detector, radians, camera-relative; nil
 	/// while no face is tracked. Consumed by the calibration gaze capture.
 	let facePitch: CGFloat?

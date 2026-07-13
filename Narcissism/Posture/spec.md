@@ -169,19 +169,37 @@ Notifications page (see UI/Settings/spec.md).
   mirrored onto the analysis queue (the map combined with the camera
   service's onSelectedDeviceID, so a camera switch swaps the baseline),
   written by the calibration window (see Calibration below). Piecewise
-  strictness (2026-08-06, the pitch-tuning outcome so far): the entry's
-  gaze angle theta (middle-of-screen to straight-ahead, from the gaze
-  probe; negative = screen below the gaze line) picks a regime at the
-  -10 degree boundary, and each regime carries per-metric percent
-  ladders (SRSettings.lowCamera*/highCamera*Percents - mediums 3 ears /
-  5 eyes below the boundary, the measured flat region, and 7 / 8 above
-  it, still being tuned).
+  strictness (2026-08-06, the pitch-tuning outcome so far): the regime
+  is which side of the user's level gaze the camera sits, measured by
+  the ahead pitch - uprightFacePitch + gazePitchDelta, the face pitch
+  while gazing level; positive = camera above the gaze line - at a
+  boundary of 0 (SRSettings.lowCameraAheadPitchBoundary, since
+  2026-08-10). Each regime carries per-metric percent ladders
+  (SRSettings.lowCamera*/highCamera*Percents - mediums 3 ears / 5 eyes
+  below the boundary, the measured flat region, and 7 / 8 above it,
+  still being tuned).
+  Theta itself cannot classify the camera, although it did until
+  2026-08-10: both probe legs read face pitch relative to the same
+  camera, so the camera cancels out of their difference and theta only
+  measures the screen centre's depth below the level gaze - a loose
+  proxy for camera height (laptops deep, monitors shallow) that broke
+  the day an honestly aimed ahead probe measured theta -14.5 on a
+  monitor whose camera sits above the head: below the old -10 theta
+  boundary, so a plainly high camera classified low and lost the
+  down-gaze allowance. The ahead pitch keeps the camera term and sits
+  +6.7..+19.1 across every calibration of that monitor on record,
+  nowhere near the 0 boundary, so classification no longer swings with
+  how "straight ahead" was aimed that day. An entry predating
+  uprightFacePitch falls back to the old theta rule at -10
+  (lowCameraThetaBoundary), which keeps a pre-field laptop entry
+  correctly low without recalibrating; the "Strictness:" line names
+  which rule classified (ahead pitch, legacy theta, or no theta).
   Which of the five stops applies is the Settings page's slouch
   strictness slider, live since 2026-08-08 (it stored a value nothing
   read before that). It writes PostureSlouchStrictnessIndex, a fresh key
   defaulting to the middle stop - which is what shipped hardcoded - so
-  no one inherits a position from the inert control, and
-  PostureSlouchDepthTolerance is left declared but dead. The index rides
+  no one inherits a position from the inert control it replaced
+  (PostureSlouchDepthTolerance, deleted 2026-08-10). The index rides
   the same sink as the baseline and the camera, so moving the slider
   lands on the next window rather than the next calibration, and it is
   clamped on read: the preference is a stored number and must not index
@@ -190,7 +208,7 @@ Notifications page (see UI/Settings/spec.md).
   table. Above it the fitted line is the middle stop and a multiplier
   ladder moves it: highCameraAtScreenLadder [1.8, 1.5, 1.0, 0.85, 0.7]
   for both at-screen lines, and highCameraLookingDownLadder
-  [1.25, 1.1, 1.0, 0.9, 0.8] for the down-gaze one. The at-screen ladder
+  [1.25, 1.1, 1.0, 0.95, 0.9] for the down-gaze one. The at-screen ladder
   spreads wider at the relaxed end and less far at the strict end than
   the low tables imply about themselves ([1.6, 1.2, 1.0, 0.8, 0.6]
   ears), so a slider position is not quite the same relative strictness
@@ -198,19 +216,20 @@ Notifications page (see UI/Settings/spec.md).
   The down ladder is tighter on purpose: sharing
   the at-screen one multiplies an already-large tolerance, and on a
   shallow camera the relaxed stop reached 38 percent, which never fires.
-  It is sized so a notch moves the down tolerance by roughly the points
-  it moves the at-screen one (solving that across the sampled thetas
-  gives 1.20-1.33 relaxed, 0.74-0.84 strict). Both ladders keep 1.0 in
+  Its relaxed end is sized so a notch moves the down tolerance by
+  roughly the points it moves the at-screen one (solving that across the
+  sampled thetas gives 1.20-1.33 relaxed, 0.74-0.84 strict); the shipped
+  strict end of 0.9 sits above that solve, hand-loosened 2026-08-10
+  alongside the down line. Both ladders keep 1.0 in
   the middle - that is the value the decisions were made at. The down
   stop stays looser than the at-screen stop at every stop and theta,
-  which the ordering depends on - but after the at-screen ladder widened
-  to 1.8 the margin at the relaxed stop on a near-boundary camera is
-  only about 0.35 points, so the down correction is close to a no-op in
-  that one corner. Widening at-screen further, or tightening the down
-  ladder, inverts it. Recorded cost: at the shallow end the
-  down stops land about a point apart, which is the decide-by-feel noise
-  floor, so adjacent notches may be indistinguishable there even though
-  the full sweep is not (PITCH_TUNING.md).
+  which the ordering depends on. Under the hand-set line that is no
+  longer close: the tightest corner (stop 1 at the shallow clamp edge)
+  holds with about 13.8 points to spare, against 0.35 under the fitted
+  line. Recorded cost: at the deep end the closest adjacent down stops
+  land about a point apart, which is the decide-by-feel noise floor, so
+  those notches may be indistinguishable there even though the full
+  sweep is not (PITCH_TUNING.md).
   Above the boundary, and only when the entry carries a measured theta,
   the medium stop now comes from a line in theta instead of the table
   (added 2026-08-07, provisional): percent = slope * theta + intercept,
@@ -220,11 +239,20 @@ Notifications page (see UI/Settings/spec.md).
   screen, ear looking down, eye at screen. Below the boundary, and for
   a pre-probe entry with no theta, nothing changed: the tables are
   still the whole threshold and no down-gaze stop exists, so the
-  correction cannot fire there. The two ear lines are least squares
-  over four monitor points spanning -9.9 to -0.6 (R2 0.89 and 0.99, all
+  correction cannot fire there. The at-screen ear line is least squares
+  over four monitor points spanning -9.9 to -0.6 (R2 0.89, all
   residuals under 1 point, which is the decide-by-feel noise floor); a
   fifth point at -8.9 was deleted as an outlier, flagged by
-  leave-one-out on both metrics. The eye line is not refitted and still
+  leave-one-out on both metrics. The down ear line is hand-set since
+  2026-08-10 (0.8 * theta + 27, replacing the fitted 2.115 * theta +
+  26.92): the rows' thetas were measured under the old wobbly forward
+  aim and the two gaze poses differ person to person, so the deep-theta
+  points plotted too shallow and the fitted slope over-tightened the
+  deep end. The hand line is close to flat - 19.1 percent at the -9.9
+  clamp to 26.5 at -0.6, where the fit moved 19.7 points across the same
+  span - so the down allowance barely tracks the camera angle. No
+  decided row reproduces, the errors running 1.5 points at row 4 to 13.6
+  at row 3: it is a tolerance setting now, not a fit (PITCH_TUNING.md). The eye line is not refitted and still
   rests on two points including that deleted row, making it the weakest
   of the three; it only judges when the ears are unavailable
   (PITCH_TUNING.md). The mechanism is the durable part, the numbers are
@@ -261,21 +289,20 @@ Notifications page (see UI/Settings/spec.md).
   most. Pitch survives losing the ears. What did not change: the eye
   metric still has no down-gaze line and never gets the correction, no
   eye down percents having been decided.
-  The drop is 20 degrees, which on every camera sampled so far lands
-  3.7 to 8.8 degrees past the screen's own bottom edge - clear of
-  ordinary low-screen reading, without waiting for the deepest possible
-  glance. Replayed against 103 windows of live pitch it fires in 18-46%
-  of them, between the 37-69% of the 15 degrees tried before it and the
-  0-11% of the 30 before that (PITCH_TUNING.md keeps all three; the
-  constant is the single thing to change).
+  The drop is 8 degrees (2026-08-09; it shipped at 14, which sat past
+  everything the detector reports - screen-bottom stares measured only
+  2.5 to 10.1 degrees past centre across the four sampled setups, and a
+  real glance drops the eyes more than the head - so the trigger never
+  fired in practice). 8 is reachable, at the cost of engaging while the
+  gaze is still on the screen's bottom edge on the deeper setups (two
+  of the four sampled). PITCH_TUNING.md keeps the constant's history;
+  the constant is the single thing to change.
   The "Head pose:" line carries the live pitch, the threshold, the
   resolved gaze, and the effective ear limit every window.
   The breach drop is that percent of the metric's
   baseline, floored. A camera without a theta runs the looser high
-  regime until recalibrated. The strictness slider is disconnected
-  from slouch while this is in place (the intended end state: the
-  slider picks the index into the active camera's regime); measured
-  and derived spans stay stored, dormant. A per-window
+  regime until recalibrated. The strictness slider picks the stop, as
+  described above (live since 2026-08-08). A per-window
   "Below baseline:" line reports both metrics' current drop as a
   percent of baseline (positive = below), so tuning bands read
   straight off the log. A "Head pose:" line rides alongside it (added
@@ -286,31 +313,20 @@ Notifications page (see UI/Settings/spec.md).
   a guess (PITCH_TUNING.md). Since
   2026-08-06 the judged metric is ear-preferred: a window with an ear
   reading, on a camera whose entry has an ear baseline, is judged
-  entirely in ear units (ear baseline, ear span, ear median); any other
+  entirely in ear units (ear baseline, ear median); any other
   window is judged in eye units as before, against the eye regime
   percent. (The eye fallback was disabled briefly on 2026-08-06 so one
   decided strictness meant one thing during early collection; restored
   the same day when the regimes gave each metric its own percent.) Each metric keeps its own
-  baseline, span, and rolling median - units never mix, they differ by
+  baseline and rolling median - units never mix, they differ by
   the head-pitch term - and the warning line names the judge
   ("Slouching (ears):" / "(eyes):") so the two regimes are tellable
-  apart in telemetry. The breach
-  test is slouch depth (added 2026-08-02): the drop below baseline as a
-  fraction of the camera's slouch span - measured by demonstration on
-  the anchor calibration, derived from the geometry probe everywhere
-  else (see the anchor bullet). A window deeper than the
-  depth tolerance logs a warning-level "Slouching:" line naming the ratio
-  and the depth percent; ratios above baseline mean sitting tall and
-  never alert. Rationale: the ratio's sensitivity to a given physical
-  slouch (the gain) depends on the camera's height - an elevated monitor
-  camera converts the forward-lean component of a slouch into apparent
-  vertical drop, reading 2-3x stronger than a laptop camera - so a
-  percent-of-baseline threshold tuned on one camera is wildly miscalibrated
-  on another; the span measures each camera's gain directly and makes one
-  strictness setting mean the same thing everywhere. The tolerance is the
-  PostureSlouchDepthTolerance preference (default 0.30), set by the
-  strictness slider on the Settings window's Posture page over five
-  stops - 0.6, 0.5, 0.4, 0.3, 0.2 of the span, relaxed to strict - and
+  apart in telemetry. A window whose drop exceeds its regime percent
+  logs a warning-level "Slouching:" line naming the ratio and the
+  percent below baseline; ratios above baseline mean sitting tall and
+  never alert. The strictness index is the
+  PostureSlouchStrictnessIndex preference (default 2, the middle stop),
+  set by the strictness slider on the Settings window's Posture page and
   mirrored onto the analysis queue like the baseline. The resulting
   breach drop is floored at 0.01 absolute (0.02 until 2026-08-06,
   lowered so the piecewise ladders' strict ear stops are real; the
@@ -321,26 +337,21 @@ Notifications page (see UI/Settings/spec.md).
   settling, genuinely sitting a little lower than at calibration
   (observed: a sustained 0.021 below baseline while sitting well, which
   bounds the floor from below). The floor is absolute and
-  camera-independent; it only clips ladder stops that a small span would
-  push under it. For a shallow habitual slouch the clip is still
-  substantial - a 0.047 span leaves stops at 0.028/0.024 live and
-  floors the rest at 0.02 - so the floor remains the strict end of the
-  de facto ladder there. A camera
-  without a usable span (calibrated before the two-pose flow, or the flow was
-  abandoned mid-slouch) is judged against a nominal span of 0.2 x its
-  baseline (SRSettings.nominalSlouchSpanFraction); the 0.2 is chosen so
-  the depth ladder reproduces the previous percent-of-baseline ladder
-  (12, 10, 8, 6, 4 percent) stop for stop - the fallback IS the old
-  behavior, and the old PostureSlouchTolerance preference migrates once
-  by dividing by 0.2 (exact on every stop), then is never written again.
-  Its log line keeps the old percent-below-baseline phrasing so the two
-  regimes are tellable apart. (History: a
+  camera-independent; it only clips ladder stops that a small baseline
+  would push under it. (History: a
   hardcoded 5 percent through 2026-07-31, then a 15...5 percent ladder
   at default 10; live testing that day found the whole ladder too loose,
   real slouching going unflagged, so it was tightened to 12...4 at
-  default 6; 2026-08-02 replaced percent-of-baseline with depth after
-  monitor testing showed the same slight slouch reading 25 percent below
-  baseline on an elevated camera.) While the active camera has no
+  default 6. On 2026-08-02 percent-of-baseline was replaced by slouch
+  depth - the drop as a fraction of a calibrated span, measured by
+  demonstrating a slouch and rescaled between cameras by a geometry
+  probe (the eye:shoulder width ratio, rho) - to make one strictness
+  setting mean the same thing on cameras of different heights. The
+  piecewise pitch regimes of 2026-08-06 measured that camera-height
+  effect directly instead, as theta, and took over the whole threshold;
+  the span machinery sat dormant behind them and was deleted on
+  2026-08-10 along with the slouch pose and rho that fed it.) While the
+  active camera has no
   baseline stored (no map entry) the
   slouch alert, the issue tracking, and the corner note are all
   suppressed - nil status, trackers cleared - because there is nothing
@@ -606,7 +617,7 @@ Notifications page (see UI/Settings/spec.md).
   lower panel read as unfinished. The block is centered, so the
   three-line states overflow the band by about 7pt at each end, which
   costs nothing: the only states that reach three lines (a capture
-  failure, and slouchReady) are exactly the ones with the progress bar
+  failure, and lookAheadReady) are exactly the ones with the progress bar
   hidden below them, so the growth lands in empty space and nothing
   moves. Hands on keys pin the sitting distance to real
   working posture (added 2026-08-06), observed to make the captured
@@ -642,10 +653,9 @@ Notifications page (see UI/Settings/spec.md).
   counter is buildable - it just is not worth it at two or three steps;
   the changing instruction and the
   progress bar filling carry the forward motion instead.
-- Calibration capture (hybrid since 2026-08-03: the slouch pose runs
-  only while no anchor exists - exactly once, ever; every later
-  calibration is single-pose and derives its span, see the anchor bullet
-  below): Begin starts a 3-2-1 countdown (which ignores detection
+- Calibration capture (two poses, the same two every run since
+  2026-08-10: look at the middle of the screen, then look straight
+  ahead): Begin starts a 3-2-1 countdown (which ignores detection
   loss), then collects the per-frame slouch ratio until 5 seconds of
   sampling at the 4/s analysis rate (~20 samples). The countdown digit
   is 64pt, down from 96pt (2026-08-07): those three seconds are the
@@ -659,22 +669,18 @@ Notifications page (see UI/Settings/spec.md).
   capture start aborts the pose (also the guaranteed exit if frames stop
   arriving entirely). Completion gates per capture: at least 12 usable
   samples, sample standard deviation at most 0.04, median inside
-  0.2...1.5. The upright capture runs first and also collects the
-  per-frame eye:shoulder width ratio (rho, the geometry probe: eye
-  separation over shoulder separation, aspect-correct pixels; both
-  segments are horizontal in the world, so the ratio encodes anatomy
-  times perspective - which segment sits closer to the camera). Both
+  0.2...1.5. Both
   captures additionally collect the ear-anchored ratio per frame,
   independent of the eye-based usability gate; an ear median counts
   only when it clears the same 12-sample bar, so an entry never carries
-  a flimsy ear pair - short of the bar the entry is eye-only and
+  a flimsy ear baseline - short of the bar the entry is eye-only and
   evaluation stays on the eye metric (added 2026-08-06). The
-  moment the upright capture passes its gates, its median, the rho
-  median, and the upright ear median are saved as the entry
-  (overwriting, and clearing
-  any stored slouched value: a new baseline must never pair with an old
-  slouch - recalibrating after moving the screen would mix geometries).
-  Every run then walks one gaze probe, resting for Begin at
+  moment the upright capture passes its gates, its median and the
+  upright ear median are saved as the entry
+  (overwriting, and clearing the previous calibration's gaze angles: a
+  new baseline must never pair with old ones - recalibrating after
+  moving the screen would mix geometries).
+  Every run then walks the gaze probe, resting for Begin at
   lookAheadReady: the same 3-2-1 and 5 s capture looking directly
   ahead, which yields theta. Hands on the keyboard throughout. The
   deltas against the middle-gaze upright capture - eye ratio, ear ratio
@@ -684,10 +690,11 @@ Notifications page (see UI/Settings/spec.md).
   gaze captured") and folded into the entry (eyeGaze, earGaze,
   pitchDelta), alongside the absolute middle-of-screen pitch
   (uprightFacePitch) the looking-down test needs. The ahead pitch delta
-  is theta, the regime selector and the input to the fitted lines. The
-  probe is auxiliary, so any failure (gates, timeout) logs a skip and
-  the flow moves on with nil deltas - it never rests, retries, or
-  blocks.
+  is theta, the input to the fitted lines; summed with uprightFacePitch
+  it is the ahead pitch, the regime selector (see Piecewise strictness
+  above). The probe is auxiliary, so any failure (gates, timeout) logs
+  a skip and the flow moves on with nil deltas - it never rests,
+  retries, or blocks.
   A second leg once ran here: bottom-of-screen, measuring the gaze
   envelope, gated on theta clearing the -10 boundary. Removed
   2026-08-07. It briefly fed the looking-down trigger, which was
@@ -699,112 +706,38 @@ Notifications page (see UI/Settings/spec.md).
   from PostureBaseline too, so any values already on disk are dropped
   on the next write. Recoverable by recalibration if the eye work ever
   needs a measured envelope.
-  After the probe a single-pose run goes straight to the finished
-  screen. A two-pose run rests at slouchReady, status "Upright posture
-  captured" over the slouch instruction - the pause tells the user what
-  is coming and lets them start when ready.
-  (An auto-started countdown was tried first and dropped 2026-08-04: it
-  landed before the user realized a second pose was being asked for.)
-  Begin starts a 3-2-1 (the countdown is
-  the time to settle into the pose) and the same 5 s
-  capture and gates, plus the span gate: the slouched median must sit at
-  least 0.04 below the upright one. The gate judges the eye metric
-  (always present on a usable capture); the ear span only has to come
-  out positive - a nonsense ear span drops the slouched ear median, and
-  that camera's ear span is derived or nominal like any other. The
-  gate's only job is "did you move
-  at all", not "was it a big slouch": both sides are medians of 12+
-  samples, far tighter than the per-frame stddev gate, so 0.04 clears
-  noise comfortably while accepting a low-gain camera's honest slouch.
-  (History: 0.08 on day one rejected real slouches on the laptop camera,
-  whose whole span is ~0.05-0.10 precisely because its gain is low - a
-  fixed absolute floor sized for monitor-camera gains repeated the
-  per-camera mistake the span exists to fix; lowered the same day. The
-  instruction went through three wordings in a day: "the way you
-  actually sit when tired - don't exaggerate" yielded a span of 0.041,
-  so small the whole depth ladder fell inside measurement noise; "sink
-  into your deepest slouch" was tried to anchor a larger span, then
-  dropped because "deep" and "exaggerated" are subjective - people's
-  imagined extremes vary far more than their habits. "The way you
-  normally do" anchors to actual habit, the least ambiguous reference;
-  the evaluation's absolute noise floor, not the instruction, is what
-  defends against a small span now, at the recorded cost that on
-  low-gain cameras the stricter ladder stops may flatten onto that
-  floor.)
-  Captured medians, the resulting span, and rejections are logged as
+  A third pose once ran after the probe: a demonstrated slouch, whose
+  travel from upright was the calibrated span. Removed 2026-08-10 with
+  the rest of the span machinery (see the evaluation bullet) - it cost
+  a gate, a Begin press and a 5 s capture to measure a number the
+  piecewise regimes had made dormant, and asking someone to slouch on
+  purpose is the least pleasant thing calibration ever did.
+  Captured medians and rejections are logged as
   tuning telemetry. A failed
-  upright capture returns to positioning with an explanation; a failed
-  slouch capture rests at slouchReady - instruction plus failure line,
-  Begin re-arms it, deliberately not auto-retrying so an absent user
-  never loops, and the good upright capture is never discarded. Closing
-  mid-slouch keeps the single-point baseline (the pre-span behavior).
-  The full result - upright ratio, slouched ratio when the pose ran, rho,
-  the moment - is
+  upright capture returns to positioning with an explanation; the gaze
+  probe's failures skip forward instead, so an absent user never loops
+  and the good upright capture is never discarded. Closing
+  mid-probe keeps the baseline, just without the angles.
+  The result - upright ratio, ear ratio, the gaze angles, the moment -
+  is
   written into the PostureBaselines map under the active camera's
-  AVCaptureDevice.uniqueID, leaving every other camera's entry untouched;
-  the first-ever two-pose completion also writes the anchor (below),
-  anchor before entry so observers of the map always see a current
-  anchor. Nothing else is ever persisted - no frames, no files. The
+  AVCaptureDevice.uniqueID, leaving every other camera's entry
+  untouched. Nothing else is ever persisted - no frames, no files. The
   finished
   screen ("Calibration finished.") then offers Looks Good, which closes
   the window, and Try Again, which returns to positioning for another
   full pass whose result overwrites. Closing the window in the
   finished state is the same as Looks Good - the result is already saved.
-- The anchor and the derived span (the hybrid, added 2026-08-03): the
-  span - how far the ratio travels from upright to this user's own
-  slouch - is measured by demonstration together with that capture's
-  rho. The values persist as PostureAnchorSpan, PostureAnchorEarSpan
-  (the same travel in ear units, added 2026-08-06), and
-  PostureAnchorEyeShoulderRatio: a unit
-  definition, deliberately not tied to a camera (it outlives the device
-  it was measured on; an anchor measured on any camera works, which is
-  what makes docked-first onboarding safe - the span self-normalizes, so
-  the default strictness lands right whatever the first camera's angle).
-  A calibration runs two-pose while either anchor unit is missing - once
-  at the first-ever calibration, and once more by the first run after
-  the ear metric landed, which refreshes the whole anchor (all three
-  values from one capture) and is what migrates pre-ear installs. The
-  ear unit is written only when the run measured a real positive ear
-  span; a setup whose ears never measure keeps running two-pose, at the
-  recorded cost of the extra pose for permanent-headphones users (the
-  run is not wasted - each yields that camera a measured eye span).
-  Every other entry's spans are derived from its own rho:
-      span = anchor span x (rho / anchor rho) ^ exponent
-  with one exponent per unit - eyes +1.9, ears -0.85 - and the scale
-  clamped to 0.25...4, applied per unit from that unit's anchor span.
-  The exponents were fitted 2026-08-06 from the first cross-camera
-  measured pair (the same user's slouch demos on the laptop and monitor
-  cameras; n=2, both values provisional, to be re-fit as calibration
-  telemetry accumulates). Finding: the measured ear spans were nearly
-  camera-independent (0.070 vs 0.059 across two very different camera
-  angles) and tilt slightly opposite to rho - most of the old 2-3x
-  cross-camera "gain" was head pitch, and it left with the eye metric.
-  The eye-unit spans still track rho in the guessed direction, just far
-  more gently (+1.9, not 6). Rationale for the mapping itself is
-  unchanged: rho cancels the user's anatomy between cameras and encodes
-  the camera's perspective geometry (not derivable exactly - height and
-  distance are entangled in rho; the 27 percent rho swing observed on
-  one camera between sitting distances is the caution). (History: a
-  single shared exponent 6.0, the 2026-08-03 physics-informed guess
-  bracketing 4.5-10; live use 2026-08-06 pinned a laptop's derived ear
-  span on the lower clamp rail - maximum strictness via the noise
-  floor - which prompted the fit.) The clamp bounds
-  what a noisy rho can do, and the evaluation's absolute noise floor
-  still backstops the strict end. Evaluation precedence per entry and
-  per unit: measured span, else derived span, else the nominal fallback
-  (SRSettings.postureEffectiveSlouchSpan and its ear counterpart
-  postureEffectiveEarSlouchSpan are the one shared rule; the
-  takeover gate, the nudge, and the Settings baseline label all treat
-  "usable span" as measured-or-derived, judged on the eye unit - a
-  camera is "calibrated" the same way it always was, ears or not). Migration: existing installs
-  have no anchor, so the next calibration runs two-pose and becomes it;
-  entries from before the probe (no rho) stay on the nominal fallback
-  until recalibrated once. (History: the plan on 2026-08-02 was to
-  instrument rho alongside two-pose everywhere and fit the exponent
-  before switching; decided 2026-08-03 to ship the hybrid directly -
-  per-camera slouch demonstrations cost the user too much and their
-  performance varies between sessions - accepting a guessed exponent
-  corrected from live logs instead.)
+- Calibrated is binary (2026-08-10): a camera has a baseline or it does
+  not. The takeover gate, the nudge, and the Settings baseline label all
+  read the same map membership. There was a third "partially calibrated"
+  state from 2026-08-03 to 2026-08-10, meaning an entry with no usable
+  slouch span - neither demonstrated nor derived from the anchor by the
+  rho mapping - which ran on a nominal span and could not take over as
+  an external. It went with the span: nothing degrades that way any
+  more. An entry calibrated before the gaze probe (no theta) is still
+  fully calibrated, it just runs the looser high-camera table until
+  recalibrated.
 - Calibration cancel: closing the window while nothing is calibrated
   anywhere (empty baselines map) reverts Track Posture to off (no
   baseline, no tracking); with any baseline on file closing just closes
@@ -814,9 +747,10 @@ Notifications page (see UI/Settings/spec.md).
   Track Posture while the window is open closes it.
 - Per-camera baselines: the baseline is stored per camera because each
   camera's angle changes both what an upright posture measures (the
-  offset) and how fast the ratio moves per unit of real slouch (the gain;
-  see the slouch-depth rationale above). PostureBaselines keys
-  PostureBaseline (upright ratio, optional slouched ratio, date) by the
+  offset) and how strict the thresholds must be to mean the same thing
+  (the regime; see Piecewise strictness above). PostureBaselines keys
+  PostureBaseline (upright ratio, optional ear ratio, the gaze angles,
+  date) by the
   active AVCaptureDevice.uniqueID,
   which is stable enough for the built-in and a fixed display camera to be
   re-recognized across dock/undock. An install that predates this stored a
@@ -826,44 +760,38 @@ Notifications page (see UI/Settings/spec.md).
   cleared. Migration targets the built-in specifically so a user docked at
   the moment of upgrade does not get the built-in's baseline stamped onto
   the monitor camera.
-- Calibration gate (added 2026-08-01; tightened 2026-08-02; usable-span
-  form since 2026-08-03): the external-camera takeover (Tools/spec.md)
-  is gated on
+- Calibration gate (added 2026-08-01; tightened 2026-08-02;
+  usable-span form 2026-08-03 to 2026-08-10): the external-camera
+  takeover (Tools/spec.md) is gated on
   calibration. Automatic prefers an external camera only when the
-  preference allows it AND (tracking is off OR that camera has a usable
-  slouch span - measured, or derived from the anchor): tracking off is
+  preference allows it AND (tracking is off OR that camera has a
+  baseline): tracking off is
   pure mirror use, nothing to break; tracking on must never auto-switch
-  onto a camera that would go quiet (no baseline) or run knowingly
-  miscalibrated (an entry with no span at all uses the nominal rule,
-  which is
-  fitted to laptop-height geometry and demonstrably too strict on exactly
-  the elevated monitor cameras takeover is about - while the laptop
-  itself stays trustworthy on it, because that is the tested
-  status quo). In clamshell the built-in vanishes from discovery and the
-  monitor is used regardless as the last resort: with a span-less
-  baseline it tracks on the nominal-span rule (honest, degraded, and only
-  when there is no alternative), with none it tracks quiet. The
+  onto a camera that would go quiet. In clamshell the built-in vanishes
+  from discovery and the
+  monitor is used regardless as the last resort: with a baseline it
+  tracks, with none it tracks quiet. The
   composition root pushes the rule's inputs into the camera
-  service ahead of time - tracking on maps to the set of usable-span
+  service ahead of time - tracking on maps to the set of calibrated
   uniqueIDs, tracking off to no restriction - so a hot-plugged camera is
   judged against the already-current set with no race. An explicit user
   pick is never gated (intent wins; the escape hatch for whoever wants
   monitor tracking without recalibrating), and the snooze state
   deliberately does not lift the gate: snoozed tracking will resume, and
-  it must resume on a calibrated camera. Under the hybrid, one
-  single-pose recalibration (~20 s) is all a camera needs to clear the
+  it must resume on a calibrated camera. One
+  recalibration (~30 s) is all a camera needs to clear the
   gate; the nudge explains it, and tracking meanwhile continues on a
   calibrated camera.
 - New-camera nudge (SRPostureCalibrationNudgeController, added
   2026-08-01): when the gate blocks a takeover - an external camera is
-  present, the takeover preference is on, tracking is on, and that camera
-  lacks a usable span (no entry, or an entry with neither a measured nor
-  a derivable span) -
+  present, the takeover preference is on, tracking is on, and that
+  camera has no baseline -
   a system notification offers to calibrate it. The wording names what
   calibrating buys: "New camera detected ... to switch to it" when the
-  camera is not active, "to resume tracking" when it is active without a
-  baseline (the clamshell last resort), "to keep slouch detection
-  accurate" when it is active on a single-point baseline. A real
+  camera is not active, "to resume tracking" when it is active (the
+  clamshell last resort). A third wording, "to keep slouch detection
+  accurate", covered the partially-calibrated case and went with it on
+  2026-08-10. A real
   UNUserNotificationCenter notification, not the corner-note style, on
   purpose: the corner note is click-through by design and this nudge
   needs a button, and a rare, actionable, fine-to-wait-in-Notification-
@@ -992,12 +920,11 @@ Notifications page (see UI/Settings/spec.md).
   and an undock falling back onto an uncalibrated built-in (possible when
   onboarding ran docked, so only the monitor got calibrated). Whether
   those deserve the same notification treatment is open.
-- Small spans vs per-window noise: largely addressed in two steps. The
-  noise floor exists (0.03 -> 0.025 -> 0.02 across 2026-08-02/03), and
-  the rolling-median accusation removed frame jitter from the breach
-  test, which is what let the floor reach the settling amplitude - on a
-  0.047 span the slider now has distinct stops at 0.028/0.024/0.02
-  instead of one. Still open: whether the floor can sit lower (the
+- Shallow slouches vs per-window noise: largely addressed in two steps.
+  The noise floor exists (0.03 -> 0.025 -> 0.02 across 2026-08-02/03),
+  and the rolling-median accusation removed frame jitter from the breach
+  test, which is what let the floor reach the settling amplitude.
+  Still open: whether the floor can sit lower (the
   0.021 settling event bounds it - going under would flag genuinely
   good sitting), whether the median window (8) and its minimum (4) are
   right, and whether the still-floored strict stops deserve the
@@ -1010,27 +937,26 @@ Notifications page (see UI/Settings/spec.md).
   failure the median removed from the slouch axis. If the loosened
   12...4 ladder still nags, port the median (signed tilts, same
   slow-accuse/instant-forgive shape) before loosening further.
-- The derived-span exponent (6.0) is unvalidated: it has never been
-  checked against a real measured-span pair, because the hybrid shipped
-  before any camera had both. First check: after the anchor calibration,
-  single-pose a second camera and compare how alerts feel (and what
-  derived span the calibration log prints) against expectation; the
-  exponent and the 0.25...4 clamp are one-line tunings. A future
-  recalibration of the anchor camera also yields a fresh
-  (span, rho) pair to sanity-check the formula against.
+- The strict end of the ladder is bounded by the absolute noise floor
+  rather than by anything per-camera, now that the span is gone. On a
+  camera whose honest slouch is shallow, several strict stops can
+  flatten onto that floor and stop being distinct. Whether that matters
+  in practice is unmeasured: decide from lived-with behavior before
+  reaching for a per-camera correction again.
 - Face pitch as a staleness detector (idea recorded 2026-08-02, not
   built). The face detector already running for the adaptive canvas can
   report roll/yaw/pitch; pitch approximates the camera's elevation
   relative to the user's head. Too coarse and too confounded to correct
   the slouch gain analytically (the gain is cos(pitch) + k*sin(pitch)
   where k, the personal forward-lean-to-drop ratio, dominates and is
-  unobservable - which is why the two-pose calibration measures the gain
-  instead), but plenty accurate for change detection: record the smoothed
+  unobservable - which is why the strictness is fitted per regime from
+  measured theta instead), but plenty accurate for change detection:
+  record the smoothed
   face pitch at calibration time in the per-camera entry, and when the
   runtime pitch in good windows drifts far from it (screen re-tilted,
   monitor raised, chair changed), that camera's baseline is stale - the
-  missing trigger for the staleness heuristic above. Secondary use:
-  sanity-check the demonstrated slouch span during calibration (near-zero
-  pitch with an enormous span smells like a hammed slouch). Cheap first
+  missing trigger for the staleness heuristic above. Cheap first
   step when picked up: store the calibration-time pitch from day one and
-  tune the drift threshold on logged data.
+  tune the drift threshold on logged data. (Partly overtaken: the gaze
+  probe already stores uprightFacePitch per entry, so the recording half
+  of this exists; what is missing is the drift comparison at runtime.)

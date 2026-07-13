@@ -72,7 +72,6 @@
 "settings.general.launch-at-login" = "Open at Login";
 "settings.posture.baseline.label" = "Baseline:";
 "settings.posture.baseline.calibrated" = "Calibrated %@";
-"settings.posture.baseline.partial" = "Partially calibrated %@";
 "settings.posture.baseline.none" = "Not calibrated";
 "settings.posture.calibrate" = "Calibrate Posture…";
 "settings.posture.strictness.header" = "Tracking strictness";
@@ -183,22 +182,18 @@
 // gives a theta of zero.
 "posture.calibration.instruction.middle" = "Turn your head to look at the middle of your screen";
 "posture.calibration.instruction.ahead" = "Turn your head to look straight ahead";
-"posture.calibration.instruction.slouch" = "Slouch the way you normally do";
 // The hold slot: the part that does not change between poses.
 "posture.calibration.hold" = "Best posture, hands on your keyboard";
-"posture.calibration.hold.slouch" = "Hands on your keyboard";
 "posture.calibration.measuring" = "Hold still - measuring.";
 "posture.calibration.paused" = "Can't see you - measurement paused.";
 "posture.calibration.upright-captured" = "Upright posture captured.";
 "posture.calibration.finished" = "Calibration finished.";
 "posture.calibration.failed.timeout" = "Couldn't get a steady reading. Adjust your position and try again.";
 "posture.calibration.failed.unstable" = "The readings varied too much. Sit still and try again.";
-"posture.calibration.failed.not-slouched" = "That didn't read as a slouch.";
 
 // New-camera calibration nudge (system notification)
 "posture.nudge.title" = "New camera detected";
 "posture.nudge.title.active" = "Posture calibration needed";
 "posture.nudge.body" = "Calibrate posture for \"%@\" to switch to it.";
 "posture.nudge.body.resume" = "Calibrate posture for \"%@\" to resume tracking.";
-"posture.nudge.body.improve" = "Recalibrate posture for \"%@\" to keep slouch detection accurate.";
 "posture.nudge.action" = "Calibrate…";

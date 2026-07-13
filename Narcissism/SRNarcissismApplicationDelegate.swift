@@ -43,26 +43,17 @@ class SRNarcissismApplicationDelegate: NSObject, NSApplicationDelegate {
 			.store(in: &self.cancellables)
 
 		// The calibration gate on that takeover: while posture tracking is
-		// on, Automatic may only auto-prefer externals with a usable slouch
-		// span - measured (the anchor's own two-pose) or derived from the
-		// anchor via the camera's geometry probe. No baseline would
-		// silently mute tracking; a baseline without any span runs on the
-		// nominal rule, which is known to be badly miscalibrated exactly on
-		// elevated monitor cameras - the cameras takeover is about - so
-		// neither may take over on its own (in clamshell the monitor is the
-		// only camera and gets used regardless). Tracking off lifts the
-		// restriction (pure mirror use, nothing to break). The rule's
-		// inputs are pushed ahead of time, so a camera hot-plugged later is
-		// judged against the already-current set. Anchor changes always
-		// ride a baselines write (the anchor is stored first), so the map
-		// publisher alone keeps this sink current.
+		// on, Automatic may only auto-prefer externals that have been
+		// calibrated, since an uncalibrated one would silently mute
+		// tracking (in clamshell the monitor is the only camera and gets
+		// used regardless). Tracking off lifts the restriction (pure
+		// mirror use, nothing to break). The rule's inputs are pushed
+		// ahead of time, so a camera hot-plugged later is judged against
+		// the already-current set.
 		self.services.settings.postureTracking.publisher
 			.combineLatest(self.services.settings.postureBaselines.publisher)
 			.sink { [services] tracking, baselines in
-				let calibrated = Set(baselines.filter {
-					services.settings.postureEffectiveSlouchSpan(for: $0.value) != nil
-				}.keys)
-				services.camera.setAutoSwitchableExternalIDs(tracking ? calibrated : nil)
+				services.camera.setAutoSwitchableExternalIDs(tracking ? Set(baselines.keys) : nil)
 			}
 			.store(in: &self.cancellables)
 
