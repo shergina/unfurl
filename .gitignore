@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode: local build output and per-user window state
+build/
+DerivedData/
+*.xcuserstate
+**/xcuserdata/
+
+# Signing material. A private key must never reach the repo.
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
