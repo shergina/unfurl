@@ -46,6 +46,7 @@
 		598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59EF39F31B01EF31008FA796 /* Images.xcassets */; };
 		598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5941BB181B07956200B49D52 /* Localizable.strings */; };
 		598BA2402FC3530100DE37EF /* Grab.aif in Resources */ = {isa = PBXBuildFile; fileRef = 5906A9A81B13B39A0061B33D /* Grab.aif */; };
+		59FA0E1E2FC3540000DE37EF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 59FA0E1D2FC3540000DE37EF /* PrivacyInfo.xcprivacy */; };
 		59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */; };
 		59AA0001AA0001AA0001AA01 /* SRMouseWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */; };
 		59AB0001AB0001AB0001AB01 /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AB0001AB0001AB0001AB02 /* AppServices.swift */; };
@@ -108,6 +109,7 @@
 		593766D21B3F22C900E52DD2 /* SRCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRCameraView.swift; sourceTree = "<group>"; };
 		593766D41B3F2E7B00E52DD2 /* SRScrollCameraView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRScrollCameraView.swift; sourceTree = "<group>"; };
 		5941BB181B07956200B49D52 /* Localizable.strings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; path = Localizable.strings; sourceTree = "<group>"; };
+		59FA0E1D2FC3540000DE37EF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		594DB64D1B2DEA5300F4708A /* SRPanelController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelController.swift; sourceTree = "<group>"; };
 		594DB64F1B2E037F00F4708A /* SRPanelContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanelContentView.swift; sourceTree = "<group>"; };
 		5951A6B81B1A42AD00C2EFC7 /* Narcissism.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Narcissism.entitlements; sourceTree = "<group>"; };
@@ -280,6 +282,7 @@
 				5941BB181B07956200B49D52 /* Localizable.strings */,
 				59B3BD2D1BD334330031AEEA /* main.swift */,
 				5951A6B81B1A42AD00C2EFC7 /* Narcissism.entitlements */,
+				59FA0E1D2FC3540000DE37EF /* PrivacyInfo.xcprivacy */,
 				5906A9A71B13B39A0061B33D /* Resources */,
 				590E350A1B3459FC00CD063A /* SRNarcissismApplicationDelegate.swift */,
 				590A79351B2D592A00269B45 /* SRSettings.swift */,
@@ -500,6 +503,7 @@
 				598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */,
 				598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */,
 				598BA2402FC3530100DE37EF /* Grab.aif in Resources */,
+				59FA0E1E2FC3540000DE37EF /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
