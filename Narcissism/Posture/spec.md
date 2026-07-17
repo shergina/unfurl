@@ -450,7 +450,14 @@ Notifications page (see UI/Settings/spec.md).
   coached surface. Status transitions are logged ("Posture status: ...").
 - Corner posture note (experimental prototype of the ghost-toast
   notification design): a small borderless non-activating panel pinned to
-  the top-right corner of the main screen, visible only while there is
+  the top-right corner of the screen the active camera looks out of
+  (NSScreen.forCamera, changed 2026-08-11 from the main screen: for an
+  agent with no key window that resolves to the primary display, which is
+  neither where the user is nor where the camera is, while a face reading
+  proves the user is facing the camera). External camera maps to an
+  external display, builtin to the builtin; the pointer's screen breaks
+  the tie when it qualifies. The note follows a camera switch as well as a
+  display change. Visible only while there is
   something to say: one line per reported issue in stable declaration
   order ("Sit up straight", "Lower your left/right shoulder"), or
   "Posture: can't see you clearly". Good posture shows nothing - the note
@@ -960,3 +967,9 @@ Notifications page (see UI/Settings/spec.md).
   tune the drift threshold on logged data. (Partly overtaken: the gaze
   probe already stores uprightFacePitch per entry, so the recording half
   of this exists; what is missing is the drift comparison at runtime.)
+- Which display an external camera belongs to (2026-08-11): no API ties a
+  capture device to a screen, so NSScreen.forCamera can only answer
+  builtin or external. With one external display that is exact; with two
+  it picks the pointer's screen when that is external, and otherwise the
+  first external found, which may be the wrong one. Affects the corner
+  note and the calibration window. Assumed single-external for now.

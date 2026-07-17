@@ -79,7 +79,7 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		let cameraService = SRCameraService.sharedInstance
 		let targetDeviceID = self.cameraOverrideDeviceID ?? cameraService.onSelectedDeviceID.value
 		let targetIsExternal = cameraService.onDevices.value.first { $0.id == targetDeviceID }?.isExternal ?? false
-		if let screen = Self.screen(forExternalCamera: targetIsExternal) {
+		if let screen = NSScreen.forCamera(isExternal: targetIsExternal) {
 			window.center(on: screen)
 		}
 
@@ -100,18 +100,6 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 				if !tracking { self?.close() }
 			}
 			.store(in: &self.cancellables)
-	}
-
-	fileprivate static func screen(forExternalCamera isExternal: Bool) -> NSScreen? {
-		let wantsBuiltin = !isExternal
-		if let interaction = NSScreen.interaction, self.isBuiltin(interaction) == wantsBuiltin { return interaction }
-		return NSScreen.screens.first { self.isBuiltin($0) == wantsBuiltin } ?? NSScreen.interaction
-	}
-
-	fileprivate static func isBuiltin(_ screen: NSScreen) -> Bool {
-		guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
-		else { return false }
-		return CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
 	}
 
 	override func showWindow(_ sender: Any?) {

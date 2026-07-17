@@ -23,6 +23,7 @@ import Combine
 final class SRPostureNoteController {
 
 	fileprivate let postureService: SRPostureAnalysisService
+	fileprivate let cameraService: CameraProviding
 
 	fileprivate let panel: NSPanel
 	fileprivate let background: NSVisualEffectView
@@ -56,6 +57,7 @@ final class SRPostureNoteController {
 
 	init(services: AppServices) {
 		self.postureService = services.posture
+		self.cameraService = services.camera
 
 		let panel = NSPanel(
 			contentRect: NSRect(x: 0, y: 0, width: 280, height: 58),
@@ -134,8 +136,17 @@ final class SRPostureNoteController {
 			.store(in: &self.cancellables)
 
 		// Displays come and go and resolutions change; keep the note pinned
-		// to the current main screen's corner.
+		// to the right corner.
 		NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
+			.sink { [weak self] _ in self?.reposition() }
+			.store(in: &self.cancellables)
+
+		// Switching cameras moves which screen the user is facing, so the
+		// note follows. Only the builtin/external answer matters here.
+		services.camera.onSelectedDeviceID
+			.combineLatest(services.camera.onDevices)
+			.map { id, devices in devices.first { $0.id == id }?.isExternal ?? false }
+			.removeDuplicates()
 			.sink { [weak self] _ in self?.reposition() }
 			.store(in: &self.cancellables)
 	}
@@ -299,10 +310,14 @@ final class SRPostureNoteController {
 	}
 
 	/// Sizes the panel to its content (clamped to the banner minimum) and
-	/// pins it to the top-right corner of the main screen, just below the
-	/// menu bar.
+	/// pins it to the top-right corner, just below the menu bar, of the
+	/// screen the tracking camera looks out of. NSScreen.main would put it
+	/// on the primary display, which is neither where the user is nor
+	/// where the camera is.
 	fileprivate func reposition() {
-		guard let screen = NSScreen.main else { return }
+		let deviceID = self.cameraService.onSelectedDeviceID.value
+		let isExternal = self.cameraService.onDevices.value.first { $0.id == deviceID }?.isExternal ?? false
+		guard let screen = NSScreen.forCamera(isExternal: isExternal) else { return }
 
 		self.background.layoutSubtreeIfNeeded()
 		let size = self.background.fittingSize
