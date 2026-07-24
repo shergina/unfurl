@@ -374,18 +374,23 @@ Notifications page (see UI/Settings/spec.md).
   baseline - level is level. The tolerance is the
   PostureShoulderTolerance preference, stored as a slope (the height
   difference between the shoulder joints over their separation) with
-  five slider stops - 12, 10, 8, 6, 4 percent, relaxed to strict,
+  five slider stops - 18, 15, 12, 9, 6 percent, relaxed to strict,
   default
-  10 - and converted to degrees (atan) when mirrored onto the analysis
-  queue, since the evaluation compares degrees. The default 10 percent
-  is ~5.7 degrees. (History: a hardcoded 3-degree band, tuned from 5 and
+  15 - and converted to degrees (atan) when mirrored onto the analysis
+  queue, since the evaluation compares degrees. The default 15 percent
+  is ~8.5 degrees. (History: a hardcoded 3-degree band, tuned from 5 and
   2 on 2026-07-22, then a 5...1 percent ladder at default ~2.9 degrees;
   live testing on 2026-07-31 found even the relaxed end too strict, a
   barely-visible tilt nagging, so the ladder was raised to 9...2 percent,
   ~5.1 to ~1.1 degrees, at default ~4.0; on 2026-08-03 the whole 9...2
   ladder still read too strict on every camera, so it was raised again
   to 12...4 percent, ~6.8 to ~2.3 degrees, at default ~5.7, and the
-  stored value was cleared once so the new default takes effect.)
+  stored value was cleared once so the new default takes effect; on
+  2026-08-11 the relaxed end was still nagging on a visibly level pose,
+  so every stop was multiplied by 1.5 - 18...6 percent, ~10.2 to ~3.4
+  degrees, at default ~8.5 - with the stored value cleared again. The
+  ladder has now been loosened four times and never tightened, which is
+  a standing hint that the tilt metric reads high on real shoulders.)
 - Output goes to the unified log: subsystem com.shergin.narcissism, category
   Posture. Watch it with:
       log stream --predicate 'subsystem == "com.shergin.narcissism"'

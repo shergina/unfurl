@@ -173,7 +173,7 @@ final class SRSettings {
 	// stop's meaning is set by the camera's regime (see the piecewise
 	// tables below). Shoulders: the height difference between the
 	// shoulders as a fraction of their separation, i.e. the tilt's slope
-	// (0.12 relaxed ... 0.04 strict).
+	// (0.18 relaxed ... 0.06 strict).
 	let postureSlouchStrictnessIndex: Preference<CGFloat>
 	let postureShoulderTolerance: Preference<CGFloat>
 	// The nudge channels: the corner note, a beep, and the status-item
@@ -347,7 +347,7 @@ final class SRSettings {
 		self.postureBaselineDate = Preference("PostureBaselineDate", default: .distantPast, defaults: defaults)
 		self.postureNudgeDelay = Preference("PostureNudgeDelaySeconds", default: 10, defaults: defaults)
 		self.postureSlouchStrictnessIndex = Preference("PostureSlouchStrictnessIndex", default: SRSettings.defaultSlouchStrictnessIndex, defaults: defaults)
-		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.10, defaults: defaults)
+		self.postureShoulderTolerance = Preference("PostureShoulderTolerance", default: 0.15, defaults: defaults)
 		self.postureNoteEnabled = Preference("PostureNoteEnabled", default: true, defaults: defaults)
 		self.postureNoteGhost = Preference("PostureNoteGhost", default: true, defaults: defaults)
 		self.postureSoundEnabled = Preference("PostureSoundEnabled", default: false, defaults: defaults)
