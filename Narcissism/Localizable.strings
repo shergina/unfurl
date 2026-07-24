@@ -191,9 +191,14 @@
 "posture.calibration.failed.timeout" = "Couldn't get a steady reading. Adjust your position and try again.";
 "posture.calibration.failed.unstable" = "The readings varied too much. Sit still and try again.";
 
-// New-camera calibration nudge (system notification)
-"posture.nudge.title" = "New camera detected";
-"posture.nudge.title.active" = "Posture calibration needed";
-"posture.nudge.body" = "Calibrate posture for \"%@\" to switch to it.";
-"posture.nudge.body.resume" = "Calibrate posture for \"%@\" to resume tracking.";
+// New-camera calibration nudge (system notification). Three states, picked
+// by whether the active camera has a baseline: tracking works and this is an
+// upgrade, tracking is stalled after having worked, or nothing was ever
+// calibrated. Titles name the consequence - that is the line people read.
+"posture.nudge.title" = "New camera needs setup";
+"posture.nudge.title.resume" = "Posture tracking is paused";
+"posture.nudge.title.start" = "Posture tracking isn't set up yet";
+"posture.nudge.body" = "Calibrate \"%@\" to switch to it.";
+"posture.nudge.body.resume" = "Calibrate \"%@\" to resume posture tracking.";
+"posture.nudge.body.start" = "Calibrate \"%@\" to start posture tracking.";
 "posture.nudge.action" = "Calibrate…";

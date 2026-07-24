@@ -799,9 +799,20 @@ Notifications page (see UI/Settings/spec.md).
   present, the takeover preference is on, tracking is on, and that
   camera has no baseline -
   a system notification offers to calibrate it. The wording names what
-  calibrating buys: "New camera detected ... to switch to it" when the
-  camera is not active, "to resume tracking" when it is active (the
-  clamshell last resort). A third wording, "to keep slouch detection
+  calibrating buys, picked (2026-08-11) by whether the active camera has
+  a baseline rather than by whether the nudged camera is the active one:
+  tracking is working and this is an upgrade ("New camera needs setup ...
+  to switch to it"), tracking is stalled after having worked ("Posture
+  tracking is paused ... to resume posture tracking"), or no camera has
+  ever been calibrated ("Posture tracking isn't set up yet ... to start
+  posture tracking"). The last is reachable because the Track Posture
+  toggle needs only an available camera, never a baseline, so a user who
+  skipped calibration can turn tracking on and dock; "resume" there would
+  claim something stopped when nothing ever ran. The earlier
+  active/not-active test was a proxy for the same question and got one
+  case wrong: it claimed a switch while tracking was stalled on an
+  uncalibrated built-in. Titles carry the consequence, since that is the
+  line read in a banner. A third wording, "to keep slouch detection
   accurate", covered the partially-calibrated case and went with it on
   2026-08-10. A real
   UNUserNotificationCenter notification, not the corner-note style, on

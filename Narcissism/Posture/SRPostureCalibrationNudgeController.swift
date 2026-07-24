@@ -92,24 +92,35 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 
 		for device in blocked where !self.nudgedDeviceIDs.contains(device.id) {
 			self.nudgedDeviceIDs.insert(device.id)
-			self.post(for: device)
+			self.post(for: device, baselines: baselines)
 		}
 	}
 
-	/// The wording names what calibrating buys: a switch when the camera is
-	/// not active ("New camera detected"), resumed tracking when it is
-	/// active but uncalibrated (the clamshell last resort).
-	fileprivate func notificationKeys(for device: CameraDevice) -> (title: String, body: String) {
-		let isActive = self.services.camera.onSelectedDeviceID.value == device.id
-		return isActive
-			? ("posture.nudge.title.active", "posture.nudge.body.resume")
-			: ("posture.nudge.title", "posture.nudge.body")
+	/// The wording names what calibrating this camera buys, which turns on
+	/// whether tracking is producing anything right now - that is, whether
+	/// the *active* camera has a baseline, not whether this device happens
+	/// to be the active one. Judging by the latter claimed a switch while
+	/// tracking was stalled on an uncalibrated built-in.
+	///
+	/// Working: an upgrade, so offer the switch. Stalled after having
+	/// worked: a resume. Never calibrated on any camera: a start - "resume"
+	/// would claim something stopped, and nothing ever ran.
+	fileprivate func notificationKeys(
+		for device: CameraDevice,
+		baselines: [String: PostureBaseline]
+	) -> (title: String, body: String) {
+		if baselines[self.services.camera.onSelectedDeviceID.value] != nil {
+			return ("posture.nudge.title", "posture.nudge.body")
+		}
+		return baselines.isEmpty
+			? ("posture.nudge.title.start", "posture.nudge.body.start")
+			: ("posture.nudge.title.resume", "posture.nudge.body.resume")
 	}
 
 	/// Authorization is requested lazily, on the first nudge that actually
 	/// needs it, never at launch. Denial is logged, not silent.
-	fileprivate func post(for device: CameraDevice) {
-		let keys = self.notificationKeys(for: device)
+	fileprivate func post(for device: CameraDevice, baselines: [String: PostureBaseline]) {
+		let keys = self.notificationKeys(for: device, baselines: baselines)
 		UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
 			if let error {
 				Self.logger.error("Calibration nudge authorization error: \(error.localizedDescription)")
