@@ -20,7 +20,10 @@
 "menu.posture-snooze.2-hours" = "2 Hours";
 "menu.posture-snooze.5-hours" = "5 Hours";
 "menu.posture-snooze.resume" = "Resume Now";
+// Names the camera it would act on; the generic form is the fallback for
+// when no device name has resolved yet.
 "menu.calibrate-posture" = "Calibrate Posture…";
+"menu.calibrate-posture.camera" = "Calibrate %@…";
 "menu.flip-camera-horizontally" = "Mirror Image";
 "menu.show-camera-panel" = "Show Camera Panel";
 "menu.show-camera-on-status-bar" = "Show in Menu Bar";
@@ -70,10 +73,14 @@
 "settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
 "settings.general.prefer-external-camera" = "Prefer External Display Camera";
 "settings.general.launch-at-login" = "Open at Login";
-"settings.posture.baseline.label" = "Baseline:";
+// One row per connected camera. Naming each camera is what teaches that a
+// baseline belongs to a camera, not to the user.
+"settings.posture.cameras.label" = "Cameras:";
+"settings.posture.camera.in-use" = "In use";
 "settings.posture.baseline.calibrated" = "Calibrated %@";
 "settings.posture.baseline.none" = "Not calibrated";
-"settings.posture.calibrate" = "Calibrate Posture…";
+"settings.posture.calibrate" = "Calibrate…";
+"settings.posture.recalibrate" = "Recalibrate…";
 "settings.posture.strictness.header" = "Tracking strictness";
 "settings.posture.slouch-strictness.label" = "Slouch:";
 "settings.posture.shoulder-strictness.label" = "Shoulder tilt:";
@@ -170,6 +177,7 @@
 
 // Posture calibration window
 "posture.calibration.title" = "Posture Calibration";
+"posture.calibration.title.camera" = "Calibrate %@";
 "posture.calibration.begin" = "Begin";
 "posture.calibration.accept" = "Looks Good";
 "posture.calibration.redo" = "Try Again";

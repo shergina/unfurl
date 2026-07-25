@@ -9,15 +9,20 @@ import Cocoa
 import Combine
 
 
-/// The Posture page, two groups split by a rule: calibration up top -
-/// when the baseline was measured and the button to redo it - then the
-/// two strictness sliders that set how far the metrics may drift before
-/// they count as issues. The nudge settings live on the Notifications page.
+/// The Posture page, two groups split by a rule: the cameras up top -
+/// one row each, showing which is in use and when it was calibrated -
+/// then the two strictness sliders that set how far the metrics may drift
+/// before they count as issues. The nudge settings live on the
+/// Notifications page.
 final class SRSettingsPostureViewController: NSViewController {
 
 	fileprivate let settings = SRSettings.sharedInstance
-	fileprivate let onCalibrate: () -> Void
+	fileprivate let onCalibrate: (String?) -> Void
 	fileprivate var cancellables = Set<AnyCancellable>()
+
+	/// Rebuilt whenever the cameras, the baselines, the active camera or
+	/// the tracking toggle change.
+	fileprivate let cameraList = NSGridView(numberOfColumns: 4, rows: 0)
 
 	fileprivate static let baselineDateFormatter: DateFormatter = {
 		let formatter = DateFormatter()
@@ -26,7 +31,7 @@ final class SRSettingsPostureViewController: NSViewController {
 		return formatter
 	}()
 
-	init(onCalibrate: @escaping () -> Void) {
+	init(onCalibrate: @escaping (String?) -> Void) {
 		self.onCalibrate = onCalibrate
 		super.init(nibName: nil, bundle: nil)
 	}
@@ -43,46 +48,44 @@ final class SRSettingsPostureViewController: NSViewController {
 		grid.column(at: 0).xPlacement = .trailing
 		grid.column(at: 1).xPlacement = .leading
 
-		// The stored baseline, named by when it was measured; the ratio
-		// itself is a meaningless number to a user, the date is not.
-		// Shows the baseline of the camera in use (each camera keeps its own),
-		// so it follows both a recalibration and a camera switch.
-		let baselineLabel = NSTextField(labelWithString: "")
-		self.settings.postureBaselines.publisher
-			.combineLatest(SRCameraService.sharedInstance.onSelectedDeviceID)
-			.sink { [weak baselineLabel] baselines, deviceID in
-				baselineLabel?.stringValue = baselines[deviceID].map {
-					String(
-						format: NSLocalizedString("settings.posture.baseline.calibrated", comment: ""),
-						Self.baselineDateFormatter.string(from: $0.date)
-					)
-				} ?? NSLocalizedString("settings.posture.baseline.none", comment: "")
+		// One row per connected camera: which one is in use, its name, when
+		// it was calibrated, and the button that (re)takes it. Calibration
+		// is per-camera and nothing in the UI used to say so - a lone
+		// "Baseline:" line taught the opposite, that one calibration covers
+		// every camera, which is exactly why a new-camera nudge reads as a
+		// nag. Seeing the laptop calibrated and the monitor not, side by
+		// side, is the explanation.
+		//
+		// Connected cameras only: a stored baseline keeps an id and a date,
+		// never a device name, so a camera that is not plugged in cannot be
+		// labelled with anything a user would recognise.
+		self.cameraList.translatesAutoresizingMaskIntoConstraints = false
+		self.cameraList.rowSpacing = 8.0
+		self.cameraList.columnSpacing = 8.0
+		self.cameraList.column(at: 0).xPlacement = .center
+		for column in 1..<4 {
+			self.cameraList.column(at: column).xPlacement = .leading
+		}
+		SRCameraService.sharedInstance.onDevices
+			.combineLatest(
+				self.settings.postureBaselines.publisher,
+				SRCameraService.sharedInstance.onSelectedDeviceID,
+				self.settings.postureTracking.publisher
+			)
+			.sink { [weak self] devices, baselines, activeID, tracking in
+				self?.rebuildCameraList(
+					devices: devices,
+					baselines: baselines,
+					activeID: activeID,
+					tracking: tracking
+				)
 			}
 			.store(in: &self.cancellables)
-		// Baseline rides the shared label column like every other row: the
-		// label right-aligns to the one colon axis, the value sits in the
-		// control column. One axis for the whole page reads more native than
-		// a centered island.
-		let labelTitle = NSTextField(labelWithString: NSLocalizedString("settings.posture.baseline.label", comment: ""))
-		let baselineRow = grid.addRow(with: [labelTitle, baselineLabel])
-		baselineRow.yPlacement = .center
-
-		// Calibration sits with its baseline: the status line above names
-		// when the baseline was taken, the button (re)takes it. The button
-		// sits in the control column under the value - a labelless cell, the
-		// way a "Change Password..." button rides a pref form - not merged
-		// centered, so it keeps the page's one axis. Only makes sense while
-		// tracking is on, matching the menu item's visibility rule.
-		let calibrateButton = NSButton(
-			title: NSLocalizedString("settings.posture.calibrate", comment: ""),
-			target: self,
-			action: #selector(SRSettingsPostureViewController.handleCalibrate(_:))
-		)
-		self.settings.postureTracking.publisher
-			.sink { [weak calibrateButton] tracking in calibrateButton?.isEnabled = tracking }
-			.store(in: &self.cancellables)
-		let calibrateRow = grid.addRow(with: [NSGridCell.emptyContentView, calibrateButton])
-		calibrateRow.yPlacement = .center
+		let camerasLabel = NSTextField(labelWithString: NSLocalizedString("settings.posture.cameras.label", comment: ""))
+		let camerasRow = grid.addRow(with: [camerasLabel, self.cameraList])
+		// Top, not center: the label names a list that grows with the
+		// cameras, so it should sit level with the first row of it.
+		camerasRow.yPlacement = .top
 
 		// A hairline rule splits calibration (what "upright" means) from
 		// strictness (how far you may drift from it) - the classic
@@ -180,8 +183,67 @@ final class SRSettingsPostureViewController: NSViewController {
 		self.preferredContentSize = CGSize(width: 540.0, height: self.view.fittingSize.height)
 	}
 
+	/// Rows are torn down and rebuilt wholesale: the list is four cells long
+	/// on a normal desk, so diffing it would be more code than it saves.
+	fileprivate func rebuildCameraList(
+		devices: [CameraDevice],
+		baselines: [String: PostureBaseline],
+		activeID: String,
+		tracking: Bool
+	) {
+		while self.cameraList.numberOfRows > 0 {
+			self.cameraList.removeRow(at: 0)
+		}
+
+		for device in devices {
+			// A checkmark for the camera in use, matching the Camera
+			// submenu's vocabulary rather than inventing a second one. The
+			// accessibility description carries it for VoiceOver, where a
+			// bare glyph would say nothing.
+			let inUse = NSImageView()
+			if device.id == activeID {
+				inUse.image = NSImage(
+					systemSymbolName: "checkmark",
+					accessibilityDescription: NSLocalizedString("settings.posture.camera.in-use", comment: "")
+				)
+				inUse.contentTintColor = .secondaryLabelColor
+			}
+
+			let name = NSTextField(labelWithString: device.name)
+
+			// The date, not the ratio: the stored number is meaningless to a
+			// user, when it was taken is not.
+			let baseline = baselines[device.id]
+			let status = NSTextField(labelWithString: baseline.map {
+				String(
+					format: NSLocalizedString("settings.posture.baseline.calibrated", comment: ""),
+					Self.baselineDateFormatter.string(from: $0.date)
+				)
+			} ?? NSLocalizedString("settings.posture.baseline.none", comment: ""))
+			status.textColor = .secondaryLabelColor
+
+			// Calibrate vs Recalibrate: the verb says whether this camera has
+			// ever been set up, which is the whole point of the list.
+			let button = NSButton(
+				title: NSLocalizedString(
+					baseline == nil ? "settings.posture.calibrate" : "settings.posture.recalibrate",
+					comment: ""
+				),
+				target: self,
+				action: #selector(SRSettingsPostureViewController.handleCalibrate(_:))
+			)
+			// The row's camera, carried on the button: the action needs to
+			// know which one was asked for, and it may not be the active one.
+			button.identifier = NSUserInterfaceItemIdentifier(device.id)
+			button.isEnabled = tracking
+
+			let row = self.cameraList.addRow(with: [inUse, name, status, button])
+			row.yPlacement = .center
+		}
+	}
+
 	@objc fileprivate func handleCalibrate(_ sender: Any?) {
-		self.onCalibrate()
+		self.onCalibrate((sender as? NSButton)?.identifier?.rawValue)
 	}
 
 }

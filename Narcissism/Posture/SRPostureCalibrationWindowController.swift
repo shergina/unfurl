@@ -78,10 +78,19 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		// is one.
 		let cameraService = SRCameraService.sharedInstance
 		let targetDeviceID = self.cameraOverrideDeviceID ?? cameraService.onSelectedDeviceID.value
-		let targetIsExternal = cameraService.onDevices.value.first { $0.id == targetDeviceID }?.isExternal ?? false
-		if let screen = NSScreen.forCamera(isExternal: targetIsExternal) {
+		let targetDevice = cameraService.onDevices.value.first { $0.id == targetDeviceID }
+		if let screen = NSScreen.forCamera(isExternal: targetDevice?.isExternal ?? false) {
 			window.center(on: screen)
 		}
+
+		// Title the camera, not the concept. A baseline belongs to one
+		// camera, and "Posture Calibration" reads as a thing you do once for
+		// yourself - which is what leaves people ignoring the nudge when a
+		// second camera turns up. Falls back to the generic title only when
+		// the device list has not resolved a name.
+		window.title = targetDevice.map {
+			String(format: NSLocalizedString("posture.calibration.title.camera", comment: ""), $0.name)
+		} ?? NSLocalizedString("posture.calibration.title", comment: "")
 
 		// Calibrating a not-yet-active camera: look through it while the
 		// window lives.

@@ -144,13 +144,26 @@ class SRMenuController: NSObject {
 
 		// Calibrate Posture: same visibility rule as Snooze. Calibrating
 		// while snoozed clears the snooze.
-		menu.addItem(self.createMenuItem(
+		let calibrateItem = self.createMenuItem(
 			"menu.calibrate-posture",
 			visible: preferenceAndCameraAvailable(self.preferences.postureTracking)
 		) {
 			SRSettings.sharedInstance.postureSnoozeUntil.value = .distantPast
 			self.showPostureCalibration()
-		})
+		}
+		// Name the camera. A generic "Calibrate Posture" is what teaches
+		// people that one calibration covers every camera; naming the one it
+		// would act on makes "Calibrate LG UltraFine..." elsewhere read as
+		// the same operation on a different device rather than a nag.
+		SRCameraService.sharedInstance.onSelectedDeviceID
+			.combineLatest(SRCameraService.sharedInstance.onDevices)
+			.sink { [unowned calibrateItem] deviceID, devices in
+				calibrateItem.title = devices.first { $0.id == deviceID }.map {
+					String(format: NSLocalizedString("menu.calibrate-posture.camera", comment: ""), $0.name)
+				} ?? NSLocalizedString("menu.calibrate-posture", comment: "")
+			}
+			.store(in: &self.cancellables)
+		menu.addItem(calibrateItem)
 
 		menu.addItem(NSMenuItem.separator())
 
@@ -429,9 +442,9 @@ class SRMenuController: NSObject {
 			let controller = SRSettingsWindowController(windowNibName: "")
 			// The page's Calibrate button behaves exactly like the menu
 			// item: clear any snooze, then the one shared calibration funnel.
-			controller.onCalibrate = { [weak self] in
+			controller.onCalibrate = { [weak self] deviceID in
 				SRSettings.sharedInstance.postureSnoozeUntil.value = .distantPast
-				self?.showPostureCalibration()
+				self?.showPostureCalibration(forDeviceID: deviceID)
 			}
 			self.settingsWindowController = controller
 		}

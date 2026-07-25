@@ -13,10 +13,12 @@ import Cocoa
 /// single lazily created instance by SRMenuController, like About.
 class SRSettingsWindowController: NSWindowController {
 
-	/// Set by the owner before showWindow; the General page's Calibrate
-	/// button routes through here so every calibration entry point funnels
-	/// into the same window (see SRMenuController.showPostureCalibration).
-	var onCalibrate: (() -> Void)?
+	/// Set by the owner before showWindow; the Posture page's per-camera
+	/// Calibrate buttons route through here so every calibration entry point
+	/// funnels into the same window (see SRMenuController.showPostureCalibration).
+	/// The device id names which camera's row was clicked; nil means the
+	/// active one.
+	var onCalibrate: ((String?) -> Void)?
 
 	override func loadWindow() {
 		let window = NSWindow(
@@ -30,7 +32,7 @@ class SRSettingsWindowController: NSWindowController {
 		self.window = window
 
 		let tabs = SRSettingsTabViewController()
-		tabs.onCalibrate = { [weak self] in self?.onCalibrate?() }
+		tabs.onCalibrate = { [weak self] deviceID in self?.onCalibrate?(deviceID) }
 		self.contentViewController = tabs
 
 		window.title = tabs.tabViewItems[tabs.selectedTabViewItemIndex].label
@@ -64,7 +66,7 @@ class SRSettingsWindowController: NSWindowController {
 /// System Settings.
 fileprivate final class SRSettingsTabViewController: NSTabViewController {
 
-	var onCalibrate: (() -> Void)?
+	var onCalibrate: ((String?) -> Void)?
 
 	override func viewDidLoad() {
 		self.tabStyle = .toolbar
@@ -82,7 +84,7 @@ fileprivate final class SRSettingsTabViewController: NSTabViewController {
 			symbolName: "gearshape"
 		))
 		self.addTabViewItem(item(
-			SRSettingsPostureViewController(onCalibrate: { [weak self] in self?.onCalibrate?() }),
+			SRSettingsPostureViewController(onCalibrate: { [weak self] deviceID in self?.onCalibrate?(deviceID) }),
 			labelKey: "settings.tab.posture",
 			symbolName: "figure.stand"
 		))
