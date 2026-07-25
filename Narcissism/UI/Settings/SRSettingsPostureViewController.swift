@@ -22,7 +22,15 @@ final class SRSettingsPostureViewController: NSViewController {
 
 	/// Rebuilt whenever the cameras, the baselines, the active camera or
 	/// the tracking toggle change.
-	fileprivate let cameraList = NSGridView(numberOfColumns: 4, rows: 0)
+	fileprivate let cameraList = NSStackView()
+
+	/// The width of everything in the control column - the camera rows and
+	/// the strictness rows alike. Fixed for two reasons: the tab view sizes
+	/// the window to the selected page, so Posture has to match General and
+	/// Notifications rather than stretch to a long camera name; and one
+	/// width for every row is what puts the trailing edges on a common axis
+	/// the way the labels share the leading one.
+	fileprivate static let controlColumnWidth: CGFloat = 372.0
 
 	fileprivate static let baselineDateFormatter: DateFormatter = {
 		let formatter = DateFormatter()
@@ -60,12 +68,10 @@ final class SRSettingsPostureViewController: NSViewController {
 		// never a device name, so a camera that is not plugged in cannot be
 		// labelled with anything a user would recognise.
 		self.cameraList.translatesAutoresizingMaskIntoConstraints = false
-		self.cameraList.rowSpacing = 8.0
-		self.cameraList.columnSpacing = 8.0
-		self.cameraList.column(at: 0).xPlacement = .center
-		for column in 1..<4 {
-			self.cameraList.column(at: column).xPlacement = .leading
-		}
+		self.cameraList.orientation = .vertical
+		self.cameraList.alignment = .leading
+		self.cameraList.spacing = 12.0
+		self.cameraList.widthAnchor.constraint(equalToConstant: Self.controlColumnWidth).isActive = true
 		SRCameraService.sharedInstance.onDevices
 			.combineLatest(
 				self.settings.postureBaselines.publisher,
@@ -83,9 +89,12 @@ final class SRSettingsPostureViewController: NSViewController {
 			.store(in: &self.cancellables)
 		let camerasLabel = NSTextField(labelWithString: NSLocalizedString("settings.posture.cameras.label", comment: ""))
 		let camerasRow = grid.addRow(with: [camerasLabel, self.cameraList])
-		// Top, not center: the label names a list that grows with the
-		// cameras, so it should sit level with the first row of it.
+		// Baseline, not top: the label names a list that grows with the
+		// cameras, so it belongs on the first camera's line - and .top aligns
+		// the boxes, which leaves the two pieces of text visibly off each
+		// other because they are different sizes.
 		camerasRow.yPlacement = .top
+		camerasRow.rowAlignment = .firstBaseline
 
 		// A hairline rule splits calibration (what "upright" means) from
 		// strictness (how far you may drift from it) - the classic
@@ -128,7 +137,10 @@ final class SRSettingsPostureViewController: NSViewController {
 		// without migrating anyone.
 		func addStrictnessRow(labelKey: String, slider: NSSlider) {
 			slider.translatesAutoresizingMaskIntoConstraints = false
-			slider.widthAnchor.constraint(equalToConstant: 160.0).isActive = true
+			// The slider takes whatever the two end labels leave, so every
+			// strictness row ends on the same trailing axis as the camera
+			// rows above. A fixed slider width stopped them short of it.
+			slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
 			func endLabel(_ key: String) -> NSTextField {
 				let label = NSTextField(labelWithString: NSLocalizedString(key, comment: ""))
 				label.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
@@ -142,6 +154,9 @@ final class SRSettingsPostureViewController: NSViewController {
 			])
 			stack.orientation = .horizontal
 			stack.spacing = 8.0
+			stack.distribution = .fill
+			stack.translatesAutoresizingMaskIntoConstraints = false
+			stack.widthAnchor.constraint(equalToConstant: Self.controlColumnWidth).isActive = true
 			let label = NSTextField(labelWithString: NSLocalizedString(labelKey, comment: ""))
 			let row = grid.addRow(with: [label, stack])
 			row.yPlacement = .center
@@ -191,39 +206,22 @@ final class SRSettingsPostureViewController: NSViewController {
 		activeID: String,
 		tracking: Bool
 	) {
-		while self.cameraList.numberOfRows > 0 {
-			self.cameraList.removeRow(at: 0)
+		for view in self.cameraList.arrangedSubviews {
+			self.cameraList.removeArrangedSubview(view)
+			view.removeFromSuperview()
 		}
 
 		for device in devices {
-			// A checkmark for the camera in use, matching the Camera
-			// submenu's vocabulary rather than inventing a second one. The
-			// accessibility description carries it for VoiceOver, where a
-			// bare glyph would say nothing.
-			let inUse = NSImageView()
-			if device.id == activeID {
-				inUse.image = NSImage(
-					systemSymbolName: "checkmark",
-					accessibilityDescription: NSLocalizedString("settings.posture.camera.in-use", comment: "")
-				)
-				inUse.contentTintColor = .secondaryLabelColor
-			}
-
 			let name = NSTextField(labelWithString: device.name)
-
-			// The date, not the ratio: the stored number is meaningless to a
-			// user, when it was taken is not.
-			let baseline = baselines[device.id]
-			let status = NSTextField(labelWithString: baseline.map {
-				String(
-					format: NSLocalizedString("settings.posture.baseline.calibrated", comment: ""),
-					Self.baselineDateFormatter.string(from: $0.date)
-				)
-			} ?? NSLocalizedString("settings.posture.baseline.none", comment: ""))
-			status.textColor = .secondaryLabelColor
+			name.lineBreakMode = .byTruncatingTail
+			// Low hugging: the name takes the slack, which pins the button to
+			// the trailing edge on every row.
+			name.setContentHuggingPriority(.defaultLow, for: .horizontal)
+			name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
 			// Calibrate vs Recalibrate: the verb says whether this camera has
 			// ever been set up, which is the whole point of the list.
+			let baseline = baselines[device.id]
 			let button = NSButton(
 				title: NSLocalizedString(
 					baseline == nil ? "settings.posture.calibrate" : "settings.posture.recalibrate",
@@ -236,9 +234,54 @@ final class SRSettingsPostureViewController: NSViewController {
 			// know which one was asked for, and it may not be the active one.
 			button.identifier = NSUserInterfaceItemIdentifier(device.id)
 			button.isEnabled = tracking
+			button.setContentHuggingPriority(.required, for: .horizontal)
 
-			let row = self.cameraList.addRow(with: [inUse, name, status, button])
-			row.yPlacement = .center
+			let header = NSStackView(views: [name, button])
+			header.orientation = .horizontal
+			header.spacing = 6.0
+			// .fill, not the default .gravityAreas: gravity packs each view at
+			// its intrinsic width, which leaves the button next to the name
+			// and the row short of its trailing edge. Filling lets the
+			// low-hugging name take the slack so the button pins right, the
+			// way a device list reads.
+			header.distribution = .fill
+
+			// The date, not the ratio: the stored number is meaningless to a
+			// user, when it was taken is not. Secondary and on its own line
+			// under the name - two short lines fit the shared window width
+			// where one long row did not.
+			//
+			// "In use" is folded in here rather than drawn as a leading
+			// checkmark: a checkmark gutter indents every camera name past
+			// the axis the strictness rows start on, and the page is built on
+			// having one such axis. It also reads better under VoiceOver than
+			// a bare glyph.
+			var statusText = baseline.map {
+				String(
+					format: NSLocalizedString("settings.posture.baseline.calibrated", comment: ""),
+					Self.baselineDateFormatter.string(from: $0.date)
+				)
+			} ?? NSLocalizedString("settings.posture.baseline.none", comment: "")
+			if device.id == activeID {
+				statusText = String(
+					format: NSLocalizedString("settings.posture.camera.in-use", comment: ""),
+					statusText
+				)
+			}
+			let status = NSTextField(labelWithString: statusText)
+			status.textColor = .secondaryLabelColor
+			status.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+			status.lineBreakMode = .byTruncatingTail
+
+			let block = NSStackView(views: [header, status])
+			block.orientation = .vertical
+			block.alignment = .leading
+			block.spacing = 2.0
+			block.translatesAutoresizingMaskIntoConstraints = false
+
+			self.cameraList.addArrangedSubview(block)
+			block.widthAnchor.constraint(equalTo: self.cameraList.widthAnchor).isActive = true
+			header.widthAnchor.constraint(equalTo: block.widthAnchor).isActive = true
 		}
 	}
 

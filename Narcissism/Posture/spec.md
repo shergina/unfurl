@@ -794,16 +794,22 @@ Notifications page (see UI/Settings/spec.md).
   recalibration (~30 s) is all a camera needs to clear the
   gate; the nudge explains it, and tracking meanwhile continues on a
   calibrated camera.
-- The calibration window is titled for its camera ("Calibrate LG
-  UltraFine", 2026-08-11), resolved from the override id or the active
-  camera at presentation, with the generic "Posture Calibration" as the
-  fallback when no name resolves. A baseline belongs to one camera, and a
-  title naming the concept rather than the device taught that calibration
-  is a thing done once for yourself - the misconception that makes the
-  new-camera nudge read as a nag. The menu item and the Settings camera
-  list name their cameras for the same reason: seen together, "Calibrate
-  FaceTime HD Camera" during onboarding and "Calibrate LG UltraFine"
-  later read as one operation on two devices, which needs no explaining.
+- The calibration window is titled "Calibrate Posture for <camera>"
+  (2026-08-12), the device resolved from the override id or the active
+  camera at presentation, falling back to the bare "Calibrate Posture"
+  when no name resolves. It echoes the menu item on purpose: "for This
+  Camera" there is answered by "for FaceTime HD Camera" here. Set as one
+  title rather than NSWindow title plus subtitle, which was tried first -
+  with no NSToolbar on the window macOS joins those onto one line with an
+  en dash, and "for" reads better than a dash. A baseline belongs to one
+  camera, and the old
+  "Posture Calibration" named the concept alone, teaching that
+  calibration is a thing done once for yourself - the misconception that
+  makes the new-camera nudge read as a nag. Naming only the camera was
+  tried in between and is worse: it reads as calibrating the hardware.
+  Both nouns, on every surface that offers the action - here, the menu
+  item, and the Settings camera list - is what makes calibrating a second
+  camera read as the same operation on a different device.
 - New-camera nudge (SRPostureCalibrationNudgeController, added
   2026-08-01): when the gate blocks a takeover - an external camera is
   present, the takeover preference is on, tracking is on, and that

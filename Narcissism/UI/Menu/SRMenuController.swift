@@ -144,26 +144,16 @@ class SRMenuController: NSObject {
 
 		// Calibrate Posture: same visibility rule as Snooze. Calibrating
 		// while snoozed clears the snooze.
-		let calibrateItem = self.createMenuItem(
+		// "for This Camera" says the scope without naming the device: the name
+		// made this item set the menu's width, and made that width change on
+		// every dock and undock. The calibration window names the device.
+		menu.addItem(self.createMenuItem(
 			"menu.calibrate-posture",
 			visible: preferenceAndCameraAvailable(self.preferences.postureTracking)
 		) {
 			SRSettings.sharedInstance.postureSnoozeUntil.value = .distantPast
 			self.showPostureCalibration()
-		}
-		// Name the camera. A generic "Calibrate Posture" is what teaches
-		// people that one calibration covers every camera; naming the one it
-		// would act on makes "Calibrate LG UltraFine..." elsewhere read as
-		// the same operation on a different device rather than a nag.
-		SRCameraService.sharedInstance.onSelectedDeviceID
-			.combineLatest(SRCameraService.sharedInstance.onDevices)
-			.sink { [unowned calibrateItem] deviceID, devices in
-				calibrateItem.title = devices.first { $0.id == deviceID }.map {
-					String(format: NSLocalizedString("menu.calibrate-posture.camera", comment: ""), $0.name)
-				} ?? NSLocalizedString("menu.calibrate-posture", comment: "")
-			}
-			.store(in: &self.cancellables)
-		menu.addItem(calibrateItem)
+		})
 
 		menu.addItem(NSMenuItem.separator())
 

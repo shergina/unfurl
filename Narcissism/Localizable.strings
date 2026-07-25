@@ -20,10 +20,12 @@
 "menu.posture-snooze.2-hours" = "2 Hours";
 "menu.posture-snooze.5-hours" = "5 Hours";
 "menu.posture-snooze.resume" = "Resume Now";
-// Names the camera it would act on; the generic form is the fallback for
-// when no device name has resolved yet.
-"menu.calibrate-posture" = "Calibrate Posture…";
-"menu.calibrate-posture.camera" = "Calibrate %@…";
+// Both nouns on purpose: without "Posture" the item reads as calibrating the
+// hardware (colour, focus), and without "Camera" it reads as something you do
+// once for yourself. "This Camera" rather than the device name - the name made
+// the item dictate the menu's width, and made that width change as cameras came
+// and went. The window it opens names the device in its title bar.
+"menu.calibrate-posture" = "Calibrate Posture for This Camera…";
 "menu.flip-camera-horizontally" = "Mirror Image";
 "menu.show-camera-panel" = "Show Camera Panel";
 "menu.show-camera-on-status-bar" = "Show in Menu Bar";
@@ -76,7 +78,10 @@
 // One row per connected camera. Naming each camera is what teaches that a
 // baseline belongs to a camera, not to the user.
 "settings.posture.cameras.label" = "Cameras:";
-"settings.posture.camera.in-use" = "In use";
+// Wraps the calibration state of whichever camera is running, rather than
+// drawing a leading checkmark: a checkmark gutter would indent every camera
+// name past the axis the rest of the page starts on.
+"settings.posture.camera.in-use" = "In use - %@";
 "settings.posture.baseline.calibrated" = "Calibrated %@";
 "settings.posture.baseline.none" = "Not calibrated";
 "settings.posture.calibrate" = "Calibrate…";
@@ -176,8 +181,13 @@
 "posture.note.not-visible" = "Posture: can't see you clearly";
 
 // Posture calibration window
-"posture.calibration.title" = "Posture Calibration";
-"posture.calibration.title.camera" = "Calibrate %@";
+// Echoes the menu item's phrasing, so "for This Camera" is answered by "for
+// FaceTime HD Camera". Set as one title rather than a title plus subtitle:
+// with no toolbar on the window macOS joins those with an en dash, and "for"
+// reads better than a dash. The bare form is the fallback when no device name
+// has resolved.
+"posture.calibration.title" = "Calibrate Posture";
+"posture.calibration.title.camera" = "Calibrate Posture for %@";
 "posture.calibration.begin" = "Begin";
 "posture.calibration.accept" = "Looks Good";
 "posture.calibration.redo" = "Try Again";

@@ -83,11 +83,14 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 			window.center(on: screen)
 		}
 
-		// Title the camera, not the concept. A baseline belongs to one
-		// camera, and "Posture Calibration" reads as a thing you do once for
-		// yourself - which is what leaves people ignoring the nudge when a
-		// second camera turns up. Falls back to the generic title only when
-		// the device list has not resolved a name.
+		// Both nouns, phrased to answer the menu item: "for This Camera"
+		// there, "for FaceTime HD Camera" here. A baseline belongs to one
+		// camera, and a title naming only the concept taught that calibration
+		// is a thing done once for yourself, which is what leaves people
+		// reading the new-camera nudge as a nag. Naming only the camera swaps
+		// that for a worse reading: calibrating the hardware. Set as one
+		// title, not title plus subtitle - with no toolbar macOS joins those
+		// with an en dash, and "for" reads better than a dash.
 		window.title = targetDevice.map {
 			String(format: NSLocalizedString("posture.calibration.title.camera", comment: ""), $0.name)
 		} ?? NSLocalizedString("posture.calibration.title", comment: "")
