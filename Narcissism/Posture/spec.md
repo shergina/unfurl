@@ -842,9 +842,29 @@ Notifications page (see UI/Settings/spec.md).
   calibration window targeted at the new camera via the temporary device
   override; a completed calibration stores the baseline, which reopens
   the gate and lets the takeover happen on its own. At most one nudge per
-  camera per app session (a dismissed nudge must not return on every
-  replug); a delivered nudge is withdrawn once its reason is gone
-  (calibrated, unplugged, or tracking turned off). If the takeover
+  camera per distinct state per app session (2026-08-12, was once per
+  camera): the controller remembers what it last said about each blocked
+  camera and posts only when that changes. The memory is what makes
+  "once" possible at all - the inputs are levels, so reconcile re-runs on
+  every emission of the four combined publishers (a preference toggle, a
+  baseline write, any republish of the device list) and finds the same
+  camera still blocked each time; the remembered state is what turns "is
+  blocked" into "just became blocked". Keying it by camera alone
+  swallowed the escalation from offerSwitch to offerResume, so closing
+  the lid on an uncalibrated monitor stopped tracking with nothing said,
+  and left the delivered notification still offering a switch. Re-posting
+  under the same identifier replaces that notification rather than
+  stacking a second. A delivered nudge is withdrawn once its reason is
+  gone (calibrated, unplugged, or tracking turned off), but the memory
+  outlives the withdrawal: dropping it would make an unplug forget the
+  camera, so a replug would nudge the same thing again - the replug
+  nagging this rule exists to stop. A replug under changed conditions
+  still gets through, because the state it compares against changed too.
+  Known limit: a state already announced stays quiet on a later return to
+  it, so repeated lid cycles report the stopped-tracking state only the
+  first time. That is the channel, not the rule - a notification is an
+  event and this is a state that oscillates with the hardware, which is
+  the argument for a persistent menu-bar indicator (open question below). If the takeover
   preference is off there is no nudge: the user said no automatic
   switching, and a nudge to enable a switch they disabled would argue
   with them.
@@ -999,6 +1019,22 @@ Notifications page (see UI/Settings/spec.md).
   tune the drift threshold on logged data. (Partly overtaken: the gaze
   probe already stores uprightFacePitch per entry, so the recording half
   of this exists; what is missing is the drift comparison at runtime.)
+- A persistent signal for "this camera needs calibrating" (2026-08-12).
+  The nudge is a notification, so it can be denied, missed while away
+  from the desk, or suppressed by Focus - and it is an event, where the
+  thing being reported is a state that comes and goes with the hardware.
+  The serious case is the worst served: an uncalibrated camera that is
+  also the active one stops tracking outright, and the corner note is
+  deliberately silent then (nothing to judge against), so nothing on
+  screen differs from working normally. A menu-bar badge would cover it -
+  always visible, no permission, current rather than frozen at post time,
+  and the menu behind it already reaches calibration. Decided but not
+  built: a dot rather than a colour (the status item's orange already
+  means slouching, and a colour teaches nobody what it stands for; a dot
+  only has to say "there is something here", with the menu carrying the
+  words), and not behind PostureStatusItemTint, which is a nudge channel
+  defaulting to off - this is app state, not a nudge. It should be driven
+  by the same predicate as the nudge, covering both blocked states.
 - Which display an external camera belongs to (2026-08-11): no API ties a
   capture device to a screen, so NSScreen.forCamera can only answer
   builtin or external. With one external display that is exact; with two

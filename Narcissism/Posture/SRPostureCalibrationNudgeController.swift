@@ -30,13 +30,37 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 
 	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.narcissism", category: "Posture")
 
+	/// What calibrating a blocked camera would buy, which is what the nudge
+	/// has to say. Decided by whether tracking is producing anything right
+	/// now - see notificationKeys.
+	fileprivate enum NudgeState {
+		/// Tracking works on another camera; this one is an upgrade.
+		case offerSwitch
+		/// Tracking is stalled on an uncalibrated camera, but has worked.
+		case offerResume
+		/// No camera has ever been calibrated, so nothing ever ran.
+		case offerStart
+	}
+
 	fileprivate let services: AppServices
 	fileprivate var cancellables = Set<AnyCancellable>()
 
-	/// Nudged at most once per camera per app session; a dismissed nudge
-	/// does not come back on every replug (the menu's Calibrate item and
-	/// the Settings button remain the on-demand paths).
-	fileprivate var nudgedDeviceIDs = Set<String>()
+	/// What has already been said about each blocked camera this session.
+	///
+	/// The inputs are levels, not events: reconcile runs on every emission
+	/// of the four combined publishers - a preference toggle, a baseline
+	/// write, any republish of the device list - and each run finds the same
+	/// camera still blocked. This is the memory that turns "is blocked" into
+	/// "just became blocked", so a nudge fires on the edge instead of on
+	/// every re-evaluation.
+	///
+	/// Keyed by state, not just by camera (2026-08-12): keying by camera
+	/// alone suppressed the escalation from offerSwitch to offerResume, so
+	/// closing the lid on an uncalibrated monitor left tracking stopped with
+	/// nothing said, and left the delivered notification claiming a switch
+	/// was on offer. Re-posting under the same identifier replaces that
+	/// notification rather than stacking a second.
+	fileprivate var nudgedStates: [String: NudgeState] = [:]
 
 	init(services: AppServices) {
 		self.services = services
@@ -82,45 +106,66 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 		// Withdraw a delivered nudge once its reason is gone (calibrated,
 		// unplugged, tracking off): a stale "calibrate to switch" lingering
 		// in Notification Center would offer something already done.
+		//
+		// The memory outlives the withdrawal on purpose. Dropping it would
+		// make an unplug forget the camera, so replugging would nudge the
+		// same thing again - the replug nagging this rule exists to stop. A
+		// replug under changed conditions still gets through, because the
+		// state it compares against will have changed too.
 		let blockedIDs = Set(blocked.map { $0.id })
-		let stale = self.nudgedDeviceIDs.subtracting(blockedIDs).map { Self.identifierPrefix + $0 }
-		let center = UNUserNotificationCenter.current()
+		let stale = self.nudgedStates.keys.filter { !blockedIDs.contains($0) }
 		if !stale.isEmpty {
-			center.removeDeliveredNotifications(withIdentifiers: stale)
-			center.removePendingNotificationRequests(withIdentifiers: stale)
+			let center = UNUserNotificationCenter.current()
+			let identifiers = stale.map { Self.identifierPrefix + $0 }
+			center.removeDeliveredNotifications(withIdentifiers: identifiers)
+			center.removePendingNotificationRequests(withIdentifiers: identifiers)
 		}
 
-		for device in blocked where !self.nudgedDeviceIDs.contains(device.id) {
-			self.nudgedDeviceIDs.insert(device.id)
-			self.post(for: device, baselines: baselines)
+		// Post on a change of state, not merely on being blocked: the same
+		// state again is the replug case and stays quiet, a different one is
+		// something the user has not been told.
+		for device in blocked {
+			let state = self.nudgeState(baselines: baselines)
+			guard self.nudgedStates[device.id] != state else { continue }
+			self.nudgedStates[device.id] = state
+			self.post(for: device, state: state)
 		}
 	}
 
-	/// The wording names what calibrating this camera buys, which turns on
-	/// whether tracking is producing anything right now - that is, whether
-	/// the *active* camera has a baseline, not whether this device happens
-	/// to be the active one. Judging by the latter claimed a switch while
-	/// tracking was stalled on an uncalibrated built-in.
+	/// What calibrating buys, which turns on whether tracking is producing
+	/// anything right now - that is, whether the *active* camera has a
+	/// baseline, not whether the blocked device happens to be the active
+	/// one. Judging by the latter claimed a switch while tracking was
+	/// stalled on an uncalibrated built-in.
 	///
 	/// Working: an upgrade, so offer the switch. Stalled after having
 	/// worked: a resume. Never calibrated on any camera: a start - "resume"
 	/// would claim something stopped, and nothing ever ran.
-	fileprivate func notificationKeys(
-		for device: CameraDevice,
-		baselines: [String: PostureBaseline]
-	) -> (title: String, body: String) {
+	///
+	/// One value for every blocked camera: it describes the state of
+	/// tracking, not of the camera being offered.
+	fileprivate func nudgeState(baselines: [String: PostureBaseline]) -> NudgeState {
 		if baselines[self.services.camera.onSelectedDeviceID.value] != nil {
-			return ("posture.nudge.title", "posture.nudge.body")
+			return .offerSwitch
 		}
-		return baselines.isEmpty
-			? ("posture.nudge.title.start", "posture.nudge.body.start")
-			: ("posture.nudge.title.resume", "posture.nudge.body.resume")
+		return baselines.isEmpty ? .offerStart : .offerResume
+	}
+
+	fileprivate func notificationKeys(for state: NudgeState) -> (title: String, body: String) {
+		switch state {
+		case .offerSwitch:
+			return ("posture.nudge.title", "posture.nudge.body")
+		case .offerResume:
+			return ("posture.nudge.title.resume", "posture.nudge.body.resume")
+		case .offerStart:
+			return ("posture.nudge.title.start", "posture.nudge.body.start")
+		}
 	}
 
 	/// Authorization is requested lazily, on the first nudge that actually
 	/// needs it, never at launch. Denial is logged, not silent.
-	fileprivate func post(for device: CameraDevice, baselines: [String: PostureBaseline]) {
-		let keys = self.notificationKeys(for: device, baselines: baselines)
+	fileprivate func post(for device: CameraDevice, state: NudgeState) {
+		let keys = self.notificationKeys(for: state)
 		UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
 			if let error {
 				Self.logger.error("Calibration nudge authorization error: \(error.localizedDescription)")
