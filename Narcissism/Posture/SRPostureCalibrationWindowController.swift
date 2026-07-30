@@ -59,12 +59,24 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		// warm up and the framing guidance is already right when it appears.
 		_ = viewController.view
 
+		let cameraService = SRCameraService.sharedInstance
+		let targetDeviceID = self.cameraOverrideDeviceID ?? cameraService.onSelectedDeviceID.value
+		let targetDevice = cameraService.onDevices.value.first { $0.id == targetDeviceID }
+
 		// The reminders come first, on every calibration - the baseline is
 		// whatever the user holds during the capture, and a bad one fails
 		// silently. Both pages are contentSize, so the window does not
 		// resize mid-flow (it is floating and centered, so a resize would
 		// move it under a user who is trying to hold still).
 		let remindersViewController = SRPostureRemindersViewController()
+		// Why a camera already calibrated needs calibrating again, said only
+		// where it is true: this is a camera with no baseline while some
+		// other camera has one. At onboarding the rule is abstract - there is
+		// no second camera to point at - so the welcome flow's copy of this
+		// page (SRGoodPostureReminders.contentView) never carries it, and
+		// plants the idea with "this camera's baseline" instead.
+		let baselines = SRSettings.sharedInstance.postureBaselines.value
+		remindersViewController.showsPerCameraNote = !baselines.isEmpty && baselines[targetDeviceID] == nil
 		remindersViewController.onReady = { [weak self] in
 			self?.contentViewController = self?.calibrationViewController
 		}
@@ -76,9 +88,6 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		// so external camera -> external display is the best available
 		// guess; with several externals the interaction screen wins when it
 		// is one.
-		let cameraService = SRCameraService.sharedInstance
-		let targetDeviceID = self.cameraOverrideDeviceID ?? cameraService.onSelectedDeviceID.value
-		let targetDevice = cameraService.onDevices.value.first { $0.id == targetDeviceID }
 		if let screen = NSScreen.forCamera(isExternal: targetDevice?.isExternal ?? false) {
 			window.center(on: screen)
 		}

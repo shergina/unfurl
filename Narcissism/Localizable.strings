@@ -147,8 +147,12 @@
 "welcome.tutorial.posture.body" = "Specific corrections, not just alerts. “Lower your right shoulder.” “Sit up straight.”";
 "welcome.tutorial.notifications.title" = "Nudges, your way";
 "welcome.tutorial.notifications.body" = "An on-screen note, a sound, or a glowing menu bar icon, timed and snoozed to fit how you work.";
-"welcome.posture.title" = "Hold your best posture to calibrate";
-"welcome.posture.body" = "The posture you hold becomes the baseline Narcissism coaches you toward. No images are saved, just a few measurements that never leave your Mac.";
+// "this camera", twice, on the first calibration anyone ever does: a baseline
+// belongs to a camera, and saying "the baseline" here is what teaches the
+// opposite - that calibration is a thing done once, for yourself. It also
+// gives the title something to calibrate, which it lacked.
+"welcome.posture.title" = "Hold your best posture to calibrate this camera";
+"welcome.posture.body" = "The posture you hold becomes this camera's baseline, the one Narcissism coaches you toward. No images are saved, just a few measurements that never leave your Mac.";
 "welcome.posture.later" = "Not Now";
 "welcome.ready.title" = "Help the camera see you";
 "welcome.ready.framing.title" = "Head and shoulders in view";
@@ -167,6 +171,11 @@
 "posture.good.title" = "What does good posture look like?";
 "posture.good.body" = "Hold this while the camera measures you. It becomes the baseline you are coached toward.";
 "posture.good.ready" = "Ready";
+// Shown only on the calibration window, and only for a camera with no
+// baseline while another camera has one - the moment the per-camera rule
+// stops being abstract. Never during onboarding, where there is no second
+// camera to point at.
+"posture.good.per-camera" = "Every camera sees you from a different angle, so each one needs its own setup. Your other cameras keep theirs.";
 "posture.good.hips.title" = "Hips back";
 "posture.good.hips.body" = "All the way back in the chair, so your lower back is supported. Perching on the front edge is what pulls you into a slouch.";
 "posture.good.tall.title" = "Sit tall";

@@ -90,12 +90,38 @@ final class SRPostureRemindersViewController: NSViewController {
 
 	var onReady: (() -> Void)?
 
+	/// Set before the view loads. Adds the line explaining why a second
+	/// camera needs its own calibration - true only when this camera has no
+	/// baseline and another one does, which is the moment the rule stops
+	/// being abstract. The welcome flow shares the reminders content but not
+	/// this controller, so onboarding never shows it.
+	var showsPerCameraNote = false
+
 	override func loadView() {
 		let size = SRPostureCalibrationViewController.contentSize
 		let view = NSView(frame: CGRect(origin: .zero, size: size))
 		self.preferredContentSize = size
 
-		let content = SRGoodPostureReminders.contentView()
+		let content: NSView
+		if self.showsPerCameraNote {
+			let note = SRWelcomeRows.label(
+				NSLocalizedString("posture.good.per-camera", comment: ""),
+				font: NSFont.systemFont(ofSize: 13),
+				color: NSColor.secondaryLabelColor
+			)
+			note.alignment = .center
+			note.translatesAutoresizingMaskIntoConstraints = false
+			note.widthAnchor.constraint(equalToConstant: SRWelcomeRows.textWidth).isActive = true
+
+			let stack = NSStackView(views: [SRGoodPostureReminders.contentView(), note])
+			stack.orientation = .vertical
+			stack.alignment = .centerX
+			stack.spacing = 24
+			stack.translatesAutoresizingMaskIntoConstraints = false
+			content = stack
+		} else {
+			content = SRGoodPostureReminders.contentView()
+		}
 		view.addSubview(content)
 
 		let readyButton = NSButton(

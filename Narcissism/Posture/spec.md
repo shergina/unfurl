@@ -567,7 +567,18 @@ Notifications page (see UI/Settings/spec.md).
   Ready button, and only then swaps in the capture page. The list is
   SRGoodPostureReminders, defined once and shared with the welcome
   flow's good-posture page, which is why those strings are namespaced
-  posture.good rather than welcome. A one-line secondary subtitle under
+  posture.good rather than welcome. Below the list, and only on this
+  host, a secondary line explains why a camera needs its own calibration
+  ("Every camera sees you from a different angle, so each one needs its
+  own setup. Your other cameras keep theirs.", added 2026-08-12). Shown
+  only when the camera being calibrated has no baseline while some other
+  camera does - the moment the rule stops being abstract and the user is
+  already looking at the thing it is about. The welcome flow shares the
+  list but not SRPostureRemindersViewController, so onboarding never
+  shows it: at that point there is no second camera to point at, and a
+  rule about one is the most forgettable thing a first run can say. The
+  welcome posture page plants the idea in its own copy instead ("this
+  camera's baseline", see UI/Welcome/spec.md). A one-line secondary subtitle under
   the title says what the list is for ("Hold this while the camera
   measures you. It becomes the baseline you are coached toward"), added
   2026-08-07 against screenshots: both hosts show this page in a window
