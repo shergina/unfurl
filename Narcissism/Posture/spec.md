@@ -863,9 +863,17 @@ Notifications page (see UI/Settings/spec.md).
   blocked" into "just became blocked". Keying it by camera alone
   swallowed the escalation from offerSwitch to offerResume, so closing
   the lid on an uncalibrated monitor stopped tracking with nothing said,
-  and left the delivered notification still offering a switch. Re-posting
-  under the same identifier replaces that notification rather than
-  stacking a second. A delivered nudge is withdrawn once its reason is
+  and left the delivered notification still offering a switch. The
+  identifier carries the state as well as the camera
+  (posture-calibration-nudge.<state>.<deviceID>, 2026-08-12), and the
+  superseded one is withdrawn by hand before the new one is posted.
+  Re-using a single per-camera identifier was tried first and is the
+  reason a state change could still go unseen: macOS treats a post under
+  a delivered notification's identifier as an update, and an update does
+  not alert. Measured on real hardware - the escalation posted with
+  granted=1 and no delivery error, landed in Notification Center, and
+  never showed a banner. Withdrawing first also keeps a camera from
+  holding two nudges that say different things. A delivered nudge is withdrawn once its reason is
   gone (calibrated, unplugged, or tracking turned off), but the memory
   outlives the withdrawal: dropping it would make an unplug forget the
   camera, so a replug would nudge the same thing again - the replug

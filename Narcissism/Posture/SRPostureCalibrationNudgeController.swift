@@ -33,13 +33,23 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 	/// What calibrating a blocked camera would buy, which is what the nudge
 	/// has to say. Decided by whether tracking is producing anything right
 	/// now - see notificationKeys.
-	fileprivate enum NudgeState {
+	fileprivate enum NudgeState: String {
 		/// Tracking works on another camera; this one is an upgrade.
 		case offerSwitch
 		/// Tracking is stalled on an uncalibrated camera, but has worked.
 		case offerResume
 		/// No camera has ever been calibrated, so nothing ever ran.
 		case offerStart
+	}
+
+	/// One identifier per camera *and* state, not per camera. Reusing an
+	/// identifier makes macOS treat the post as an update to the delivered
+	/// notification rather than a new one, and an update does not alert:
+	/// measured 2026-08-12, where an escalation posted with no error, landed
+	/// in Notification Center, and never showed a banner. Each state gets its
+	/// own identifier and the previous one is withdrawn by hand.
+	fileprivate nonisolated static func identifier(deviceID: String, state: NudgeState) -> String {
+		return Self.identifierPrefix + state.rawValue + "." + deviceID
 	}
 
 	fileprivate let services: AppServices
@@ -113,12 +123,9 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 		// replug under changed conditions still gets through, because the
 		// state it compares against will have changed too.
 		let blockedIDs = Set(blocked.map { $0.id })
-		let stale = self.nudgedStates.keys.filter { !blockedIDs.contains($0) }
+		let stale = self.nudgedStates.filter { !blockedIDs.contains($0.key) }
 		if !stale.isEmpty {
-			let center = UNUserNotificationCenter.current()
-			let identifiers = stale.map { Self.identifierPrefix + $0 }
-			center.removeDeliveredNotifications(withIdentifiers: identifiers)
-			center.removePendingNotificationRequests(withIdentifiers: identifiers)
+			self.withdraw(stale.map { Self.identifier(deviceID: $0.key, state: $0.value) })
 		}
 
 		// Post on a change of state, not merely on being blocked: the same
@@ -126,10 +133,23 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 		// something the user has not been told.
 		for device in blocked {
 			let state = self.nudgeState(baselines: baselines)
-			guard self.nudgedStates[device.id] != state else { continue }
+			let previous = self.nudgedStates[device.id]
+			guard previous != state else { continue }
+			// The superseded wording goes first, by its own identifier: two
+			// nudges for one camera saying different things would be worse
+			// than the stale single one this replaced.
+			if let previous {
+				self.withdraw([Self.identifier(deviceID: device.id, state: previous)])
+			}
 			self.nudgedStates[device.id] = state
 			self.post(for: device, state: state)
 		}
+	}
+
+	fileprivate func withdraw(_ identifiers: [String]) {
+		let center = UNUserNotificationCenter.current()
+		center.removeDeliveredNotifications(withIdentifiers: identifiers)
+		center.removePendingNotificationRequests(withIdentifiers: identifiers)
 	}
 
 	/// What calibrating buys, which turns on whether tracking is producing
@@ -180,7 +200,7 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 			content.categoryIdentifier = Self.categoryIdentifier
 			content.userInfo = [Self.deviceIDKey: device.id]
 			UNUserNotificationCenter.current().add(UNNotificationRequest(
-				identifier: Self.identifierPrefix + device.id,
+				identifier: Self.identifier(deviceID: device.id, state: state),
 				content: content,
 				trigger: nil
 			)) { error in

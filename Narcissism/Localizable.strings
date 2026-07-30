@@ -147,11 +147,12 @@
 "welcome.tutorial.posture.body" = "Specific corrections, not just alerts. “Lower your right shoulder.” “Sit up straight.”";
 "welcome.tutorial.notifications.title" = "Nudges, your way";
 "welcome.tutorial.notifications.body" = "An on-screen note, a sound, or a glowing menu bar icon, timed and snoozed to fit how you work.";
-// "this camera", twice, on the first calibration anyone ever does: a baseline
-// belongs to a camera, and saying "the baseline" here is what teaches the
-// opposite - that calibration is a thing done once, for yourself. It also
-// gives the title something to calibrate, which it lacked.
-"welcome.posture.title" = "Hold your best posture to calibrate this camera";
+// The title is the instruction and nothing else. It used to trail off in "to
+// calibrate" - calibrate what? - and naming the camera there fixed the dangle
+// but ran the line to the window's full width at the flow's shared 20pt title
+// size. The body carries the camera instead, which is where the teaching sits
+// anyway.
+"welcome.posture.title" = "Hold your best posture";
 "welcome.posture.body" = "The posture you hold becomes this camera's baseline, the one Narcissism coaches you toward. No images are saved, just a few measurements that never leave your Mac.";
 "welcome.posture.later" = "Not Now";
 "welcome.ready.title" = "Help the camera see you";
