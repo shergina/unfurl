@@ -846,8 +846,16 @@ Notifications page (see UI/Settings/spec.md).
   purpose: the corner note is click-through by design and this nudge
   needs a button, and a rare, actionable, fine-to-wait-in-Notification-
   Center event is what the system primitive is for. Notification
-  authorization is requested lazily, on the first nudge that needs it,
-  never at launch; denial is logged, not silent. Clicking the
+  authorization is requested when a calibration completes (2026-08-13, a
+  new baseline id appearing after the launch replay): the user just did
+  the thing the nudge offers to repeat for future cameras and is looking
+  at an app window, which is the engaged moment the system prompt needs -
+  a prompt at monitor-plug time lands mid-cable-fumble and invites a
+  reflexive deny. The first-nudge ask remains as the backstop for a nudge
+  that fires before any calibration ever completed. Never at launch;
+  denial is logged, not silent. Ignoring the prompt leaves the status
+  undetermined, so both asks re-prompt on their next occasion; only an
+  explicit deny silences the channel, which is accepted. Clicking the
   notification or its Calibrate action clears any snooze (the same
   deliberate resume the menu's Calibrate item makes) and opens the shared
   calibration window targeted at the new camera via the temporary device
@@ -1054,6 +1062,10 @@ Notifications page (see UI/Settings/spec.md).
   words), and not behind PostureStatusItemTint, which is a nudge channel
   defaulting to off - this is app state, not a nudge. It should be driven
   by the same predicate as the nudge, covering both blocked states.
+  (Parked 2026-08-13: a persistent dot read as nagging users who declined
+  notifications, and the authorization ask moving to calibration
+  completion shrinks the missed-prompt case it covered. Reopen if
+  denied-notification users prove real.)
 - Which display an external camera belongs to (2026-08-11): no API ties a
   capture device to a screen, so NSScreen.forCamera can only answer
   builtin or external. With one external display that is exact; with two

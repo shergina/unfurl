@@ -55,6 +55,12 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 	fileprivate let services: AppServices
 	fileprivate var cancellables = Set<AnyCancellable>()
 
+	/// Baseline camera ids as of the last emission, nil until the launch
+	/// replay lands. Lets a new key - a calibration just completed - be
+	/// told apart from the stored set replaying at launch, which must not
+	/// prompt (the never-at-launch rule).
+	fileprivate var knownBaselineIDs: Set<String>?
+
 	/// What has already been said about each blocked camera this session.
 	///
 	/// The inputs are levels, not events: reconcile runs on every emission
@@ -104,6 +110,35 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 				self?.reconcile(prefer: prefer, tracking: tracking, baselines: baselines, devices: devices)
 			}
 			.store(in: &self.cancellables)
+
+		// A finished calibration is the engaged moment to ask for
+		// notification authorization: the user just did the thing the nudge
+		// offers to repeat for future cameras, and is looking at an app
+		// window rather than plugging cables. The first-nudge ask in post()
+		// stays as the backstop for a nudge that fires before any
+		// calibration has ever completed.
+		self.services.settings.postureBaselines.publisher
+			.sink { [weak self] baselines in
+				self?.primeAuthorization(baselines: baselines)
+			}
+			.store(in: &self.cancellables)
+	}
+
+	/// Prompts only while authorization is undetermined; once the user has
+	/// answered, the system makes this a no-op. Keyed on new camera ids, so
+	/// recalibrating an existing camera stays quiet.
+	fileprivate func primeAuthorization(baselines: [String: PostureBaseline]) {
+		let ids = Set(baselines.keys)
+		defer { self.knownBaselineIDs = ids }
+		guard let known = self.knownBaselineIDs, !ids.subtracting(known).isEmpty else { return }
+		UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
+			if let error {
+				Self.logger.error("Post-calibration authorization error: \(error.localizedDescription)")
+			}
+			if !granted {
+				Self.logger.warning("Notification authorization not granted after calibration")
+			}
+		}
 	}
 
 	fileprivate func reconcile(prefer: Bool, tracking: Bool, baselines: [String: PostureBaseline], devices: [CameraDevice]) {
@@ -182,8 +217,10 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 		}
 	}
 
-	/// Authorization is requested lazily, on the first nudge that actually
-	/// needs it, never at launch. Denial is logged, not silent.
+	/// The authorization request here is the backstop for users who hit a
+	/// nudge before ever completing a calibration; the primary ask happens
+	/// in primeAuthorization, when a calibration finishes. Never at launch.
+	/// Denial is logged, not silent.
 	fileprivate func post(for device: CameraDevice, state: NudgeState) {
 		let keys = self.notificationKeys(for: state)
 		UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
