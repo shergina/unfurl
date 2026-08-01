@@ -24,18 +24,22 @@ final class SRSettingsPostureViewController: NSViewController {
 	/// the tracking toggle change.
 	fileprivate let cameraList = NSStackView()
 
-	/// The width of everything in the control column - the camera rows and
-	/// the strictness rows alike. Fixed for two reasons: the tab view sizes
-	/// the window to the selected page, so Posture has to match General and
-	/// Notifications rather than stretch to a long camera name; and one
-	/// width for every row is what puts the trailing edges on a common axis
-	/// the way the labels share the leading one.
+	/// The width of the control column - the strictness rows. Fixed because
+	/// the tab view sizes the window to the selected page, so Posture has
+	/// to match General and Notifications rather than stretch to its
+	/// content. The camera rows span the page under their header instead
+	/// (2026-08-13) and share only the trailing axis, via their own width
+	/// rule.
 	fileprivate static let controlColumnWidth: CGFloat = 372.0
 
 	fileprivate static let baselineDateFormatter: DateFormatter = {
 		let formatter = DateFormatter()
 		formatter.dateStyle = .medium
 		formatter.timeStyle = .short
+		// Today/yesterday instead of the bare date, cased for the middle
+		// of "Calibrated ..." - the way Finder speaks.
+		formatter.doesRelativeDateFormatting = true
+		formatter.formattingContext = .middleOfSentence
 		return formatter
 	}()
 
@@ -71,7 +75,6 @@ final class SRSettingsPostureViewController: NSViewController {
 		self.cameraList.orientation = .vertical
 		self.cameraList.alignment = .leading
 		self.cameraList.spacing = 12.0
-		self.cameraList.widthAnchor.constraint(equalToConstant: Self.controlColumnWidth).isActive = true
 		SRCameraService.sharedInstance.onDevices
 			.combineLatest(
 				self.settings.postureBaselines.publisher,
@@ -87,14 +90,34 @@ final class SRSettingsPostureViewController: NSViewController {
 				)
 			}
 			.store(in: &self.cancellables)
-		let camerasLabel = NSTextField(labelWithString: NSLocalizedString("settings.posture.cameras.label", comment: ""))
-		let camerasRow = grid.addRow(with: [camerasLabel, self.cameraList])
-		// Baseline, not top: the label names a list that grows with the
-		// cameras, so it belongs on the first camera's line - and .top aligns
-		// the boxes, which leaves the two pieces of text visibly off each
-		// other because they are different sizes.
+		// Both groups open with a semibold header (2026-08-13): one idiom
+		// for the page. The old rule - a header only where the rows do not
+		// explain themselves - read as imbalance next to the headerless
+		// cameras group.
+		func addSectionHeader(_ labelKey: String) {
+			let header = NSTextField(labelWithString: NSLocalizedString(labelKey, comment: ""))
+			header.font = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+			let row = grid.addRow(with: [header])
+			row.mergeCells(in: NSRange(location: 0, length: 2))
+			row.cell(at: 0).xPlacement = .leading
+		}
+
+		addSectionHeader("settings.posture.cameras.header")
+		// The camera rows span both grid columns: under a full-width header,
+		// content takes the header's axis plus a small indent (the System
+		// Settings idiom). Leaving them in the control column left the label
+		// column empty beside them, and a hole reads as a mistake. Trailing
+		// placement plus the width rule keeps the buttons on the same
+		// trailing axis as the sliders.
+		let camerasRow = grid.addRow(with: [self.cameraList])
+		camerasRow.mergeCells(in: NSRange(location: 0, length: 2))
+		camerasRow.cell(at: 0).xPlacement = .trailing
 		camerasRow.yPlacement = .top
-		camerasRow.rowAlignment = .firstBaseline
+		// 4pt tighter to the header: the first row is button-tall and the
+		// name centers inside it, landing lower under its header than the
+		// strictness rows land under theirs. This evens the two gaps.
+		camerasRow.topPadding = -4.0
+		self.cameraList.widthAnchor.constraint(equalTo: grid.widthAnchor, constant: -16.0).isActive = true
 
 		// A hairline rule splits calibration (what "upright" means) from
 		// strictness (how far you may drift from it) - the classic
@@ -117,17 +140,12 @@ final class SRSettingsPostureViewController: NSViewController {
 		separatorRow.mergeCells(in: NSRange(location: 0, length: 2))
 		separatorRow.cell(at: 0).xPlacement = .fill
 
-		// Section header: the sliders set how strict posture tracking is per
-		// issue, so the group is named for that. It carries the "strictness"
-		// framing (the rows stay the bare metric - Slouch, Shoulder tilt - so
-		// each label fits the pane), and it names tracking rather than
-		// notifications because these thresholds also define what the
-		// statistics count as bad posture, not just when a nudge fires.
-		let strictnessHeader = NSTextField(labelWithString: NSLocalizedString("settings.posture.strictness.header", comment: ""))
-		strictnessHeader.font = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
-		let headerRow = grid.addRow(with: [strictnessHeader])
-		headerRow.mergeCells(in: NSRange(location: 0, length: 2))
-		headerRow.cell(at: 0).xPlacement = .leading
+		// The header carries the "strictness" framing (the rows stay the
+		// bare metric - Slouch, Shoulder tilt - so each label fits the
+		// pane), and it names tracking rather than notifications because
+		// these thresholds also define what the statistics count as bad
+		// posture, not just when a nudge fires.
+		addSectionHeader("settings.posture.strictness.header")
 
 		// Strictness sliders, one ladder of five stops per issue, relaxed
 		// on the left. Only the ends are labeled; the middle stops carry
@@ -211,6 +229,7 @@ final class SRSettingsPostureViewController: NSViewController {
 			view.removeFromSuperview()
 		}
 
+		var buttons: [NSButton] = []
 		for device in devices {
 			let name = NSTextField(labelWithString: device.name)
 			name.lineBreakMode = .byTruncatingTail
@@ -234,7 +253,10 @@ final class SRSettingsPostureViewController: NSViewController {
 			// know which one was asked for, and it may not be the active one.
 			button.identifier = NSUserInterfaceItemIdentifier(device.id)
 			button.isEnabled = tracking
-			button.setContentHuggingPriority(.required, for: .horizontal)
+			// High, not required: the equal-width rule below may stretch a
+			// button past its intrinsic size.
+			button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+			buttons.append(button)
 
 			let header = NSStackView(views: [name, button])
 			header.orientation = .horizontal
@@ -282,6 +304,12 @@ final class SRSettingsPostureViewController: NSViewController {
 			self.cameraList.addArrangedSubview(block)
 			block.widthAnchor.constraint(equalTo: self.cameraList.widthAnchor).isActive = true
 			header.widthAnchor.constraint(equalTo: block.widthAnchor).isActive = true
+		}
+
+		// One width for all the buttons: stacked, Calibrate and Recalibrate
+		// read as a column, and a ragged column reads as noise.
+		for button in buttons.dropFirst() {
+			button.widthAnchor.constraint(equalTo: buttons[0].widthAnchor).isActive = true
 		}
 	}
 

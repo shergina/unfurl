@@ -91,7 +91,7 @@ fileprivate final class SRSettingsTabViewController: NSTabViewController {
 		self.addTabViewItem(item(
 			SRSettingsNotificationsViewController(),
 			labelKey: "settings.tab.notifications",
-			symbolName: "bell.badge"
+			symbolName: "bell"
 		))
 
 		super.viewDidLoad()

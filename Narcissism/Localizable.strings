@@ -77,16 +77,16 @@
 "settings.general.launch-at-login" = "Open at Login";
 // One row per connected camera. Naming each camera is what teaches that a
 // baseline belongs to a camera, not to the user.
-"settings.posture.cameras.label" = "Cameras:";
+"settings.posture.cameras.header" = "Cameras";
 // Wraps the calibration state of whichever camera is running, rather than
 // drawing a leading checkmark: a checkmark gutter would indent every camera
 // name past the axis the rest of the page starts on.
-"settings.posture.camera.in-use" = "In use - %@";
+"settings.posture.camera.in-use" = "In use · %@";
 "settings.posture.baseline.calibrated" = "Calibrated %@";
 "settings.posture.baseline.none" = "Not calibrated";
 "settings.posture.calibrate" = "Calibrate…";
 "settings.posture.recalibrate" = "Recalibrate…";
-"settings.posture.strictness.header" = "Tracking strictness";
+"settings.posture.strictness.header" = "Tracking Strictness";
 "settings.posture.slouch-strictness.label" = "Slouch:";
 "settings.posture.shoulder-strictness.label" = "Shoulder tilt:";
 "settings.posture.strictness.relaxed" = "Relaxed";
