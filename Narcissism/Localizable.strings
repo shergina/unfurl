@@ -145,6 +145,8 @@
 "welcome.tutorial.camera.body" = "A live mirror in the menu bar, the floating camera panel, or the Dock icon.";
 "welcome.tutorial.posture.title" = "Posture coaching";
 "welcome.tutorial.posture.body" = "Specific corrections, not just alerts. “Lower your right shoulder.” “Sit up straight.”";
+"welcome.tutorial.calibration.title" = "One setup per camera";
+"welcome.tutorial.calibration.body" = "Your laptop and your monitor each keep their own calibration. Set a camera up once, and it's remembered.";
 "welcome.tutorial.notifications.title" = "Nudges, your way";
 "welcome.tutorial.notifications.body" = "An on-screen note, a sound, or a glowing menu bar icon, timed and snoozed to fit how you work.";
 // The title is the instruction and nothing else. It used to trail off in "to

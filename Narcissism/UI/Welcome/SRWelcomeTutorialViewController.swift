@@ -54,7 +54,12 @@ class SRWelcomeTutorialViewController: NSViewController {
 				bodyKey: "welcome.tutorial.posture.body"
 			),
 			SRWelcomeRows.row(
-				symbol: "bell.badge",
+				symbol: "video.badge.checkmark",
+				titleKey: "welcome.tutorial.calibration.title",
+				bodyKey: "welcome.tutorial.calibration.body"
+			),
+			SRWelcomeRows.row(
+				symbol: "bell",
 				titleKey: "welcome.tutorial.notifications.title",
 				bodyKey: "welcome.tutorial.notifications.body"
 			),
