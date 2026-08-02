@@ -187,10 +187,17 @@ final class SRPostureCalibrationViewController: NSViewController {
 			.sink { [weak self] phase in self?.apply(phase) }
 			.store(in: &self.cancellables)
 
-		// No frames -> show the placeholder, not a black rectangle.
+		// No frames -> show the placeholder, not a black rectangle. The
+		// guidance goes quiet too: everything it can say presumes frames,
+		// and "can't see you" under a placeholder that names the real
+		// problem (access denied) diagnoses the wrong one. The band keeps
+		// its reserved height, so nothing below shifts.
 		SRCameraService.sharedInstance.onState
 			.receive(on: DispatchQueue.main)
-			.sink { [weak self] state in self?.cameraView.isHidden = !state.isRunning }
+			.sink { [weak self] state in
+				self?.cameraView.isHidden = !state.isRunning
+				self?.guidanceStack.isHidden = !state.isRunning
+			}
 			.store(in: &self.cancellables)
 
 		self.view.needsUpdateConstraints = true

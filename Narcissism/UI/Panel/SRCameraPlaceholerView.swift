@@ -14,6 +14,7 @@ class SRCameraPlaceholerView: NSVisualEffectView {
 	fileprivate let logoView: NSImageView
 	fileprivate let messageLabel: NSTextField
 	fileprivate let actionButton: NSButton
+	fileprivate let contentStack: NSStackView
 	fileprivate var didInstallConstraints = false
 	fileprivate var cancellables = Set<AnyCancellable>()
 
@@ -42,14 +43,23 @@ class SRCameraPlaceholerView: NSVisualEffectView {
 		self.actionButton.controlSize = .small
 		self.actionButton.isHidden = true
 
+		// One stack, centered as a unit: with the message and button hidden
+		// (the watermark-behind-video role) it collapses to the bare logo at
+		// dead center, and with them shown the whole ensemble centers instead
+		// of the logo alone pushing the text into the lower half.
+		self.contentStack = NSStackView(views: [self.logoView, self.messageLabel, self.actionButton])
+		self.contentStack.orientation = .vertical
+		self.contentStack.alignment = .centerX
+		self.contentStack.spacing = 16.0
+		self.contentStack.setCustomSpacing(10.0, after: self.messageLabel)
+		self.contentStack.translatesAutoresizingMaskIntoConstraints = false
+
 		super.init(frame: frame)
 
 		self.material = .underWindowBackground
 		self.blendingMode = .behindWindow
 
-		self.addSubview(self.logoView)
-		self.addSubview(self.messageLabel)
-		self.addSubview(self.actionButton)
+		self.addSubview(self.contentStack)
 
 		self.actionButton.target = self
 		self.actionButton.action = #selector(SRCameraPlaceholerView.handleActionButton)
@@ -110,18 +120,13 @@ class SRCameraPlaceholerView: NSVisualEffectView {
 			let logoSize: CGFloat = 64.0
 
 			NSLayoutConstraint.activate([
-				self.logoView.centerXAnchor.constraint(equalTo: self.centerXAnchor),
-				self.logoView.centerYAnchor.constraint(equalTo: self.centerYAnchor),
+				self.contentStack.centerXAnchor.constraint(equalTo: self.centerXAnchor),
+				self.contentStack.centerYAnchor.constraint(equalTo: self.centerYAnchor),
 				self.logoView.widthAnchor.constraint(equalToConstant: logoSize),
 				self.logoView.heightAnchor.constraint(equalToConstant: logoSize),
 
-				self.messageLabel.topAnchor.constraint(equalTo: self.logoView.bottomAnchor, constant: 16.0),
-				self.messageLabel.centerXAnchor.constraint(equalTo: self.centerXAnchor),
 				self.messageLabel.leadingAnchor.constraint(greaterThanOrEqualTo: self.leadingAnchor, constant: 24.0),
 				self.messageLabel.trailingAnchor.constraint(lessThanOrEqualTo: self.trailingAnchor, constant: -24.0),
-
-				self.actionButton.topAnchor.constraint(equalTo: self.messageLabel.bottomAnchor, constant: 10.0),
-				self.actionButton.centerXAnchor.constraint(equalTo: self.centerXAnchor),
 			])
 			self.didInstallConstraints = true
 		}

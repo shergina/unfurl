@@ -70,10 +70,24 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		self.setContentView(self.createContentViewWithClass(SRStatusItemIconUnavailableView.self), animated: false)
 
 		SRCameraService.sharedInstance.onCaptureDeviceAvailable
-			.combineLatest(self.preferences.showCameraOnStatusBar.publisher)
+			.combineLatest(
+				self.preferences.showCameraOnStatusBar.publisher,
+				SRCameraService.sharedInstance.onState
+			)
 			.debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
-			.sink { [unowned self] (cameraAvailable, showCameraOnStatusBar) in
-				self.cameraAvailable = cameraAvailable
+			.sink { [unowned self] (cameraAvailable, showCameraOnStatusBar, state) in
+				// A device that exists but cannot deliver frames is not a
+				// camera to show: denied access left the live view up as a
+				// blank strip in the menu bar (2026-08-14). Unauthorized and
+				// failed swap to the unavailable icon like a missing device.
+				let deliverable: Bool
+				switch state {
+				case .unauthorized, .failed:
+					deliverable = false
+				case .idle, .unavailable, .running:
+					deliverable = true
+				}
+				self.cameraAvailable = cameraAvailable && deliverable
 				self.showCamera = showCameraOnStatusBar
 				self.refreshContent(animated: true)
 			}
@@ -166,15 +180,19 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		self.logGeometry("refresh")
 		self.logFitStateIfNeeded()
 
-		// Content is chosen by availability only. The camera view is created once
-		// at its (session-only) default width and never resized post-creation from
-		// here - re-setting the width after the preview layer attaches is what
-		// blanked it. Over-widening is prevented at drag time instead.
+		// The camera view is created once at its (session-only) default width
+		// and never resized post-creation from here - re-setting the width
+		// after the preview layer attaches is what blanked it. Over-widening
+		// is prevented at drag time instead.
+		//
+		// The X icon wears every mode (2026-08-14): a camera app whose camera
+		// cannot run is broken with the preview hidden too, and this item is
+		// the one always-visible surface that can say so.
 		let Class: SRStatusItemContentView.Type
-		if self.showCamera {
-			Class = self.cameraAvailable ? SRStatusItemCameraView.self : SRStatusItemIconUnavailableView.self
+		if !self.cameraAvailable {
+			Class = SRStatusItemIconUnavailableView.self
 		} else {
-			Class = SRStatusItemIconView.self
+			Class = self.showCamera ? SRStatusItemCameraView.self : SRStatusItemIconView.self
 		}
 
 		if let current = self.contentView, type(of: current) == Class { return }

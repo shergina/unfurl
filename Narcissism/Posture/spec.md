@@ -606,7 +606,11 @@ Notifications page (see UI/Settings/spec.md).
   preview, the panel's placeholder behind it so
   camera failures and permission denials explain themselves in-window,
   the guidance block (below), and a Begin button enabled only while
-  framing is good:
+  framing is good. The guidance block hides whenever the pipeline is not
+  delivering frames (2026-08-14): everything it can say presumes frames,
+  and "can't see you" under a placeholder explaining denied access
+  diagnosed the wrong problem; the band keeps its reserved height so the
+  layout does not shift. Framing means:
   confident shoulders, measurable eyes, shoulder width at least 0.15 of
   the frame width (below that reads as sitting too far away). While the
   window is open the per-window evaluation is muted exactly as when

@@ -11,6 +11,7 @@
 
 - **What this subsystem is**: when enabled, the app becomes a regular Dock app and draws the live camera into its Dock tile styled as a modern app icon (squircle, shadow, edge accents, corner badge).
 - **One-sentence contract**: while `showCameraOnDockTile` is on and the camera is available, the Dock tile shows the paced live feed drawn like a native icon, without degrading the other surfaces.
+- When the camera cannot run (denied, failed, no device), the tile deliberately falls back to the plain app icon (verified 2026-08-14 on the denial walk): the app icon is the Dock's native degraded state, badges are the Dock's only state channel, and the brokenness already speaks through the menu bar X and the panel placeholder - error-styling the tile would over-signal.
 
 ## Scope
 
