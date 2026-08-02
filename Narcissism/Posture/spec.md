@@ -545,8 +545,13 @@ Notifications page (see UI/Settings/spec.md).
   (showsActionButtons) and renders its own, driving the session through
   its public begin/redo and phase publisher. The window floats above normal
   windows (level .floating: a brief, focused task must not get lost
-  behind other work) and moves to the active Space when re-fronted
-  rather than switching Spaces. It opens centered on the display of the
+  behind other work) with default space behavior (2026-08-14, was
+  moveToActiveSpace: binding to the focused space fought the screen
+  placement below - under separate-spaces-per-display it yanked the
+  window off the camera's screen onto the clicked one, clamped and
+  mostly hidden, and snapped it back when dragged to the monitor; the
+  switching-spaces concern it addressed only applies same-display, where
+  switching is the standard system behavior). It opens centered on the display of the
   camera it calibrates (the user must face that camera, so the guidance
   belongs on its screen): built-in camera on the built-in display,
   external camera on an external display. No API ties a camera to a

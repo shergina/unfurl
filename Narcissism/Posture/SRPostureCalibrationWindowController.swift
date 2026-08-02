@@ -44,11 +44,13 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 		window.isReleasedWhenClosed = false
 		window.delegate = self
 
-		// In front of everything (a short focused task shouldn't get lost
-		// behind other windows), and re-fronting pulls it to the current
-		// Space instead of switching Spaces.
+		// In front of everything: a short focused task shouldn't get lost
+		// behind other windows. Default space behavior on purpose
+		// (2026-08-14): moveToActiveSpace bound the window to the space
+		// that held focus, which under separate-spaces-per-display yanked
+		// it off the camera's screen onto the clicked screen (clamped,
+		// mostly hidden) and snapped it back when dragged to the monitor.
 		window.level = .floating
-		window.collectionBehavior = [.moveToActiveSpace]
 
 		let viewController = SRPostureCalibrationViewController()
 		self.calibrationViewController = viewController
