@@ -551,7 +551,18 @@ Notifications page (see UI/Settings/spec.md).
   window off the camera's screen onto the clicked one, clamped and
   mostly hidden, and snapped it back when dragged to the monitor; the
   switching-spaces concern it addressed only applies same-display, where
-  switching is the standard system behavior). It opens centered on the display of the
+  switching is the standard system behavior). The camera the window
+  calibrates leaving the device list closes the window (2026-08-14,
+  decided after watching the alternative): on unplug the service falls
+  back to another camera and keeps delivering, so a continued flow would
+  measure through the fallback camera and store the result under the
+  gone camera's id - poisoned data for the per-camera system. Closing
+  discards the partial session (baselines store only on completion),
+  the close path restores camera policy and cancel semantics, and a
+  replug re-offers calibration through the nudge. The welcome flow's
+  embedded copy of this content deliberately has no such rule: it
+  calibrates the camera active at onboarding, which in practice is the
+  built-in. It opens centered on the display of the
   camera it calibrates (the user must face that camera, so the guidance
   belongs on its screen): built-in camera on the built-in display,
   external camera on an external display. No API ties a camera to a

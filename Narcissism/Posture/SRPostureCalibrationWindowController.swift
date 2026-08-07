@@ -123,6 +123,23 @@ final class SRPostureCalibrationWindowController: NSWindowController, NSWindowDe
 				if !tracking { self?.close() }
 			}
 			.store(in: &self.cancellables)
+
+		// The camera this window calibrates leaving the machine ends the
+		// flow (2026-08-14): the service falls back to another camera and
+		// keeps delivering, so continuing would measure through that one
+		// and save the result under this camera's id. Closing discards the
+		// partial session (baselines only store on completion) and the
+		// close path restores camera policy; a replug re-offers through
+		// the nudge. receive(on:) keeps the replayed value from closing
+		// mid-loadWindow.
+		cameraService.onDevices
+			.receive(on: DispatchQueue.main)
+			.sink { [weak self] devices in
+				if !devices.contains(where: { $0.id == targetDeviceID }) {
+					self?.close()
+				}
+			}
+			.store(in: &self.cancellables)
 	}
 
 	override func showWindow(_ sender: Any?) {
