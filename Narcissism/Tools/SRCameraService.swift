@@ -319,6 +319,23 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 				}
 			}
 			session.commitConfiguration()
+
+			// A successful swap onto a running session ends the failure the
+			// old input caused: unplugging the active camera lands here with
+			// the state stuck on the runtime error ("Recording Stopped")
+			// while the new input is already delivering. Same for a camera
+			// appearing after .unavailable. Never past .unauthorized - an
+			// unauthorized session "runs" without delivering a frame.
+			if self.captureDeviceInput != nil && session.isRunning {
+				DispatchQueue.main.async {
+					switch self.onState.value {
+					case .failed, .unavailable:
+						self.onState.send(.running)
+					case .idle, .running, .unauthorized:
+						break
+					}
+				}
+			}
 		}
 
 		let activeID = device?.uniqueID ?? ""

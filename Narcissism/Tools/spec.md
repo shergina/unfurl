@@ -34,7 +34,7 @@
   - At most one `AVCaptureSession` for the camera exists at a time.
   - `session`, `captureDevice`, `captureDeviceInput`, and `desiredDeviceID` are read and written only on the session queue.
   - Switching the device replaces the session's single input in one begin/commit and re-pins 1080p; outputs already attached (Dock, photo) are untouched. `onSelectedDeviceID` reports the `uniqueID` actually in use.
-  - `onState` is published only on the main queue (its subscribers touch main-actor UI). A hard state (`unauthorized`, `failed`) is never overwritten by a later transient state (`unavailable`, `idle`, `running`).
+  - `onState` is published only on the main queue (its subscribers touch main-actor UI). A hard state (`unauthorized`, `failed`) is never overwritten by a later transient state (`unavailable`, `idle`, `running`), with one deliberate exception (2026-08-14): a successful input swap onto a running session publishes `.running` over `.failed` or `.unavailable` - the swap is the recovery. Without it, unplugging the active camera left the surfaces stuck on the runtime error ("Recording Stopped") while the built-in was already delivering. Never over `.unauthorized`: an unauthorized session runs without delivering a frame.
   - The attached-object set counts claims on the session, not wiring: a suspended output stays wired to the session graph but holds no claim, so the session still stops when the last claim leaves and the suspended output is torn down with it.
   - Captured photos are written only under the user's Pictures directory; frames are never transmitted.
 
