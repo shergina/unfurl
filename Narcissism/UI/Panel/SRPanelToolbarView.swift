@@ -38,12 +38,12 @@ class SRPanelToolbarView: NSVisualEffectView {
 		self.layer!.cornerCurve = .continuous
 		self.layer!.masksToBounds = true
 
-		self.closeButtonView = SRPanelToolbarView.toolbarButton(symbolName: "xmark", accessibilityDescription: "Close")
-		self.pinButtonView = SRPanelToolbarView.toolbarButton(symbolName: "pin", accessibilityDescription: "Pin Panel")
-		self.photoButtonView = SRPanelToolbarView.toolbarButton(symbolName: "camera", accessibilityDescription: "Take Photo")
-		self.ghostButtonView = SRPanelToolbarView.toolbarButton(symbolName: "cursorarrow.slash", accessibilityDescription: "Ghost Mode")
-		self.mirrorButtonView = SRPanelToolbarView.toolbarButton(symbolName: "trapezoid.and.line.vertical", accessibilityDescription: "Mirror")
-		self.menuButtonView = SRPanelToolbarView.toolbarButton(symbolName: "ellipsis.circle", accessibilityDescription: "Menu")
+		self.closeButtonView = SRPanelToolbarView.toolbarButton(symbolName: "xmark", accessibilityDescription: NSLocalizedString("panel.toolbar.close", comment: ""))
+		self.pinButtonView = SRPanelToolbarView.toolbarButton(symbolName: "pin", accessibilityDescription: NSLocalizedString("panel.toolbar.pin", comment: ""))
+		self.photoButtonView = SRPanelToolbarView.toolbarButton(symbolName: "camera", accessibilityDescription: NSLocalizedString("panel.toolbar.photo", comment: ""))
+		self.ghostButtonView = SRPanelToolbarView.toolbarButton(symbolName: "cursorarrow.slash", accessibilityDescription: NSLocalizedString("panel.toolbar.ghost", comment: ""))
+		self.mirrorButtonView = SRPanelToolbarView.toolbarButton(symbolName: "trapezoid.and.line.vertical", accessibilityDescription: NSLocalizedString("panel.toolbar.mirror", comment: ""))
+		self.menuButtonView = SRPanelToolbarView.toolbarButton(symbolName: "ellipsis.circle", accessibilityDescription: NSLocalizedString("panel.toolbar.menu", comment: ""))
 
 		self.stackView = NSStackView(views: [
 			self.closeButtonView,

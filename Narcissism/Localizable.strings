@@ -53,6 +53,12 @@
 "notification.photo-was-saved.button.close" = "I know it";
 
 // Camera state
+"panel.toolbar.close" = "Close";
+"panel.toolbar.pin" = "Pin Panel";
+"panel.toolbar.photo" = "Take Photo";
+"panel.toolbar.ghost" = "Ghost Mode";
+"panel.toolbar.mirror" = "Mirror";
+"panel.toolbar.menu" = "Menu";
 "camera.placeholder.unauthorized" = "Narcissism needs access to your camera.";
 "camera.placeholder.open-settings" = "Open System Settings";
 "camera.placeholder.unavailable" = "No camera available.";
