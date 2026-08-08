@@ -96,17 +96,3 @@ private final class _ActionHandler: NSObject {
 		control?.action = nil
 	}
 }
-
-
-// MARK: - Publisher → Subject convenience
-
-extension Publisher where Failure == Never {
-	/// Forward every emitted value into a subject. Convenience for the old SignalKit `bindTo`.
-	func bind(to subject: PassthroughSubject<Output, Never>) -> AnyCancellable {
-		return sink { subject.send($0) }
-	}
-
-	func bind(to subject: CurrentValueSubject<Output, Never>) -> AnyCancellable {
-		return sink { subject.send($0) }
-	}
-}

@@ -81,14 +81,12 @@ struct PostureBaseline: Equatable, Sendable {
 final class Preference<Value: PreferenceValue> {
 
 	let key: String
-	let defaultValue: Value
 
 	fileprivate let defaults: UserDefaults
 	fileprivate let subject: CurrentValueSubject<Value, Never>
 
 	init(_ key: String, default defaultValue: Value, defaults: UserDefaults) {
 		self.key = key
-		self.defaultValue = defaultValue
 		self.defaults = defaults
 		self.subject = CurrentValueSubject(Value.read(from: defaults, key: key) ?? defaultValue)
 	}

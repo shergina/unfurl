@@ -7,11 +7,6 @@
 //
 
 
-// Project level
-// CODE_SIGN_IDENTITY = 3rd Party Mac Developer Application: Maria Shergina (HC3925CA22)
-// CODE_SIGN_IDENTITY = Developer ID Application: Maria Shergina (HC3925CA22)
-// CODE_SIGN_IDENTITY = Mac Developer: Maria Shergina (4Q483YEN5L)
-
 // Target level
 COMBINE_HIDPI_IMAGES = YES
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks

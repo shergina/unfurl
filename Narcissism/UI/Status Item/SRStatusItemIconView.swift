@@ -79,10 +79,6 @@ class SRStatusItemIconView: SRStatusItemContentView {
 }
 
 
-class SRStatusItemIconNormalView: SRStatusItemIconView {
-    override class var imageName: String { return "StatusItemIconPattern" }
-}
-
 class SRStatusItemIconUnavailableView: SRStatusItemIconView {
     override class var imageName: String { return "StatusItemIconPatternUnavailable" }
 }

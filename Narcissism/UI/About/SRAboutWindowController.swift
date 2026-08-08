@@ -10,10 +10,6 @@ import AppKit
 
 class SRAboutWindowController: NSWindowController {
 
-//    required init?(coder: NSCoder) {
-//        fatalError("init(coder:) has not been implemented")
-//    }
-
     override func loadWindow() {
         self.window = NSWindow(
             contentRect: CGRect(x: 0.0, y: 0.0, width: 300.0, height: 400.0),

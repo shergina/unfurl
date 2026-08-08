@@ -34,7 +34,6 @@
 "menu.ghost-mode" = "Ghost Mode";
 "menu.camera" = "Camera";
 "menu.camera.automatic" = "Automatic";
-"menu.check-for-update" = "Check for update…";
 "menu.statistics" = "Statistics";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit Narcissism";
@@ -49,8 +48,6 @@
 "notification.photo-was-saved.title" = "You Look Great!";
 "notification.photo-was-saved.subtitle" = "As Always";
 "notification.photo-was-saved.message" = "Photo was saved in Photos folder.";
-"notification.photo-was-saved.button.show" = "Show me";
-"notification.photo-was-saved.button.close" = "I know it";
 
 // Camera state
 "panel.toolbar.close" = "Close";
@@ -175,7 +172,6 @@
 "welcome.ready.lighting.body" = "Face the light if you can. A bright window behind you makes you hard to see.";
 "welcome.ready.camera.title" = "A clear view";
 "welcome.ready.camera.body" = "Make sure nothing is covering the camera.";
-"welcome.ready.ready" = "Ready";
 // Good posture reminders - shared by the welcome flow's good-posture page
 // and the calibration window's first page.
 "posture.good.title" = "What does good posture look like?";

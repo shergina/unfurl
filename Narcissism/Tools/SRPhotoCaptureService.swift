@@ -96,7 +96,6 @@ class SRPhotoCaptureService: NSObject {
 		content.title = NSLocalizedString("notification.photo-was-saved.title", comment: "")
 		content.subtitle = NSLocalizedString("notification.photo-was-saved.subtitle", comment: "")
 		content.body = NSLocalizedString("notification.photo-was-saved.message", comment: "")
-		content.userInfo = ["fileURL": fileURL.absoluteString]
 
 		let center = UNUserNotificationCenter.current()
 		// Without authorization the notification is silently dropped.

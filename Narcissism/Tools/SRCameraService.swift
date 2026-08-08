@@ -67,7 +67,6 @@ protocol CameraProviding: AnyObject, Sendable {
 	@discardableResult func attachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Error>
 	@discardableResult func detachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) -> Task<Void, Never>
 	@discardableResult func attachOutput(_ output: AVCaptureOutput) -> Task<Void, Error>
-	@discardableResult func detachOutput(_ output: AVCaptureOutput) -> Task<Void, Never>
 
 	/// Stops the session's work for an attached output - no frames delivered,
 	/// no conversion - and releases its claim on the session, without removing
@@ -380,9 +379,6 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 		}
 	}
 
-    deinit {
-    }
-
     var captureDevice: AVCaptureDevice? {
         willSet {
 			self.captureDeviceCancellable?.cancel()
@@ -555,23 +551,6 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 				self.session.addOutput(output.value)
 				self.session.commitConfiguration()
 			}
-		}
-	}
-
-	@discardableResult
-	func detachOutput(_ output: AVCaptureOutput) -> Task<Void, Never> {
-		let output = UncheckedSendable(value: output)
-		return Task { [weak self] in
-			guard let self else { return }
-			await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
-				self.sessionQueue.async {
-					self.session.beginConfiguration()
-					self.session.removeOutput(output.value)
-					self.session.commitConfiguration()
-					c.resume()
-				}
-			}
-			await self.detachObject(UncheckedSendable(value: output.value))
 		}
 	}
 

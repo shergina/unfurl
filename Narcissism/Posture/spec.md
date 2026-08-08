@@ -926,17 +926,14 @@ Notifications page (see UI/Settings/spec.md).
   onFrameSample. The calibration window drew the joints as dots over its
   preview (shoulders red, eyes yellow) until 2026-08-04, removed as
   visual noise: the guidance line already tells the user whether
-  detection sees them. The floating panel's
-  camera view is still temporarily SRPostureDebugCameraView (accuracy
-  aid), drawing the same dots behind a dotsVisible master switch - true
-  again as of 2026-07-30, turned back on for the tilted-screen detection
-  question. 2026-08-06: ear dots (orange) joined the overlay; the test
-  they enabled promoted the ears into the judged metric the same day
-  (see the ear-anchored ratio bullet). A neck dot was tried and deleted
-  within the day: Vision's neck joint is the shoulder midpoint, no
-  independent signal. Delete that view and its panel
-  hookup when the accuracy question is fully closed; onFrameSample
-  itself is permanent.
+  detection sees them. The floating panel's camera view temporarily
+  carried the same dots (SRPostureDebugCameraView, an accuracy aid; ear
+  dots joined 2026-08-06 and promoted the ears into the judged metric the
+  same day, see the ear-anchored ratio bullet; a neck dot was tried and
+  deleted within the day - Vision's neck joint is the shoulder midpoint,
+  no independent signal). 2026-08-15: the view and its panel hookup were
+  deleted, the accuracy aid having served. onFrameSample itself is
+  permanent (the calibration window depends on it).
 
 ## History recording (SRPostureHistoryService, added 2026-07-28)
 

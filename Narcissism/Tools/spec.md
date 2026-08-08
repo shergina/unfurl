@@ -95,7 +95,7 @@
 
 ### Interfaces and contracts
 
-- **Public API surface**: `SRCameraService.sharedInstance`; `onCaptureDeviceAvailable`, `onState`, `onDevices`, `onSelectedDeviceID`, `selectDevice(id:)`; `attachPreviewLayer`/`detachPreviewLayer`, `attachOutput`/`detachOutput`, `suspendOutput`/`resumeOutput`, `suspendPreviewLayer`/`resumePreviewLayer`. `SRPhotoCaptureService.sharedInstance.capture`. `SRLaunchApplicationAtLoginController.sharedInstance.enabled`.
+- **Public API surface**: `SRCameraService.sharedInstance`; `onCaptureDeviceAvailable`, `onState`, `onDevices`, `onSelectedDeviceID`, `selectDevice(id:)`; `attachPreviewLayer`/`detachPreviewLayer`, `attachOutput`, `suspendOutput`/`resumeOutput`, `suspendPreviewLayer`/`resumePreviewLayer`. `SRPhotoCaptureService.sharedInstance.capture`. `SRLaunchApplicationAtLoginController.sharedInstance.enabled`.
 - **Inputs/outputs**: preview layers and outputs in; `Sendable` state out on the main queue; a JPEG file and a notification out of the photo path.
 - **Error model**: setup throws `SRCameraError`; callers of `attach*` may discard the returned `Task` because failures are surfaced centrally through `onState`.
 

@@ -38,9 +38,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 
 	let cameraService = SRCameraService.sharedInstance
 
-	/// Per-frame feed for the calibration window and the dots overlay,
-	/// published on the main actor at the analysis rate. Nil fields = no
-	/// usable body that frame; nil sample = probe detached.
+	/// Per-frame feed for the calibration window, published on the main
+	/// actor at the analysis rate. Nil fields = no usable body that frame;
+	/// nil sample = probe detached.
 	let onFrameSample = CurrentValueSubject<SRPostureFrameSample?, Never>(nil)
 
 	/// The per-window posture status for the corner note (and any future

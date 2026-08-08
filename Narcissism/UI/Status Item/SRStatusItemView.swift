@@ -25,7 +25,6 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 
 	fileprivate var contentView: SRStatusItemContentView!
 	fileprivate let preferences = SRSettings.sharedInstance
-	fileprivate let cursor = NSCursor.resizeLeftRight
 	fileprivate var cancellables = Set<AnyCancellable>()
 
 	// The one camera content view, created on first show and reused across
@@ -276,14 +275,6 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		let onScreen = NSScreen.screens.contains { $0.frame.intersects(frame) }
 		let cameraWidth = (self.contentView as? SRStatusItemCameraView)?.width ?? -1
 		NSLog("NARC-FIT: cameraState=\(String(describing: SRCameraService.sharedInstance.onState.value)) available=\(self.cameraAvailable) show=\(self.showCamera) statusItem.isVisible=\(statusItem?.isVisible ?? false) window=\(window != nil) window.isVisible=\(window?.isVisible ?? false) occlusionVisible=\(window?.occlusionState.contains(.visible) ?? false) frame=\(NSStringFromRect(frame)) onScreen=\(onScreen) content=\(self.contentView.map { String(describing: type(of: $0)) } ?? "nil") width=\(Int(cameraWidth))")
-	}
-
-	override func viewWillMove(toWindow newWindow: NSWindow?) {
-		self.window?.invalidateCursorRects(for: self)
-	}
-
-	override func resetCursorRects() {
-		super.resetCursorRects()
 	}
 
 }

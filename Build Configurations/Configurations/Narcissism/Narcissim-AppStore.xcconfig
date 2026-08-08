@@ -9,6 +9,3 @@
 #include "Narcissim-Shared.xcconfig"
 
 #include "../AppStore.xcconfig"
-
-
-// PROVISIONING_PROFILE = c8412dd8-8070-4ecd-8fdc-12b0d540bc7c

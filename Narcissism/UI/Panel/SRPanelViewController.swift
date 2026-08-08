@@ -23,8 +23,4 @@ class SRPanelViewController: NSViewController {
 		self.view = SRPanelContentView()
 	}
 
-	override func viewWillAppear() {
-		super.viewWillAppear()
-	}
-
 }
