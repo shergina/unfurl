@@ -195,6 +195,12 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 			Class = self.showCamera ? SRStatusItemCameraView.self : SRStatusItemIconView.self
 		}
 
+		// VoiceOver mirrors the X: the button's label says the app is
+		// here, the value says whether the camera can run.
+		self.statusItem?.button?.setAccessibilityValue(
+			self.cameraAvailable ? nil : NSLocalizedString("accessibility.status-item.value.camera-unavailable", comment: "")
+		)
+
 		if let current = self.contentView, type(of: current) == Class { return }
 
 		// The camera view is a kept singleton (see cameraContentView): reuse

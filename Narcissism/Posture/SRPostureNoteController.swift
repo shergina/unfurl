@@ -35,6 +35,9 @@ final class SRPostureNoteController {
 	/// completion checks it so a show racing a hide never orders out.
 	fileprivate var wantsVisible = false
 
+	/// The last text spoken to VoiceOver, nil while the note is hidden.
+	fileprivate var announcedText: String?
+
 	// Ghost mode (PostureNoteGhost): while on, the visible note fades to
 	// almost nothing under the pointer and back when it leaves. The note
 	// is click-through, so ordinary tracking areas never fire; hover is
@@ -174,6 +177,25 @@ final class SRPostureNoteController {
 
 		self.reposition()
 		self.setVisible(true)
+		self.announce(self.label.stringValue)
+	}
+
+	/// Speaks the note for VoiceOver users: the note itself is a
+	/// click-through panel VoiceOver cannot reach, so each new message is
+	/// posted as an announcement. Keyed on the text, so the per-tick
+	/// re-evaluation does not re-announce an unchanged note; the key
+	/// clears on hide, so a note that returns speaks again.
+	fileprivate func announce(_ text: String) {
+		guard text != self.announcedText else { return }
+		self.announcedText = text
+		NSAccessibility.post(
+			element: NSApp as Any,
+			notification: .announcementRequested,
+			userInfo: [
+				.announcement: text,
+				.priority: NSAccessibilityPriorityLevel.medium.rawValue,
+			]
+		)
 	}
 
 	fileprivate func setIcon(_ symbolName: String, color: NSColor) {
@@ -207,6 +229,7 @@ final class SRPostureNoteController {
 		} else {
 			self.removeGhostMouseMonitors()
 			self.ghostHovered = false
+			self.announcedText = nil
 		}
 
 		let target = visible ? self.restingAlpha() : 0.0

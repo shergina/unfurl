@@ -477,7 +477,12 @@ Notifications page (see UI/Settings/spec.md).
   toggled nudge channels (PostureNoteEnabled, default on): while its
   preference is off the status is treated as nothing-to-say and the
   note never shows. All three channels off means tracking runs
-  silently.
+  silently. Each new note text is also posted as a VoiceOver
+  announcement (2026-08-14): a click-through panel is unreachable by
+  VoiceOver, which left the coaching channel silent for its users.
+  Keyed on the text - the per-tick re-evaluation does not re-announce
+  an unchanged note, and the key clears on hide so a returning note
+  speaks again. Medium priority, a nudge rather than an interruption.
 - Note appearance (redesigned 2026-07-30): the system notification
   banner's anatomy instead of the earlier bare dark chip. Adaptive
   popover material following light and dark mode, 16 pt rounded corners

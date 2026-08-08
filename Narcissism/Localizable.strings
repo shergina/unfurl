@@ -63,6 +63,7 @@
 // Accessibility
 "accessibility.status-item.label" = "Narcissism";
 "accessibility.status-item.help" = "Shows the camera menu.";
+"accessibility.status-item.value.camera-unavailable" = "Camera unavailable";
 "accessibility.panel.title" = "Narcissism Camera";
 "accessibility.camera-preview.label" = "Live camera preview";
 
