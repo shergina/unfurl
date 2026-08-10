@@ -10,5 +10,3 @@
 
 #include "../Release.xcconfig"
 
-CODE_SIGN_ENTITLEMENTS =
-
