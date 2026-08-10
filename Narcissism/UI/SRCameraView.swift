@@ -23,8 +23,9 @@ class SRCameraView: NSView {
 	/// deinit as before.
 	fileprivate var lifecycleTask: Task<Void, Never>?
 
+	// Must match the session preset (.hd1920x1080, see SRCameraService).
 	var captureResolution: CGSize {
-		return CGSize(width: 320, height: 240)
+		return CGSize(width: 1920, height: 1080)
 	}
 
 	var captureRatio: CGFloat {
