@@ -22,15 +22,12 @@ import os
 /// composition root calls start/stop as the preference changes. See
 /// spec.md.
 ///
-/// Currently running round two of the zoom-out experiment: the body-pose
-/// model is trained on full-body imagery and mostly fails on laptop framing
-/// where a head and shoulders fill the frame. Each analyzed frame is
-/// measured twice - on the frame composited at the top of a fixed black
-/// canvas 2.5x the frame height (round one's winner; the raw "plain"
-/// pipeline lost decisively and was deleted), and on a canvas sized and
-/// positioned from the detected face so the implied figure keeps full-body
-/// proportions at any sitting distance and screen tilt. The log reports
-/// both so the lift is measurable on identical frames. See spec.md.
+/// The body-pose model is trained on full-body imagery and mostly fails on
+/// laptop framing where a head and shoulders fill the frame, so each
+/// analyzed frame is composited onto a black canvas sized and positioned
+/// from the detected face: the implied figure keeps full-body proportions
+/// at any sitting distance and screen tilt. See spec.md for the zoom-out
+/// experiments that settled on this design.
 @MainActor
 final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
@@ -310,15 +307,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
     // This sets the number of log lines per second (one):
 	fileprivate nonisolated static let logInterval = CMTime(value: 1, timescale: 1)
 
-	/// Height multiplier for the fixed zoom-out canvas. At 2.5 the camera
-	/// frame occupies the top 40 percent of the analyzed image.
-	fileprivate nonisolated static let paddingFactor = 2.5
-
-	/// The fixed canvas's frame placement for the coordinate remap: full
-	/// width, the top 1/paddingFactor of the height.
-	fileprivate nonisolated static let paddedFrameRect = CGRect(x: 0, y: 1 - 1 / paddingFactor, width: 1, height: 1 / paddingFactor)
-
-	// The adaptive canvas is sized off the detected head instead: a standing
+	// The adaptive canvas is sized off the detected head: a standing
 	// figure is 7-8 head-lengths tall and 2-2.5 wide at the shoulders, so a
 	// canvas measured in head-heights keeps the implied figure plausibly
 	// proportioned however close the user leans in. Vision's face box covers
@@ -482,7 +471,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated(unsafe) var lastAnalysisTime = CMTime.invalid
 	fileprivate nonisolated(unsafe) var windowStartTime = CMTime.invalid
 	fileprivate nonisolated(unsafe) var windowFrameCount = 0
-	fileprivate nonisolated(unsafe) var paddedWindow = WindowAccumulator()
 	fileprivate nonisolated(unsafe) var adaptiveWindow = WindowAccumulator()
 
 	// Issue debounce state. Touched only on the (serial) analysis queue.
@@ -529,12 +517,6 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		// The face box drives the adaptive canvas geometry; refresh it first.
 		self.updateFaceBox(from: pixelBuffer, at: timestamp)
 
-		var paddedResult: ShoulderAnalysis?
-		if let canvas = self.paddedCanvasFilled(from: pixelBuffer) {
-			let result = Self.analyzeShoulders(in: canvas, frameRect: Self.paddedFrameRect)
-			self.paddedWindow.merge(result)
-			paddedResult = result
-		}
 		var adaptiveResult = ShoulderAnalysis.noFace
 		if
 			let faceBox = self.smoothedFaceBox,
@@ -544,13 +526,10 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		}
 		self.adaptiveWindow.merge(adaptiveResult)
 
-		// Per-frame feed, adaptive pipeline preferred, fixed canvas as
-		// fallback. Sent for every analyzed frame, usable or not:
+		// Per-frame feed. Sent for every analyzed frame, usable or not:
 		// calibration counts frame events.
 		var best: ShoulderMeasurement?
 		if case .measured(let measurement) = adaptiveResult {
-			best = measurement
-		} else if case .measured(let measurement)? = paddedResult {
 			best = measurement
 		}
 		let sample = SRPostureFrameSample(
@@ -572,11 +551,9 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 		}
 	}
 
-	/// Runs on the analysis queue: one line per finished window with both
-	/// pipelines side by side, so the adaptive variant's lift over the fixed
-	/// canvas is readable off identical frames.
+	/// Runs on the analysis queue: one line per finished window.
 	fileprivate nonisolated func logWindow() {
-		Self.logger.log("Shoulder distance: padded [\(self.paddedWindow.summary, privacy: .public)] adaptive [\(self.adaptiveWindow.summary, privacy: .public)] (\(self.windowFrameCount, privacy: .public) frames)")
+		Self.logger.log("Shoulder distance: \(self.adaptiveWindow.summary, privacy: .public) (\(self.windowFrameCount, privacy: .public) frames)")
 
 		// Muted while uncalibrated (nothing to judge against) or while the
 		// calibration window is open (no nagging mid-calibration). Trackers
@@ -592,7 +569,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			return
 		}
 
-		let best = self.adaptiveWindow.bestMeasurement ?? self.paddedWindow.bestMeasurement
+		let best = self.adaptiveWindow.bestMeasurement
 
 		// Distance from baseline per metric, every window, in the ladder's
 		// own currency: percent of baseline, positive = below it (toward
@@ -665,8 +642,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			metric = nil
 		}
 
-		// Slouch alert, evaluated on whichever pipeline measured (adaptive
-		// preferred, fixed canvas as fallback). One evaluation per window,
+		// Slouch alert. One evaluation per window,
 		// no debounce yet: immediate per-second feedback is the point of the
 		// current experiment; the line stays raw on purpose (tuning
 		// telemetry), names the metric that judged, and carries the rolling
@@ -683,11 +659,11 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 			Self.logger.warning("Slouching (\(metric.name, privacy: .public)): ratio \(String(format: "%.3f", metric.ratio), privacy: .public) (median \(medianText, privacy: .public)) is \(String(format: "%.1f", percentBelow), privacy: .public) percent below your \(String(format: "%.3f", metric.baseline), privacy: .public) baseline (limit \(String(format: "%.1f", metric.percent), privacy: .public) percent)")
 		}
 
-		// Shoulder alignment alert, same cadence and pipeline preference.
+		// Shoulder alignment alert, same cadence.
 		// Positive tilt means the subject's anatomical left shoulder is the
 		// higher one, so it is the one to lower.
 		if
-			let tilt = self.adaptiveWindow.bestMeasurement?.shoulderTiltDegrees ?? self.paddedWindow.bestMeasurement?.shoulderTiltDegrees,
+			let tilt = self.adaptiveWindow.bestMeasurement?.shoulderTiltDegrees,
 			abs(tilt) > self.maximumLevelShoulderTiltDegrees
 		{
 			let higherShoulder = tilt > 0 ? "left" : "right"
@@ -789,70 +765,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	fileprivate nonisolated func resetWindow() {
 		self.windowStartTime = .invalid
 		self.windowFrameCount = 0
-		self.paddedWindow = WindowAccumulator()
 		self.adaptiveWindow = WindowAccumulator()
-	}
-
-	//: ## The zoom-out canvas
-
-	/// Lazily (re)created black canvas, paddingFactor times the frame height;
-	/// only the frame region is overwritten each time, the padding stays
-	/// black from allocation. Touched only on the analysis queue.
-	fileprivate nonisolated(unsafe) var paddedCanvas: CVPixelBuffer?
-	fileprivate nonisolated(unsafe) var didLogCanvasFailure = false
-
-	/// Copies the frame into the top of the reusable canvas and returns it.
-	/// Pixels are 1:1 with the source, so distances measured on the canvas
-	/// are directly comparable across pipelines.
-	fileprivate nonisolated func paddedCanvasFilled(from source: CVPixelBuffer) -> CVPixelBuffer? {
-		let width = CVPixelBufferGetWidth(source)
-		let height = CVPixelBufferGetHeight(source)
-		let paddedHeight = Int(Double(height) * Self.paddingFactor)
-
-		if self.paddedCanvas == nil
-			|| CVPixelBufferGetWidth(self.paddedCanvas!) != width
-			|| CVPixelBufferGetHeight(self.paddedCanvas!) != paddedHeight {
-			var canvas: CVPixelBuffer?
-			CVPixelBufferCreate(kCFAllocatorDefault, width, paddedHeight, kCVPixelFormatType_32BGRA, nil, &canvas)
-			if let canvas {
-				CVPixelBufferLockBaseAddress(canvas, [])
-				if let base = CVPixelBufferGetBaseAddress(canvas) {
-					// Opaque black: the pattern keeps BGRA alpha at 255 so
-					// the padding reads as black, not as transparency.
-					var black: [UInt8] = [0, 0, 0, 255]
-					memset_pattern4(base, &black, CVPixelBufferGetDataSize(canvas))
-				}
-				CVPixelBufferUnlockBaseAddress(canvas, [])
-			}
-			self.paddedCanvas = canvas
-		}
-
-		guard let canvas = self.paddedCanvas else {
-			if !self.didLogCanvasFailure {
-				self.didLogCanvasFailure = true
-				Self.logger.error("Could not allocate the zoom-out canvas; the padded pipeline is off")
-			}
-			return nil
-		}
-
-		CVPixelBufferLockBaseAddress(source, .readOnly)
-		CVPixelBufferLockBaseAddress(canvas, [])
-		defer {
-			CVPixelBufferUnlockBaseAddress(canvas, [])
-			CVPixelBufferUnlockBaseAddress(source, .readOnly)
-		}
-		guard
-			let sourceBase = CVPixelBufferGetBaseAddress(source),
-			let canvasBase = CVPixelBufferGetBaseAddress(canvas)
-		else { return nil }
-
-		let sourceBytesPerRow = CVPixelBufferGetBytesPerRow(source)
-		let canvasBytesPerRow = CVPixelBufferGetBytesPerRow(canvas)
-		let rowBytes = min(sourceBytesPerRow, canvasBytesPerRow, width * 4)
-		for row in 0..<height {
-			memcpy(canvasBase + row * canvasBytesPerRow, sourceBase + row * sourceBytesPerRow, rowBytes)
-		}
-		return canvas
 	}
 
 	//: ## The head-adaptive canvas
@@ -1364,7 +1277,7 @@ struct SRPostureWindowSample: Sendable {
 }
 
 
-/// One analyzed frame's readings, padded pipeline preferred: shoulder
+/// One analyzed frame's readings: shoulder
 /// width as a fraction of the frame, the slouch ratio (nil without eyes),
 /// its ear-anchored variant (nil without an ear), and the joints. All nil
 /// when nothing measured.

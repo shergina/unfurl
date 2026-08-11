@@ -75,9 +75,9 @@ Notifications page (see UI/Settings/spec.md).
   the plain path was deleted per the losing-path-is-deleted rule. Known
   remaining failure: padded detection dies when the user leans in close
   (observed live: works at ~95 percent frame-height occupancy, gone at
-  100), which round two targets.
-- Zoom-out experiment, round two (temporary): the fixed 2.5x canvas stays
-  as the control; the candidate is a head-adaptive canvas that keeps the
+  100), which round two targeted.
+- Zoom-out, the shipped design (round two's winner, adopted 2026-08-16):
+  a head-adaptive canvas keeps the
   implied figure plausibly proportioned at any sitting distance and screen
   tilt. VNDetectFaceRectanglesRequest runs on each analyzed raw frame (the
   face detector stays reliable up close and at odd angles where the pose
@@ -100,14 +100,20 @@ Notifications page (see UI/Settings/spec.md).
   band when the screen tilts up) is cropped by the placement itself, and
   the canvas is re-blacked every fill so the moving placement leaves no
   ghosts. Pixels stay 1:1; joint positions and metrics are remapped
-  through the frame's placement rect (both axes now), and the shoulder
-  width fraction divides by the frame's width, not the canvas's, so both
-  pipelines report frame-relative, comparable values. Each log line
-  reports both ("padded [...] adaptive [...]"; "no face" marks windows
-  where the face detector never fed the candidate). Live status prefers
-  adaptive, padded as fallback. Cost: 8 pose + 4 face inferences/s,
-  accepted for the experiment's duration. Exit condition: same rule -
-  the losing canvas is deleted, not kept. Open question: at extreme
+  through the frame's placement rect, and the shoulder width fraction
+  divides by the frame's width, not the canvas's, so values are
+  frame-relative. Each log line reports the window's best measurement
+  ("no face" marks windows the face detector never fed). Cost: 4 pose +
+  4 face inferences/s.
+  Round two ran the fixed 2.5x canvas (round one's winner) as control
+  against this candidate, every frame measured on both, each log line
+  reporting the pair. Verdict off 3374 logged windows (2026-08-14/15):
+  adaptive detected in 93.5 vs 91.6 percent of windows overall, 96.4 vs
+  90.1 percent in the lean-in windows (>= 95 percent height occupancy)
+  round two targeted, with higher joint confidence (0.66 vs 0.61
+  weakest-joint mean) and near-identical values when both measured
+  (median width-fraction delta 0.010). The padded canvas was deleted per
+  the losing-path rule. Open question: at extreme
   lean-in the slouch ratio drifts with lens perspective even when
   detection holds; very-close windows may deserve low trust for the
   ratio.
@@ -163,7 +169,7 @@ Notifications page (see UI/Settings/spec.md).
   to inform the zoom-out framing questions (how much of the frame the
   visible person actually fills); rough by design, not a posture metric.
 - Slouch alert (experimental, log-only): each window's best available
-  slouch ratio (adaptive pipeline preferred, padded as fallback) is compared
+  slouch ratio is compared
   against the user's calibrated baseline for the camera in use: the
   PostureBaselines map's entry for the active AVCaptureDevice.uniqueID,
   mirrored onto the analysis queue (the map combined with the camera
@@ -921,8 +927,8 @@ Notifications page (see UI/Settings/spec.md).
   switching, and a nudge to enable a switch they disabled would argue
   with them.
 - Dots overlay: the service publishes each analyzed frame's readings
-  (shoulder width fraction, slouch ratio, joints; adaptive pipeline
-  preferred, padded as fallback, frame-normalized) on the main actor via
+  (shoulder width fraction, slouch ratio, joints; frame-normalized) on
+  the main actor via
   onFrameSample. The calibration window drew the joints as dots over its
   preview (shoulders red, eyes yellow) until 2026-08-04, removed as
   visual noise: the guidance line already tells the user whether
