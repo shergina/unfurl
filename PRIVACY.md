@@ -2,7 +2,7 @@
 
 Effective: August 5, 2026
 
-Narcissism is a macOS menu-bar camera and posture app. It collects no data. Everything it does happens on your Mac.
+Narcissism is a macOS posture and menu-bar camera app. It collects no data. Everything it does happens on your Mac.
 
 ## Camera
 

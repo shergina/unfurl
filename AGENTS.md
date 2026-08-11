@@ -2,7 +2,7 @@
 
 This file is the entry point for anyone changing this repository: AI agents (Claude, Cursor, Copilot, and others) and humans. `CLAUDE.md` and `.cursorrules` are symlinks to this file.
 
-Narcissism is a native macOS menu-bar camera app (AppKit, Swift 6, sandboxed).
+Narcissism is a native macOS app that coaches the user's posture and tracks its dynamics over time, built around a menu-bar camera (AppKit, Swift 6, sandboxed).
 
 ## The one rule that is easy to forget
 

@@ -3,7 +3,8 @@
 A native macOS posture coach that lives in your menu bar. It learns what
 *your* good posture looks like through the webcam, watches for sustained
 slouching or shoulder misalignment - entirely on device - and notifies you
-when your posture worsens. Around that it offers a set of optional camera
+when your posture worsens. It tracks your posture dynamics too: hour by
+hour, day by day, week by week. Around that it offers a set of optional camera
 features: a live preview in the menu bar, a floating panel, and the Dock
 tile. It has no main window: it is a background agent whose UI is always
 available and never in the way.
@@ -66,11 +67,3 @@ camera view and the posture analysis; strongly typed, observable preferences
 This repo is spec-driven: each substantial subsystem has a `spec.md` next to
 its code capturing the design and the platform decisions behind it. Start
 there, and read `AGENTS.md` before making changes.
-
-## Build flags
-
-- `USE_UNDOCUMENTED_API` (defined for all configurations in
-  `Build Configurations/Configurations/Narcissism/Narcissim-Shared.xcconfig`):
-  the single switch for deliberate undocumented-API use, currently the
-  private CoreGraphics call that shows a resize cursor over the menu-bar item.
-  Remove the flag to compile all such usage out.
