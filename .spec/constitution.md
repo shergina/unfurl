@@ -1,12 +1,12 @@
 # Constitution
 
-The stable principles behind Narcissism. AGENTS.md distills these for
+The stable principles behind Unfurl. AGENTS.md distills these for
 day-to-day work; if the two ever conflict, this file wins. Subsystem
 spec.md files record the decisions made under these principles.
 
 ## What the app is
 
-Narcissism is a native macOS posture coach. It learns the user's good
+Unfurl is a native macOS posture coach. It learns the user's good
 posture through the camera, watches for sustained slouching entirely on
 device, nudges when posture worsens, and tracks posture dynamics over
 time (hour-by-hour history, week-by-week trends). Around that it

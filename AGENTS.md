@@ -2,7 +2,7 @@
 
 This file is the entry point for anyone changing this repository: AI agents (Claude, Cursor, Copilot, and others) and humans. `CLAUDE.md` and `.cursorrules` are symlinks to this file.
 
-Narcissism is a native macOS app that coaches the user's posture and tracks its dynamics over time, built around a menu-bar camera (AppKit, Swift 6, sandboxed).
+Unfurl is a native macOS app that coaches the user's posture and tracks its dynamics over time, built around a menu-bar camera (AppKit, Swift 6, sandboxed).
 
 ## The one rule that is easy to forget
 
@@ -10,15 +10,15 @@ Narcissism is a native macOS app that coaches the user's posture and tracks its 
 
 - The spec is the source of truth for intended behavior. Code conforms to the spec, never the reverse.
 - Read `.spec/constitution.md` before non-trivial work; it defines the stable principles.
-- Specs live next to the code: `.spec/app.spec.md` for the whole app, and `<subsystem>/spec.md` for each substantial subsystem under `Narcissism/` (Tools, UI/Panel, UI/Dock, UI/Status Item, UI/Menu).
+- Specs live next to the code: `.spec/app.spec.md` for the whole app, and `<subsystem>/spec.md` for each substantial subsystem under `Unfurl/` (Tools, UI/Panel, UI/Dock, UI/Status Item, UI/Menu).
 - If your change touches a subsystem that has a `spec.md`, decide explicitly: does this change behavior, a contract, an invariant, or a recorded design decision? If yes, edit the spec in the same commit. If it is a pure no-behavior refactor, it is fine to leave the spec unchanged.
 - A local pre-commit hook reminds you when code changed under a spec-owning subsystem without touching that spec (see "Local setup"). It is a reminder, not a gate; the judgment is yours.
 
 ## Where things are
 
-- `main.swift` runs the app; `SRNarcissismApplicationDelegate` is the composition root (creates the three surfaces at launch).
+- `main.swift` runs the app; `SRUnfurlApplicationDelegate` is the composition root (creates the three surfaces at launch).
 - Services (process-wide singletons the surfaces observe): `SRCameraService` (the one shared capture session and its state), `SRPhotoCaptureService`, `SRSettings` (typed preferences), `SRLaunchApplicationAtLoginController`.
-- Surfaces under `Narcissism/UI/`: `Status Item/`, `Panel/`, `Dock/`, `Menu/`, `About/`.
+- Surfaces under `Unfurl/UI/`: `Status Item/`, `Panel/`, `Dock/`, `Menu/`, `About/`.
 - Read the relevant `spec.md` first; it captures the design and the platform decisions already made.
 
 ## How this codebase expects changes to be made
@@ -41,7 +41,7 @@ These distill `.spec/constitution.md`; the constitution wins if they ever confli
 
 ## Building and verifying
 
-- Build: `xcodebuild -workspace Narcissism.xcworkspace -scheme Narcissism -configuration Debug -destination 'platform=macOS' build`
+- Build: `xcodebuild -workspace Unfurl.xcworkspace -scheme Unfurl -configuration Debug -destination 'platform=macOS' build`
 - The app is an `LSUIElement` agent: no Dock icon or main window by default; its UI is the menu-bar item, the floating panel, and (when enabled) the Dock tile.
 - Development builds sign with a real Apple Development cert, so macOS keeps the camera grant across rebuilds. The team id lives in `Build Configurations/Configurations/Debug.xcconfig`; change it if you sign in with a different Apple ID. Ad-hoc signing (`CODE_SIGN_IDENTITY = -`) also builds, but re-prompts for camera access every time.
 - Verify camera-facing changes by actually running the app and observing the surface, including the permission-denied path.

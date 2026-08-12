@@ -2,7 +2,7 @@
 
 Effective: August 5, 2026
 
-Narcissism is a macOS posture and menu-bar camera app. It collects no data. Everything it does happens on your Mac.
+Unfurl is a macOS posture and menu-bar camera app. It collects no data. Everything it does happens on your Mac.
 
 ## Camera
 
@@ -30,4 +30,4 @@ If a future version changes any of the above, this policy will be updated before
 
 ## Contact
 
-Questions: maria@shergin.com, or open an issue at https://github.com/shergina/narcissism/issues.
+Questions: maria@shergin.com, or open an issue at https://github.com/shergina/unfurl/issues.

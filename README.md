@@ -1,4 +1,4 @@
-# Narcissism
+# Unfurl
 
 A native macOS posture coach that lives in your menu bar. It learns what
 *your* good posture looks like through the webcam, watches for sustained
@@ -49,9 +49,9 @@ no camera views at all.
 
 Requires a recent Xcode; the app runs on macOS 14 or later.
 
-    xcodebuild -workspace Narcissism.xcworkspace -scheme Narcissism -configuration Debug -destination 'platform=macOS' build
+    xcodebuild -workspace Unfurl.xcworkspace -scheme Unfurl -configuration Debug -destination 'platform=macOS' build
 
-Then run the built `Narcissism.app`. Grant camera access when prompted; if you
+Then run the built `Unfurl.app`. Grant camera access when prompted; if you
 deny it, the panel explains how to re-enable it in System Settings.
 
 Development builds are ad-hoc signed, so each rebuild re-prompts for camera

@@ -1,0 +1,237 @@
+/* 
+  Localizable.strings
+  Unfurl
+
+  Created by Maria Shergina on 16/05/26.
+  Copyright (c) 2026 Maria Shergina. All rights reserved.
+*/
+
+// Menu
+"menu.about" = "About Unfurl";
+"menu.take-photo" = "Take Photo";
+"menu.track-posture" = "Track Posture";
+"menu.posture-snooze" = "Snooze";
+"menu.posture-snooze.snoozed-until" = "Snoozed Until %@";
+"menu.posture-snooze.5-minutes" = "5 Minutes";
+"menu.posture-snooze.10-minutes" = "10 Minutes";
+"menu.posture-snooze.15-minutes" = "15 Minutes";
+"menu.posture-snooze.30-minutes" = "30 Minutes";
+"menu.posture-snooze.1-hour" = "1 Hour";
+"menu.posture-snooze.2-hours" = "2 Hours";
+"menu.posture-snooze.5-hours" = "5 Hours";
+"menu.posture-snooze.resume" = "Resume Now";
+// Both nouns on purpose: without "Posture" the item reads as calibrating the
+// hardware (colour, focus), and without "Camera" it reads as something you do
+// once for yourself. "This Camera" rather than the device name - the name made
+// the item dictate the menu's width, and made that width change as cameras came
+// and went. The window it opens names the device in its title bar.
+"menu.calibrate-posture" = "Calibrate Posture for This Camera…";
+"menu.flip-camera-horizontally" = "Mirror Image";
+"menu.show-camera-panel" = "Show Camera Panel";
+"menu.show-camera-on-status-bar" = "Show in Menu Bar";
+"menu.show-camera-on-dock-tile" = "Show in Dock";
+"menu.show-camera-panel-on-hover" = "Show Panel on Hover";
+"menu.ghost-mode" = "Ghost Mode";
+"menu.camera" = "Camera";
+"menu.camera.automatic" = "Automatic";
+"menu.statistics" = "Statistics";
+"menu.settings" = "Settings…";
+"menu.quit" = "Quit Unfurl";
+
+
+"about.title" = "About Unfurl";
+"about.application.title" = "Unfurl";
+"about.application.subtitle" = "Ultimate Posture App";
+"about.application.version" = "version: %@, build: %@";
+"about.application.copyright" = "© Maria Shergina, All Right Reserved.";
+
+"notification.photo-was-saved.title" = "You Look Great!";
+"notification.photo-was-saved.subtitle" = "As Always";
+"notification.photo-was-saved.message" = "Photo was saved in Photos folder.";
+
+// Camera state
+"panel.toolbar.close" = "Close";
+"panel.toolbar.pin" = "Pin Panel";
+"panel.toolbar.photo" = "Take Photo";
+"panel.toolbar.ghost" = "Ghost Mode";
+"panel.toolbar.mirror" = "Mirror";
+"panel.toolbar.menu" = "Menu";
+"camera.placeholder.unauthorized" = "Unfurl needs access to your camera.";
+"camera.placeholder.open-settings" = "Open System Settings";
+"camera.placeholder.unavailable" = "No camera available.";
+"camera.error.no-device" = "No camera available.";
+"camera.error.cannot-add-input" = "This camera can’t be used right now.";
+"camera.error.runtime" = "The camera stopped unexpectedly.";
+
+// Accessibility
+"accessibility.status-item.label" = "Unfurl";
+"accessibility.status-item.help" = "Shows the camera menu.";
+"accessibility.status-item.value.camera-unavailable" = "Camera unavailable";
+"accessibility.panel.title" = "Unfurl Camera";
+"accessibility.camera-preview.label" = "Live camera preview";
+
+// Settings window
+"settings.tab.general" = "General";
+"settings.tab.posture" = "Posture";
+"settings.tab.notifications" = "Notifications";
+"settings.general.track-posture" = "Track Posture";
+"settings.general.show-camera-panel" = "Show Camera Panel";
+"settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
+"settings.general.prefer-external-camera" = "Prefer External Display Camera";
+"settings.general.launch-at-login" = "Open at Login";
+// One row per connected camera. Naming each camera is what teaches that a
+// baseline belongs to a camera, not to the user.
+"settings.posture.cameras.header" = "Cameras";
+// Wraps the calibration state of whichever camera is running, rather than
+// drawing a leading checkmark: a checkmark gutter would indent every camera
+// name past the axis the rest of the page starts on.
+"settings.posture.camera.in-use" = "In use · %@";
+"settings.posture.baseline.calibrated" = "Calibrated %@";
+"settings.posture.baseline.none" = "Not calibrated";
+"settings.posture.calibrate" = "Calibrate…";
+"settings.posture.recalibrate" = "Recalibrate…";
+"settings.posture.strictness.header" = "Tracking Strictness";
+"settings.posture.slouch-strictness.label" = "Slouch:";
+"settings.posture.shoulder-strictness.label" = "Shoulder tilt:";
+"settings.posture.strictness.relaxed" = "Relaxed";
+"settings.posture.strictness.strict" = "Strict";
+"settings.notifications.delay.label" = "Notify after:";
+"settings.notifications.delay.5-seconds" = "5 Seconds";
+"settings.notifications.delay.10-seconds" = "10 Seconds";
+"settings.notifications.delay.30-seconds" = "30 Seconds";
+"settings.notifications.delay.1-minute" = "1 Minute";
+"settings.notifications.delay.5-minutes" = "5 Minutes";
+"settings.notifications.channels.label" = "Notify with:";
+"settings.notifications.channel.note" = "On-screen note";
+"settings.notifications.channel.sound" = "Sound";
+"settings.notifications.channel.status-item" = "Menu bar icon lights up";
+"settings.notifications.note-ghost" = "Fade under the pointer";
+"settings.notifications.snooze.label" = "Snooze:";
+"settings.notifications.snooze.off" = "Off";
+"settings.notifications.snooze.until" = "Until %@";
+// Statistics window
+"statistics.window.title" = "Statistics";
+"statistics.today.title" = "Today";
+"statistics.today.tracked" = "%@ tracked";
+"statistics.series.slouching" = "Slouching";
+"statistics.series.shoulders" = "Uneven Shoulders";
+"statistics.provisional-note" = "The gray baseline marks tracked hours. Dimmed bars are still in progress or have under ten minutes of tracking.";
+"statistics.empty.title" = "No posture data yet today.";
+"statistics.empty.hint" = "Turn on Track Posture to start collecting.";
+"statistics.empty.day" = "There is no posture data for %@.";
+"statistics.today-button" = "Today";
+"statistics.tooltip.hours" = "%1$@ – %2$@";
+"statistics.tooltip.clean" = "No sustained issues";
+"statistics.tooltip.slouching" = "Slouching: %@";
+"statistics.tooltip.left-high" = "Left shoulder high: %@";
+"statistics.tooltip.right-high" = "Right shoulder high: %@";
+"statistics.tab.day" = "Day";
+"statistics.tab.trends" = "Trends";
+"statistics.trends.title" = "Trends";
+"statistics.trends.weeks.one" = "1 week of data";
+"statistics.trends.weeks.many" = "%d weeks of data";
+"statistics.trends.empty" = "Trends will appear once posture data has been recorded.";
+"statistics.trends.one-week" = "One week so far — trend lines appear as more weeks accumulate.";
+"statistics.trends.note" = "Dimmed points are weeks still in progress or with little data.";
+
+// Welcome window
+"welcome.title" = "Welcome to Unfurl";
+"welcome.slogan" = "Work without the expense of your spine";
+"welcome.description" = "Unfurl helps you build healthier posture habits without stepping away from work. It uses your camera to detect slouching and uneven shoulders, then quietly tells you what to improve.";
+"welcome.privacy.lead" = "Private by design.";
+"welcome.privacy.body" = "Everything happens on your Mac.\nNo footage is ever kept, uploaded, or shared.";
+"welcome.continue" = "Continue";
+"welcome.back" = "Back";
+"welcome.tutorial.title" = "Unfurl lives in your menu bar";
+"welcome.tutorial.subtitle" = "No windows to keep open. Just a tiny camera at the top of your screen.";
+"welcome.tutorial.locate" = "Locate Me";
+"welcome.tutorial.camera.title" = "See yourself";
+"welcome.tutorial.camera.body" = "A live mirror in the menu bar, the floating camera panel, or the Dock icon.";
+"welcome.tutorial.posture.title" = "Posture coaching";
+"welcome.tutorial.posture.body" = "Specific corrections, not just alerts. “Lower your right shoulder.” “Sit up straight.”";
+"welcome.tutorial.calibration.title" = "One setup per camera";
+"welcome.tutorial.calibration.body" = "Your laptop and your monitor each keep their own calibration. Set a camera up once, and it's remembered.";
+"welcome.tutorial.notifications.title" = "Nudges, your way";
+"welcome.tutorial.notifications.body" = "An on-screen note, a sound, or a glowing menu bar icon, timed and snoozed to fit how you work.";
+// The title is the instruction and nothing else. It used to trail off in "to
+// calibrate" - calibrate what? - and naming the camera there fixed the dangle
+// but ran the line to the window's full width at the flow's shared 20pt title
+// size. The body carries the camera instead, which is where the teaching sits
+// anyway.
+"welcome.posture.title" = "Hold your best posture";
+"welcome.posture.body" = "The posture you hold becomes this camera's baseline, the one Unfurl coaches you toward. No images are saved, just a few measurements that never leave your Mac.";
+"welcome.posture.later" = "Not Now";
+"welcome.ready.title" = "Help the camera see you";
+"welcome.ready.framing.title" = "Head and shoulders in view";
+"welcome.ready.framing.body" = "Tilt your screen the way you normally use it, then check that the camera sees you from the chest up.";
+"welcome.ready.clothes.title" = "Normal clothes";
+"welcome.ready.clothes.body" = "Bulky hoods and scarves can hide your shoulders from the camera.";
+"welcome.ready.hair.title" = "Hair put back";
+"welcome.ready.hair.body" = "Hair over your eyes or shoulders can hide them from the camera.";
+"welcome.ready.lighting.title" = "Good lighting";
+"welcome.ready.lighting.body" = "Face the light if you can. A bright window behind you makes you hard to see.";
+"welcome.ready.camera.title" = "A clear view";
+"welcome.ready.camera.body" = "Make sure nothing is covering the camera.";
+// Good posture reminders - shared by the welcome flow's good-posture page
+// and the calibration window's first page.
+"posture.good.title" = "What does good posture look like?";
+"posture.good.body" = "Hold this while the camera measures you. It becomes the baseline you are coached toward.";
+"posture.good.ready" = "Ready";
+// Shown only on the calibration window, and only for a camera with no
+// baseline while another camera has one - the moment the per-camera rule
+// stops being abstract. Never during onboarding, where there is no second
+// camera to point at.
+"posture.good.per-camera" = "Every camera sees you from a different angle, so each one needs its own setup. Your other cameras keep theirs.";
+"posture.good.hips.title" = "Hips back";
+"posture.good.hips.body" = "All the way back in the chair, so your lower back is supported. Perching on the front edge is what pulls you into a slouch.";
+"posture.good.tall.title" = "Sit tall";
+"posture.good.tall.body" = "Imagine a string lifting the top of your head toward the ceiling.";
+"posture.good.shoulders.title" = "Shoulders down and level";
+"posture.good.shoulders.body" = "Let them relax away from your ears.";
+
+// Posture corner note
+"posture.note.slouching" = "Sit up straight";
+"posture.note.lower-left-shoulder" = "Lower your left shoulder";
+"posture.note.lower-right-shoulder" = "Lower your right shoulder";
+"posture.note.not-visible" = "Posture: can't see you clearly";
+
+// Posture calibration window
+// Echoes the menu item's phrasing, so "for This Camera" is answered by "for
+// FaceTime HD Camera". Set as one title rather than a title plus subtitle:
+// with no toolbar on the window macOS joins those with an en dash, and "for"
+// reads better than a dash. The bare form is the fallback when no device name
+// has resolved.
+"posture.calibration.title" = "Calibrate Posture";
+"posture.calibration.title.camera" = "Calibrate Posture for %@";
+"posture.calibration.begin" = "Begin";
+"posture.calibration.accept" = "Looks Good";
+"posture.calibration.redo" = "Try Again";
+"posture.calibration.guidance.not-visible" = "Can't see you - make sure you are in front of the camera.";
+"posture.calibration.guidance.face-not-visible" = "Can't see your face clearly - face the camera.";
+"posture.calibration.guidance.too-far" = "Move a little closer to the camera.";
+// The instruction slot: one line per pose, held unchanged from the gate
+// through the countdown and the capture. The gaze lines say "turn your
+// head" because the probe measures head pitch - eyes-only compliance
+// gives a theta of zero.
+"posture.calibration.instruction.middle" = "Turn your head to look at the middle of your screen";
+"posture.calibration.instruction.ahead" = "Turn your head to look straight ahead";
+// The hold slot: the part that does not change between poses.
+"posture.calibration.hold" = "Best posture, hands on your keyboard";
+"posture.calibration.measuring" = "Hold still - measuring.";
+"posture.calibration.paused" = "Can't see you - measurement paused.";
+"posture.calibration.upright-captured" = "Upright posture captured.";
+"posture.calibration.finished" = "Calibration finished.";
+"posture.calibration.failed.timeout" = "Couldn't get a steady reading. Adjust your position and try again.";
+"posture.calibration.failed.unstable" = "The readings varied too much. Sit still and try again.";
+
+// New-camera calibration nudge (system notification). Three states, picked
+// by whether the active camera has a baseline: tracking works and this is an
+// upgrade, tracking is stalled after having worked, or nothing was ever
+// calibrated. Titles name the consequence - that is the line people read.
+"posture.nudge.title" = "New camera needs setup";
+"posture.nudge.title.resume" = "Posture tracking is paused";
+"posture.nudge.title.start" = "Posture tracking isn't set up yet";
+"posture.nudge.body" = "Calibrate \"%@\" to switch to it.";
+"posture.nudge.body.resume" = "Calibrate \"%@\" to resume posture tracking.";
+"posture.nudge.body.start" = "Calibrate \"%@\" to start posture tracking.";
+"posture.nudge.action" = "Calibrate…";

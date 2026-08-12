@@ -1,0 +1,20 @@
+//
+//  Shared.xcconfig
+//  Unfurl
+//
+//  Created by Maria Shergina on 19/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+#include "../Shared.xcconfig"
+
+INFOPLIST_FILE = $(SRCROOT)/Unfurl/Info.plist
+PRODUCT_BUNDLE_IDENTIFIER = com.shergin.unfurl
+PRODUCT_NAME = Unfurl
+CODE_SIGN_ENTITLEMENTS = Unfurl/Unfurl.entitlements
+
+// Single switch for every deliberate undocumented / private API use (see
+// SRStatusItemCameraView). Defined for all configurations, App Store
+// included; the app has passed review with it. Remove it here to compile
+// out all such usage in one move.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) USE_UNDOCUMENTED_API

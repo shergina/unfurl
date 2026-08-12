@@ -31,7 +31,7 @@ done
 
 # App-wide spec: any Swift change but .spec/app.spec.md untouched is worth a nudge only
 # when the app spec is clearly relevant (services or the delegate).
-app_touch=$(printf '%s\n' "$staged" | grep -E '^Narcissism/(SR(Settings|Narcissism)|Tools/)' || true)
+app_touch=$(printf '%s\n' "$staged" | grep -E '^Unfurl/(SR(Settings|Unfurl)|Tools/)' || true)
 if [ -n "$app_touch" ] && ! printf '%s\n' "$staged" | grep -qx ".spec/app.spec.md"; then
 	missing="$missing .spec/app.spec.md(?)"
 fi

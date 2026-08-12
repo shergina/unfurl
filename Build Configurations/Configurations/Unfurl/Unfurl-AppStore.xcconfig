@@ -1,0 +1,11 @@
+//
+//  AppStore.xcconfig
+//  Unfurl
+//
+//  Created by Maria Shergina on 19/10/26.
+//  Copyright © 2026 Maria Shergina. All rights reserved.
+//
+
+#include "Unfurl-Shared.xcconfig"
+
+#include "../AppStore.xcconfig"

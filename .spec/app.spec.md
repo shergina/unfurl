@@ -1,13 +1,13 @@
 # App Spec
 
 What the whole app is, and the contracts that cross subsystem lines.
-Each subsystem under Narcissism/ owns its own spec.md (Posture, Tools,
+Each subsystem under Unfurl/ owns its own spec.md (Posture, Tools,
 UI/Dock, UI/Menu, UI/Panel, UI/Settings, UI/Statistics, UI/Status Item,
 UI/Welcome); this file records only what spans them.
 
 ## Identity
 
-- Narcissism, a posture coach for macOS 14+ that watches through the
+- Unfurl, a posture coach for macOS 14+ that watches through the
   camera and tracks posture dynamics over time. AppKit, Swift 6 strict
   concurrency, sandboxed, LSUIElement agent.
 - Posture coaching is the product; the camera surfaces around it are
@@ -17,7 +17,7 @@ UI/Welcome); this file records only what spans them.
 
 ## Composition
 
-- main.swift runs the app; SRNarcissismApplicationDelegate is the
+- main.swift runs the app; SRUnfurlApplicationDelegate is the
   composition root. It builds AppServices and creates the surfaces at
   launch; surfaces observe services, never each other.
 - Process-wide services: SRCameraService (the one shared capture
