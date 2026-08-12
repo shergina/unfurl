@@ -25,6 +25,7 @@ final class SRSettingsNotificationsViewController: NSViewController {
 	fileprivate static let delayOptions: [(titleKey: String, seconds: Int)] = [
 		("settings.notifications.delay.5-seconds", 5),
 		("settings.notifications.delay.10-seconds", 10),
+		("settings.notifications.delay.20-seconds", 20),
 		("settings.notifications.delay.30-seconds", 30),
 		("settings.notifications.delay.1-minute", 60),
 		("settings.notifications.delay.5-minutes", 300),

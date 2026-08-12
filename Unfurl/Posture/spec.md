@@ -443,7 +443,7 @@ Notifications page (see UI/Settings/spec.md).
   median alongside, so both views are visible in the telemetry. An
   issue is
   voiced after being active for the nudge-delay preference
-  (PostureNudgeDelaySeconds, default 10 s; windows are ~1 s so seconds
+  (PostureNudgeDelaySeconds, default 20 s; windows are ~1 s so seconds
   map straight to a window count, mirrored onto the analysis queue the
   same way the baseline is; the Settings window offers 5 s to 5 m). An
   active episode ages through clean dips (hovering at the threshold is
@@ -523,7 +523,7 @@ Notifications page (see UI/Settings/spec.md).
   so briefly leaving the frame and returning with the same issue does
   not beep again; the probe stopping clears it. The Settings window's
   sound picker previews the beep on selection.
-- Status-item tint channel (PostureStatusItemTint, default off): while
+- Status-item tint channel (PostureStatusItemTint, default on): while
   any issue is voiced the menu-bar item lights up - the template icon
   tints orange, or the live camera gets an orange border. Best-effort
   ambient state per VISION.md, never load-bearing (the item can be
