@@ -66,4 +66,4 @@ camera view and the posture analysis; strongly typed, observable preferences
 
 This repo is spec-driven: each substantial subsystem has a `spec.md` next to
 its code capturing the design and the platform decisions behind it. Start
-there, and read `AGENTS.md` before making changes.
+there before making changes.

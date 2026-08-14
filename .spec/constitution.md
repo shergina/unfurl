@@ -1,8 +1,9 @@
 # Constitution
 
-The stable principles behind Unfurl. AGENTS.md distills these for
-day-to-day work; if the two ever conflict, this file wins. Subsystem
-spec.md files record the decisions made under these principles.
+The stable principles behind Unfurl. The local agent guide (AGENTS.md,
+kept out of the repo on purpose) distills these for day-to-day work; if
+the two ever conflict, this file wins. Subsystem spec.md files record
+the decisions made under these principles.
 
 ## What the app is
 

@@ -13,3 +13,8 @@ DerivedData/
 *.cer
 *.mobileprovision
 *.provisionprofile
+
+# Agent guides live on disk only: Claude Code reads CLAUDE.md from the
+# working tree, and keeping them out of git keeps the repo front page clean.
+/AGENTS.md
+/CLAUDE.md
