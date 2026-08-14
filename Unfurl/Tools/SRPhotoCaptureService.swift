@@ -25,7 +25,8 @@ class SRPhotoCaptureService: NSObject {
 	fileprivate var inflightCaptures = Set<PhotoCaptureDelegate>()
 
 	func capture(_ completion: ((NSError?) -> ())? = nil) {
-		NSSound(named: "Grab.aif")?.play()
+		// A named system sound: nothing bundled, nothing to license.
+		NSSound(named: "Pop")?.play()
 
 		// Task inherits the main-actor context, so state and the completion
 		// closure stay on the main actor; only the awaited steps hop off.

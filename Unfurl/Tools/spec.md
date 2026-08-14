@@ -65,7 +65,7 @@
 
 ### Workflow 5: take a photo
 
-1. `SRPhotoCaptureService.capture` plays the shutter sound, lazily creates and attaches an `AVCapturePhotoOutput` to the shared session, and captures with a retained one-shot delegate.
+1. `SRPhotoCaptureService.capture` plays the shutter sound (the named system sound "Pop"; nothing bundled), lazily creates and attaches an `AVCapturePhotoOutput` to the shared session, and captures with a retained one-shot delegate.
 2. The finished JPEG is written to Pictures on a background queue; a "photo saved" user notification is posted after requesting notification authorization.
 
 ## Requirements (what must be true)

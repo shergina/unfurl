@@ -44,7 +44,6 @@
 		598BA23B2FC34A2400DE37EF /* CombineHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598BA23A2FC34A2400DE37EF /* CombineHelpers.swift */; };
 		598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59EF39F31B01EF31008FA796 /* Images.xcassets */; };
 		598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5941BB181B07956200B49D52 /* Localizable.strings */; };
-		598BA2402FC3530100DE37EF /* Grab.aif in Resources */ = {isa = PBXBuildFile; fileRef = 5906A9A81B13B39A0061B33D /* Grab.aif */; };
 		59FA0E1E2FC3540000DE37EF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 59FA0E1D2FC3540000DE37EF /* PrivacyInfo.xcprivacy */; };
 		59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */; };
 		59AA0001AA0001AA0001AA01 /* SRMouseWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AA0001AA0001AA0001AA02 /* SRMouseWatcher.swift */; };
@@ -71,7 +70,6 @@
 
 /* Begin PBXFileReference section */
 		590696161BD893B30080CEFA /* SRCameraPlaceholerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRCameraPlaceholerView.swift; sourceTree = "<group>"; };
-		5906A9A81B13B39A0061B33D /* Grab.aif */ = {isa = PBXFileReference; lastKnownFileType = file; path = Grab.aif; sourceTree = "<group>"; };
 		590A79351B2D592A00269B45 /* SRSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettings.swift; sourceTree = "<group>"; };
 		590A79371B2D964500269B45 /* SRPanel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanel.swift; sourceTree = "<group>"; };
 		590E350A1B3459FC00CD063A /* SRUnfurlApplicationDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRUnfurlApplicationDelegate.swift; sourceTree = "<group>"; };
@@ -164,7 +162,6 @@
 		5906A9A71B13B39A0061B33D /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				5906A9A81B13B39A0061B33D /* Grab.aif */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -499,7 +496,6 @@
 			files = (
 				598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */,
 				598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */,
-				598BA2402FC3530100DE37EF /* Grab.aif in Resources */,
 				59FA0E1E2FC3540000DE37EF /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
