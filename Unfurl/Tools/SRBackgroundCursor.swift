@@ -15,10 +15,9 @@ import Cocoa
 /// never active, so `NSCursor` calls are otherwise ignored - over the menu bar
 /// (the status item) and over our own non-key panel alike. This is the only
 /// mechanism that works; it calls a private CoreGraphics SPI, gated on the
-/// `USE_UNDOCUMENTED_API` build flag (defined for all configurations, including
-/// App Store, which the app has passed review with before). Flip the flag off
-/// to compile out every undocumented-API use in one move. Symbols are resolved
-/// with `dlsym` to keep the target free of a bridging header.
+/// `USE_UNDOCUMENTED_API` build flag (defined for all configurations). Flip
+/// the flag off to compile out every undocumented-API use in one move. Symbols
+/// are resolved with `dlsym` to keep the target free of a bridging header.
 ///
 /// Process-wide and idempotent: setting the connection property more than once
 /// is harmless, so every surface that wants a background cursor may call this.
