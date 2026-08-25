@@ -26,6 +26,10 @@ class SRCameraPlaceholerView: NSVisualEffectView {
 		self.logoView = NSImageView()
 		self.logoView.wantsLayer = true
 		self.logoView.image = NSImage(named: "MonochromaticLogo")
+		// The material behind this is light in light mode and dark in dark
+		// mode, so the watermark tints with the label colour rather than
+		// staying literal black (which disappeared in dark).
+		self.logoView.contentTintColor = .labelColor
 		self.logoView.layer?.opacity = 0.1
 		self.logoView.translatesAutoresizingMaskIntoConstraints = false
 

@@ -37,7 +37,7 @@ class SRDockTileCameraView: NSView {
 		// diameter = 0.48 x icon width, overhanging by 0.24 of itself.
 		// The camera glyph is an outline, not a solid disc, so its visible
 		// width runs larger for equal perceived mass.
-		static let badgeVisualWidthRatio: CGFloat = 0.55   // of icon width
+		static let badgeVisualWidthRatio: CGFloat = 0.48   // of icon width
 		static let badgeOverhangRightRatio: CGFloat = 0.24 // of visible width
 		static let badgeOverhangBelowRatio: CGFloat = 0.35 // of visible height
 		static let badgeShadowOffsetY: CGFloat = -1.0
@@ -48,10 +48,6 @@ class SRDockTileCameraView: NSView {
 		static let badgeHaloBlur: CGFloat = 1.5
 		static let badgeHaloAlpha: CGFloat = 0.7
 
-		/// Alpha bounds of the camera glyph within MonochromaticLogo's square
-		/// canvas (unit coordinates, measured from the asset): the glyph is
-		/// wide, not square, so the badge is placed by its *visible* edges.
-		static let logoContentRect = CGRect(x: 0.012, y: 0.158, width: 0.977, height: 0.684)
 	}
 
 	override init(frame frameRect: NSRect) {
@@ -219,22 +215,22 @@ class SRDockTileCameraView: NSView {
 	fileprivate func drawBadge(in context: CGContext, iconRect: CGRect, fullRect: CGRect, scale: CGFloat) {
 		guard let logo = Self.watermarkLogo else { return }
 
-		let content = Metrics.logoContentRect
+		// The asset is cropped tight to the glyph, so the image's own aspect
+		// is the visible aspect and the badge is its own box. This used to go
+		// through a hand-measured content rect because the artwork sat padded
+		// inside a square canvas; keep the asset tight and that stays gone.
+		let visualWidth = iconRect.width * Metrics.badgeVisualWidthRatio
+		let visualHeight = visualWidth * (CGFloat(logo.height) / CGFloat(logo.width))
 
 		// Overhangs are capped by the room the tile canvas actually has.
-		let visualWidth = iconRect.width * Metrics.badgeVisualWidthRatio
-		let visualHeight = visualWidth * (content.height / content.width)
-
 		let overhangRight = min(visualWidth * Metrics.badgeOverhangRightRatio, fullRect.maxX - iconRect.maxX - 1.0)
 		let overhangBelow = min(visualHeight * Metrics.badgeOverhangBelowRatio, iconRect.minY - fullRect.minY - 1.0)
 
-		// Map the desired visual rect back to the image's square box.
-		let boxSize = visualWidth / content.width
 		let badgeRect = CGRect(
-			x: (iconRect.maxX + overhangRight) - content.maxX * boxSize,
-			y: (iconRect.minY - overhangBelow) - content.minY * boxSize,
-			width: boxSize,
-			height: boxSize
+			x: (iconRect.maxX + overhangRight) - visualWidth,
+			y: iconRect.minY - overhangBelow,
+			width: visualWidth,
+			height: visualHeight
 		)
 
 		// Halo pass: a tight contour around the glyph for contrast on bright

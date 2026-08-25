@@ -61,7 +61,7 @@
 
 ### Non-functional requirements
 
-- **Native fidelity**: content occupies about 80 percent of the tile with a 22.5 percent corner radius and a subtle drop shadow (Big Sur icon template); the badge matches the system notification-badge geometry measured from the real Dock (diameter about 0.48 of icon width, overhang about 0.24 of the badge). Numbers and their provenance live in `SRDockTileCameraView.Metrics`.
+- **Native fidelity**: content occupies about 80 percent of the tile with a 22.5 percent corner radius and a subtle drop shadow (Big Sur icon template); the badge matches the system notification-badge geometry measured from the real Dock (diameter about 0.48 of icon width, overhang about 0.24 of the badge). Numbers and their provenance live in `SRDockTileCameraView.Metrics`. The width ratio carried 0.55 rather than 0.48 for as long as the badge was the old camera glyph: that mark was wide (about 1.43:1), so the measured diameter left it too short to read. The aperture is nearly round, so at 0.55 it grew 28 percent in area over what the camera occupied and dominated the tile; restored to the measured 0.48 on 2026-08-24, which lands within 2 percent of the old badge's area. A future wide mark would need the override back.
 - **Concurrency**: pixel work is off-main; only the finished `CGImage` crosses to the main actor.
 - **Resource cost**: about 10 fps, static chrome cached (only video pixels redraw per frame). Measured effect: chrome caching plus pacing cut process CPU from about 21 percent to about 10 percent with the tile streaming.
 
@@ -69,7 +69,7 @@
 
 ### Drawing model
 
-- **Geometry**: derived from `self.bounds` and a `scale = side / 128` reference factor; icon inset, corner radius, shadow, hairlines, and badge all scale from it. Badge placement uses the logo's measured alpha content rect (the glyph is wide, not square) so the badge sits by its visible edges.
+- **Geometry**: derived from `self.bounds` and a `scale = side / 128` reference factor; icon inset, corner radius, shadow, hairlines, and badge all scale from it. Badge placement derives from the logo image's own aspect (2026-08-24). It used to go through a hand-measured alpha content rect, because the artwork sat padded inside a square canvas and the glyph's visible edges had to be located inside it. `MonochromaticLogo` is now cropped tight to the glyph, so the image is its own content box and the constant is deleted rather than re-measured. Keep that asset tight: a padded replacement would silently place the badge by its padding.
 - **Caching**: a `TileChrome` (backdrop image, overlay image, icon path) is rebuilt only when the tile size changes.
 - **Appearance**: the badge is white with a tight contour halo plus a soft drop shadow so it stays legible over bright video.
 
