@@ -44,9 +44,9 @@
 
 "about.title" = "About Unfurl";
 "about.application.title" = "Unfurl";
-"about.application.subtitle" = "Ultimate Posture App";
+"about.application.subtitle" = "Work without the expense of your spine";
 "about.application.version" = "version: %@, build: %@";
-"about.application.copyright" = "© Maria Shergina, All Right Reserved.";
+"about.application.copyright" = "© Maria Shergina, All Rights Reserved.";
 
 "notification.photo-was-saved.title" = "You Look Great!";
 "notification.photo-was-saved.subtitle" = "As Always";
