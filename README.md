@@ -45,6 +45,14 @@ no camera views at all.
 - **Dock tile**: the live camera drawn as a native-looking Dock icon.
 - **Photo**: saves a JPEG to your Pictures folder.
 
+## Support
+
+Something broken, or behaving oddly? Open an issue:
+<https://github.com/shergina/unfurl/issues>
+
+No GitHub account? Email maria@shergin.com instead - it reaches the same
+person.
+
 ## Build and run
 
 Requires a recent Xcode; the app runs on macOS 14 or later.
