@@ -488,7 +488,10 @@ Notifications page (see UI/Settings/spec.md).
   notifications design (decided 2026-07-22):
   click-through (ignoresMouseEvents), semi-transparent adaptive material,
   excluded from screen capture (sharingType none) so shared screens and
-  recordings never show it while the user still sees it, present on all
+  recordings never show it while the user still sees it (temporarily
+  relaxed to readOnly in code to stage launch screenshots; restoring it is
+  a ship blocker in LAUNCH.md, the intended behaviour is unchanged),
+  present on all
   Spaces including fullscreen, and deliberately indifferent to Focus
   modes. The note is one of three independently
   toggled nudge channels (PostureNoteEnabled, default on): while its
