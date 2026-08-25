@@ -21,7 +21,9 @@ class SRWelcomeViewController: NSViewController {
 		let view = NSView()
 
 		let iconView = NSImageView()
-		iconView.image = NSImage(named: "AppIcon")
+		// The real app icon, material treatment and all: this page exists to
+		// show what the user just installed, so it must not be a copy.
+		iconView.image = NSApp.applicationIconImage
 		iconView.translatesAutoresizingMaskIntoConstraints = false
 
 		let titleView = self.label(

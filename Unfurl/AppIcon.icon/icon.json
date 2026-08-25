@@ -1,0 +1,304 @@
+{
+  "fill" : {
+    "solid" : "display-p3:0.87990,0.53254,0.54867,1.00000"
+  },
+  "groups" : [
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.00000,0.00000,0.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : false,
+          "image-name" : "Eye.svg",
+          "name" : "Eye",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              219.78792167618508,
+              -150.58500421176007
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Big Lens (3).svg",
+          "name" : "Big Lens (3)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -346.34650298369434,
+              -342.5
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Big Lens (2).svg",
+          "name" : "Big Lens (2)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -346.34650298369434,
+              -345
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Big Lens (1).svg",
+          "name" : "Big Lens (1)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -346.34650298369434,
+              -345
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Big Lens.svg",
+          "name" : "Big Lens",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -250.49124455640253,
+              -342.5
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Lens (1).svg",
+          "name" : "Lens (1)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              392.59812227776274,
+              -305
+            ]
+          }
+        },
+        {
+          "glass" : false,
+          "hidden" : true,
+          "image-name" : "Ellipse 7.svg",
+          "name" : "Ellipse 7",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              54.88478800591042
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:1.00000,0.61245,0.56041,1.00000"
+              }
+            }
+          ],
+          "image-name" : "White Shrimp (1).svg",
+          "name" : "White Shrimp (1)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              38.653497016305664,
+              -5.684341886080802e-14
+            ]
+          }
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.96783,0.62758,0.57328,1.00000"
+              }
+            }
+          ],
+          "hidden" : true,
+          "image-name" : "White Shrimp.svg",
+          "name" : "White Shrimp",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              32,
+              0
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Large Orange Shrimp in Square.svg",
+          "name" : "Large Orange Shrimp in Square",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              38.653497016305664,
+              1.9999999999999432
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Large Pink Shrimp in Square.svg",
+          "name" : "Large Pink Shrimp in Square",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              38.653497016305664,
+              2
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Shrimp (3).svg",
+          "name" : "Shrimp (3)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              38.82624000016267,
+              0
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Shrimp (1) 2.svg",
+          "name" : "Shrimp (1) 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              36.5,
+              36
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Shrimp 2.svg",
+          "name" : "Shrimp 2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              36.5,
+              0
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : "automatic",
+          "glass" : true,
+          "hidden" : true,
+          "image-name" : "Shrimp (2).svg",
+          "name" : "Shrimp (2)",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              34.17153450161686,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "hidden" : true,
+          "image-name" : "Purple line with hole for cam (1).svg",
+          "name" : "Purple line with hole for cam (1)"
+        },
+        {
+          "glass" : false,
+          "hidden" : true,
+          "image-name" : "Purple line with hole for cam.svg",
+          "name" : "Purple line with hole for cam"
+        },
+        {
+          "glass" : false,
+          "hidden" : true,
+          "image-name" : "Line on Camera.png",
+          "name" : "Line on Camera",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Line with hole for cam.svg",
+          "name" : "Line with hole for cam",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              2
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "Hollow Shape Around Shrimp 2.svg",
+          "name" : "Hollow Shape Around Shrimp 2"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

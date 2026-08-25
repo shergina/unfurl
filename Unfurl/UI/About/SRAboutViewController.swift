@@ -23,7 +23,8 @@ class SRAboutViewController: NSViewController {
         self.view = NSView(frame: CGRect(origin: CGPoint.zero, size: CGSize(width: 300.0, height: 400.0)))
 
         self.logoView = NSImageView()
-        self.logoView.image = NSImage(named: "AppIcon")
+        // The real app icon, not a copy of it (see SRWelcomeViewController).
+        self.logoView.image = NSApp.applicationIconImage
         self.logoView.translatesAutoresizingMaskIntoConstraints = false
         self.view.addSubview(self.logoView)
 

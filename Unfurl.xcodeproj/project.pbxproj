@@ -43,6 +43,7 @@
 		597793271B88E24500D89AD0 /* SRStatusItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597793261B88E24500D89AD0 /* SRStatusItemView.swift */; };
 		598BA23B2FC34A2400DE37EF /* CombineHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598BA23A2FC34A2400DE37EF /* CombineHelpers.swift */; };
 		598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59EF39F31B01EF31008FA796 /* Images.xcassets */; };
+		59AA0003AA0003AA0003AA02 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 59AA0003AA0003AA0003AA01 /* AppIcon.icon */; };
 		598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5941BB181B07956200B49D52 /* Localizable.strings */; };
 		59FA0E1E2FC3540000DE37EF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 59FA0E1D2FC3540000DE37EF /* PrivacyInfo.xcprivacy */; };
 		59994E921B4043C500B1BD2F /* SRPanelToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59994E911B4043C500B1BD2F /* SRPanelToolbarView.swift */; };
@@ -132,6 +133,7 @@
 		59EDE4821BD61F4600F082B1 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		59EDE4831BD61F4600F082B1 /* Shared.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		59EF39F31B01EF31008FA796 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		59AA0003AA0003AA0003AA01 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		59EF39F41B01EF31008FA796 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A70E8A271BCC6B9C00B517A9 /* SRCameraService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRCameraService.swift; path = Tools/SRCameraService.swift; sourceTree = "<group>"; };
 		A70E8A311BCEBA1500B517A9 /* SRAboutWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SRAboutWindowController.swift; path = About/SRAboutWindowController.swift; sourceTree = "<group>"; };
@@ -273,6 +275,7 @@
 			isa = PBXGroup;
 			children = (
 				59EF39F31B01EF31008FA796 /* Images.xcassets */,
+				59AA0003AA0003AA0003AA01 /* AppIcon.icon */,
 				59EF39F41B01EF31008FA796 /* Info.plist */,
 				5941BB181B07956200B49D52 /* Localizable.strings */,
 				59B3BD2D1BD334330031AEEA /* main.swift */,
@@ -495,6 +498,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				598BA23E2FC352E300DE37EF /* Images.xcassets in Resources */,
+				59AA0003AA0003AA0003AA02 /* AppIcon.icon in Resources */,
 				598BA23F2FC352E500DE37EF /* Localizable.strings in Resources */,
 				59FA0E1E2FC3540000DE37EF /* PrivacyInfo.xcprivacy in Resources */,
 			);

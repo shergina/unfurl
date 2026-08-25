@@ -30,6 +30,10 @@
 - Every page after the first has a Back button to the previous page. The posture page's Back and Not Now show only while positioning and before a capture completed; leaving that page via Back runs the same teardown as any other exit.
 - The kept instance re-shows starting from the about page: a fresh presentation is always the whole flow.
 
+## About page (recorded decisions)
+
+- The icon is `NSApp.applicationIconImage`, not an asset copy of it (2026-08-24). This page exists to show the user what they just installed, so it must be the icon macOS actually renders - on macOS 26 that includes the system's specular and translucency pass, which a flattened copy would lose. Asking the system also means a future icon change lands here for free. The About panel (`SRAboutViewController`) does the same. The `AppIconLegacy` image set that briefly pinned both to the old artwork is deleted.
+
 ## Posture page (recorded decisions)
 
 - The calibration surface is `SRPostureCalibrationViewController` embedded as a child view controller - the same content the standalone window's capture page shows (mirrored preview, placeholder, guidance block, countdown, progress). The standalone window's reminders page is deliberately not embedded: this flow's own good-posture page already sits immediately before this one, so showing the list twice in a row would be the redundancy, not the reinforcement. The embed's inline action buttons are disabled (`showsActionButtons`); the page renders Begin, Not Now, Try Again, and Looks Good itself in the bottom band, driven by the session's public phase publisher (Begin enabled exactly on good framing while positioning, and ungated at lookAheadReady - the gate before the gaze probe, entered after the upright capture, where Begin arms the probe's countdown; the finished pair after the same progress-settle beat). The capture logic, gates, and baseline persistence are untouched (Posture/spec.md).
