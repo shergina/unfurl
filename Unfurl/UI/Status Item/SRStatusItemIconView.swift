@@ -9,7 +9,7 @@
 import Cocoa
 
 class SRStatusItemIconView: SRStatusItemContentView {
-    class var imageName: String { return "StatusItemIconPattern" }
+    class var imageName: String { return "MonochromaticLogoSmall" }
 
     var image: NSImage? {
         guard let image = NSImage(named: type(of: self).imageName) else {
@@ -80,5 +80,5 @@ class SRStatusItemIconView: SRStatusItemContentView {
 
 
 class SRStatusItemIconUnavailableView: SRStatusItemIconView {
-    override class var imageName: String { return "StatusItemIconPatternUnavailable" }
+    override class var imageName: String { return "MonochromaticLogoSmallUnavailable" }
 }

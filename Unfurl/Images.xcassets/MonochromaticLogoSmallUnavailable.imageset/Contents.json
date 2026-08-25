@@ -1,0 +1,15 @@
+{
+  "images" : [
+    {
+      "idiom" : "universal",
+      "filename" : "MonochromaticLogoSmallUnavailable.png",
+      "scale" : "1x"
+    },
+    {
+      "idiom" : "universal",
+      "filename" : "MonochromaticLogoSmallUnavailable@2x.png",
+      "scale" : "2x"
+    }
+  ],
+  "info" : { "version" : 1, "author" : "xcode" }
+}
