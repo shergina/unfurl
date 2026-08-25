@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		590696171BD893B30080CEFA /* SRCameraPlaceholerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590696161BD893B30080CEFA /* SRCameraPlaceholerView.swift */; };
+		59AA0004AA0004AA0004AA02 /* SRCameraServiceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AA0004AA0004AA0004AA01 /* SRCameraServiceSettings.swift */; };
 		590A79361B2D592A00269B45 /* SRSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590A79351B2D592A00269B45 /* SRSettings.swift */; };
 		590A79381B2D964500269B45 /* SRPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590A79371B2D964500269B45 /* SRPanel.swift */; };
 		590E350B1B3459FC00CD063A /* SRUnfurlApplicationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590E350A1B3459FC00CD063A /* SRUnfurlApplicationDelegate.swift */; };
@@ -71,6 +72,7 @@
 
 /* Begin PBXFileReference section */
 		590696161BD893B30080CEFA /* SRCameraPlaceholerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRCameraPlaceholerView.swift; sourceTree = "<group>"; };
+		59AA0004AA0004AA0004AA01 /* SRCameraServiceSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRCameraServiceSettings.swift; sourceTree = "<group>"; };
 		590A79351B2D592A00269B45 /* SRSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRSettings.swift; sourceTree = "<group>"; };
 		590A79371B2D964500269B45 /* SRPanel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRPanel.swift; sourceTree = "<group>"; };
 		590E350A1B3459FC00CD063A /* SRUnfurlApplicationDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SRUnfurlApplicationDelegate.swift; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 			isa = PBXGroup;
 			children = (
 				593766D21B3F22C900E52DD2 /* SRCameraView.swift */,
+				59AA0004AA0004AA0004AA01 /* SRCameraServiceSettings.swift */,
 				593766D41B3F2E7B00E52DD2 /* SRScrollCameraView.swift */,
 			);
 			name = Camera;
@@ -513,6 +516,7 @@
 			files = (
 				598BA23B2FC34A2400DE37EF /* CombineHelpers.swift in Sources */,
 				597793271B88E24500D89AD0 /* SRStatusItemView.swift in Sources */,
+				59AA0004AA0004AA0004AA02 /* SRCameraServiceSettings.swift in Sources */,
 				59EAF4E91B7080610024F7A2 /* SRStatusItemIconView.swift in Sources */,
 				590A79381B2D964500269B45 /* SRPanel.swift in Sources */,
 				A74880381B827375008E21FF /* SRStatusBarButton.swift in Sources */,

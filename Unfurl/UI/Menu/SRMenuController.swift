@@ -124,11 +124,68 @@ class SRMenuController: NSObject {
 			.eraseToAnyPublisher()
 	}
 
+	/// The camera-trouble block at the top of the menu: what is wrong, and
+	/// the one action that can fix it. The panel placeholder says the same
+	/// thing, but it can be closed, unpinned, or never opened - this menu is
+	/// always one click from the status item, which is the surface showing
+	/// the trouble in the first place. Hidden entirely while the camera is
+	/// fine, so the common case sees the menu it always saw.
+	fileprivate func makeCameraTroubleItems() -> [NSMenuItem] {
+		let trouble: AnyPublisher<String?, Never> = SRCameraService.sharedInstance.onState
+			.map { state in
+				switch state {
+				case .unauthorized:
+					return NSLocalizedString("menu.camera-denied", comment: "")
+				case .unavailable:
+					return NSLocalizedString("menu.camera-unavailable", comment: "")
+				case .failed(let description):
+					return description
+				case .idle, .running:
+					return nil
+				}
+			}
+			.eraseToAnyPublisher()
+
+		// What is wrong. Informational, so it never enables.
+		let diagnosis = NSMenuItemWithClosure(title: "", keyEquivalent: "") {}
+		diagnosis.isEnabled = false
+		trouble
+			.sink { [unowned diagnosis] in
+				diagnosis.title = $0 ?? ""
+				diagnosis.isHidden = ($0 == nil)
+			}
+			.store(in: &diagnosis.cancellables)
+
+		// The remedy, shown only for the one state it actually remedies: a
+		// missing device or a failed session has nothing to grant.
+		let openSettings = self.createMenuItem(
+			"menu.open-camera-settings",
+			visible: SRCameraService.sharedInstance.onState
+				.map { $0 == .unauthorized }
+				.eraseToAnyPublisher()
+		) {
+			SRCameraService.openCameraPrivacySettings()
+		}
+
+		let separator = NSMenuItem.separator()
+		trouble
+			.sink { [weak separator] in separator?.isHidden = ($0 == nil) }
+			.store(in: &self.cancellables)
+
+		return [diagnosis, openSettings, separator]
+	}
+
 	func createMenu() -> NSMenu {
 		let menu = NSMenu(title: "")
 		menu.autoenablesItems = false
 
 		let onCaptureDeviceAvailable = SRCameraService.sharedInstance.onCaptureDeviceAvailable.eraseToAnyPublisher()
+
+		// Camera trouble, when there is any: it outranks every feature below
+		// it, because none of them can run until it is resolved.
+		for item in self.makeCameraTroubleItems() {
+			menu.addItem(item)
+		}
 
 		// Track Posture
 		menu.addItem(self.createMenuItem(

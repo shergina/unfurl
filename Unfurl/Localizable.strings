@@ -8,6 +8,9 @@
 
 // Menu
 "menu.about" = "About Unfurl";
+"menu.camera-denied" = "Camera Access Denied";
+"menu.camera-unavailable" = "No Camera Available";
+"menu.open-camera-settings" = "Open System Settings";
 "menu.take-photo" = "Take Photo";
 "menu.track-posture" = "Track Posture";
 "menu.posture-snooze" = "Snooze";

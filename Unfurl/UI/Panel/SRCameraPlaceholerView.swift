@@ -111,12 +111,7 @@ class SRCameraPlaceholerView: NSVisualEffectView {
 	}
 
 	@objc fileprivate func handleActionButton() {
-		// Deep-link straight to the Camera privacy pane. The pre-Ventura
-		// com.apple.preference.security URL no longer opens the right pane
-		// under System Settings.
-		if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Camera") {
-			NSWorkspace.shared.open(url)
-		}
+		SRCameraService.openCameraPrivacySettings()
 	}
 
 	override func updateConstraints() {
