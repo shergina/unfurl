@@ -471,8 +471,19 @@ Notifications page (see UI/Settings/spec.md).
   display change. Visible only while there is
   something to say: one line per reported issue in stable declaration
   order ("Sit up straight", "Lower your left/right shoulder"), or
-  "Posture: can't see you clearly". Good posture shows nothing - the note
-  disappearing is the reward (decided 2026-07-22, replacing the earlier
+  "Posture: can't see you clearly". The posture states wear the app's own
+  mark, tinted systemOrange (2026-08-24, replacing the `figure.seated.side`
+  symbol); it shares the menu bar's eyeless silhouette
+  (`MonochromaticLogoSmall`), because at this size the eye lands under 2pt -
+  the same reason the menu bar dropped it. It is drawn at 24pt rather than
+  the 29pt the symbols occupy: a solid silhouette beside stroke drawings
+  reads heavier at equal height. The can't-see-you state stays an SF Symbol
+  (`eye.trianglebadge.exclamationmark`, secondaryLabelColor) - it reports a
+  camera problem, not a posture one, so it should not wear the app's mark.
+  The tint is applied in code via `contentTintColor`, never baked into the
+  asset: systemOrange is dynamic across appearances, and the same view
+  needs a second colour for the camera state. Good posture shows nothing -
+  the note disappearing is the reward (decided 2026-07-22, replacing the earlier
   always-visible "Posture: good" state). Ghost properties per the
   notifications design (decided 2026-07-22):
   click-through (ignoresMouseEvents), semi-transparent adaptive material,

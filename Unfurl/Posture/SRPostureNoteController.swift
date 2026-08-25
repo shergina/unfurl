@@ -58,6 +58,11 @@ final class SRPostureNoteController {
 	/// Generous floor so the note reads as a banner, not a chip.
 	fileprivate static let minimumSize = CGSize(width: 280.0, height: 58.0)
 
+	/// The mark is drawn shorter than the 29pt the SF Symbols beside it
+	/// occupy: it is a solid silhouette where they are stroke drawings, so
+	/// matching their height reads much heavier than they do.
+	fileprivate static let markIconHeight: CGFloat = 24.0
+
 	init(services: AppServices) {
 		self.postureService = services.posture
 		self.cameraService = services.camera
@@ -172,7 +177,7 @@ final class SRPostureNoteController {
 			return
 		case .evaluated(let issues):
 			self.label.stringValue = issues.map { Self.message(for: $0) }.joined(separator: "\n")
-			self.setIcon("figure.seated.side", color: .systemOrange)
+			self.setMarkIcon(color: .systemOrange)
 		}
 
 		self.reposition()
@@ -199,9 +204,25 @@ final class SRPostureNoteController {
 	}
 
 	fileprivate func setIcon(_ symbolName: String, color: NSColor) {
+		self.iconView.contentTintColor = nil
 		self.iconView.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
 		self.iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 24.0, weight: .medium)
 			.applying(.init(hierarchicalColor: color))
+	}
+
+	/// The app's own mark for the posture states, tinted like the symbols it
+	/// sits beside. Shares the menu bar's eyeless silhouette: at this size the
+	/// eye lands under 2pt, which is the same reason the menu bar dropped it.
+	fileprivate func setMarkIcon(color: NSColor) {
+		guard let shared = NSImage(named: "MonochromaticLogoSmall"),
+		      let image = shared.copy() as? NSImage else { return }
+		// The catalog hands back a shared instance and `size` is per-instance,
+		// so this must be a copy or the menu bar's glyph resizes with it.
+		image.isTemplate = true
+		let aspect = shared.size.width / shared.size.height
+		image.size = NSSize(width: Self.markIconHeight * aspect, height: Self.markIconHeight)
+		self.iconView.image = image
+		self.iconView.contentTintColor = color
 	}
 
 	fileprivate static func message(for issue: SRPostureIssue) -> String {
