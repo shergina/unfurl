@@ -44,7 +44,10 @@
 
 "about.title" = "About Unfurl";
 "about.application.title" = "Unfurl";
-"about.application.subtitle" = "Work without the expense of your spine";
+"about.application.note" = "As a college student who spent way too much time furled over a keyboard, I built Unfurl to help you catch poor posture before you start to feel it. Because using technology to do the things you care about shouldn't come at the expense of your health.";
+"about.application.signature" = "Maria Shergina";
+"about.application.role" = "Creator of Unfurl";
+"about.application.support" = "Support";
 "about.application.version" = "version: %@, build: %@";
 "about.application.copyright" = "© Maria Shergina, All Rights Reserved.";
 
@@ -80,6 +83,17 @@
 "settings.general.track-posture" = "Track Posture";
 "settings.general.show-camera-panel" = "Show Camera Panel";
 "settings.general.show-camera-on-status-bar" = "Show Camera in Menu Bar";
+// The aside in the page's right-hand gutter, opposite the switch above.
+// macOS hides the leftmost status items first when the bar runs out of
+// room, and there is no API to place ourselves (see UI/Status Item/spec.md),
+// so a manual Command-drag is the only lever the user has. Out of the rows'
+// vertical flow it can wrap freely, which is what lets the reason ride along
+// with the instruction - inline under the switch, only the instruction fit.
+"settings.general.status-bar-tip.title" = "Pro tip";
+// Names the info button for VoiceOver and its tooltip; the symbol alone
+// says nothing about which control it belongs to.
+"settings.general.status-bar-tip.accessibility" = "About the menu bar camera";
+"settings.general.status-bar-tip.body" = "On a crowded menu bar, ⌘-drag the camera to the right, toward the clock. macOS hides the leftmost items first.";
 "settings.general.prefer-external-camera" = "Prefer External Display Camera";
 "settings.general.launch-at-login" = "Open at Login";
 // One row per connected camera. Naming each camera is what teaches that a
@@ -109,7 +123,7 @@
 "settings.notifications.channel.note" = "On-screen note";
 "settings.notifications.channel.sound" = "Sound";
 "settings.notifications.channel.status-item" = "Menu bar icon lights up";
-"settings.notifications.note-ghost" = "Fade under the pointer";
+"settings.notifications.note-ghost" = "Fade on hover";
 "settings.notifications.snooze.label" = "Snooze:";
 "settings.notifications.snooze.off" = "Off";
 "settings.notifications.snooze.until" = "Until %@";
@@ -135,13 +149,20 @@
 "statistics.trends.weeks.one" = "1 week of data";
 "statistics.trends.weeks.many" = "%d weeks of data";
 "statistics.trends.empty" = "Trends will appear once posture data has been recorded.";
-"statistics.trends.one-week" = "One week so far — trend lines appear as more weeks accumulate.";
-"statistics.trends.note" = "Dimmed points are weeks still in progress or with little data.";
+// Both footnotes lead with the denominator. The axis is labelled 0-40% but
+// says nothing about the base, and unlike the Day tab there is no "7h 1m
+// tracked" subtitle overhead to infer it from - a reader could as easily
+// read 40% of the week, or of work hours. Deliberately loose about which
+// tracked time: the two series divide by different denominators (slouching
+// needs the eyes, shoulders only the shoulders), a distinction the Day
+// tab's tooltip serves with raw durations for anyone who wants it.
+"statistics.trends.one-week" = "Each point is the share of that week's tracked time. One week so far — trend lines appear as more weeks accumulate.";
+"statistics.trends.note" = "Each point is the share of that week's tracked time. Dimmed points are weeks still in progress or with little data.";
 
 // Welcome window
 "welcome.title" = "Welcome to Unfurl";
-"welcome.slogan" = "Work without the expense of your spine";
-"welcome.description" = "Unfurl helps you build healthier posture habits without stepping away from work. It uses your camera to detect slouching and uneven shoulders, then quietly tells you what to improve.";
+"welcome.slogan" = "Stay absorbed. Spare your spine.";
+"welcome.description" = "Unfurl helps you build healthier posture habits without taking time out of your day. It uses your camera to detect slouching and uneven shoulders, then quietly tells you what to improve.";
 "welcome.privacy.lead" = "Private by design.";
 "welcome.privacy.body" = "Everything happens on your Mac.\nNo footage is ever kept, uploaded, or shared.";
 "welcome.continue" = "Continue";
@@ -197,7 +218,10 @@
 "posture.note.slouching" = "Sit up straight";
 "posture.note.lower-left-shoulder" = "Lower your left shoulder";
 "posture.note.lower-right-shoulder" = "Lower your right shoulder";
-"posture.note.not-visible" = "Posture: can't see you clearly";
+// The "5 minutes" here is the not-visible threshold spelled out in words, so
+// it is coupled to notVisibleNoteWindows in SRPostureAnalysisService (windows
+// are ~1/s). Change one and change the other, or the note starts lying.
+"posture.note.not-visible" = "Uh oh! Haven't seen you in 5 minutes.\nMake sure you're in frame.";
 
 // Posture calibration window
 // Echoes the menu item's phrasing, so "for This Camera" is answered by "for

@@ -51,8 +51,12 @@ final class SRPostureNoteController {
 	fileprivate static let cornerMargin: CGFloat = 12.0
 	/// The note's resting translucency: present but ghostly.
 	fileprivate static let ghostAlpha: CGFloat = 0.85
-	/// Ghost mode's hovered translucency: barely there.
-	fileprivate static let ghostHoverAlpha: CGFloat = 0.05
+	/// Ghost mode's hovered translucency: gone. Fully transparent rather than
+	/// the panel's 0.05, because this one is pure notification - there is
+	/// nothing on it to aim at, so leaving a trace of it under the pointer only
+	/// half-honours the gesture. Hover is tracked from the window frame, not by
+	/// hit-testing, so an invisible note still knows when the pointer leaves.
+	fileprivate static let ghostHoverAlpha: CGFloat = 0.0
 	fileprivate static let fadeDuration: TimeInterval = 0.25
 	fileprivate static let hoverFadeDuration: TimeInterval = 0.2
 	/// Generous floor so the note reads as a banner, not a chip.
@@ -83,7 +87,11 @@ final class SRPostureNoteController {
 		// clicks or focus, never appears in screen captures or shares, and
 		// follows the user to every Space, fullscreen included.
 		panel.ignoresMouseEvents = true
-		panel.sharingType = .none
+		// TEMPORARY - MUST BE .none BEFORE SHIPPING. Relaxed only to stage the
+		// App Store hero shot; .none is what keeps the note off shared screens
+		// and recordings (decided 2026-07-22, Posture/spec.md), and it also
+		// makes the note impossible to screenshot, which is why this exists.
+		panel.sharingType = .readOnly
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 		panel.alphaValue = 0.0
 
@@ -169,7 +177,7 @@ final class SRPostureNoteController {
 		switch status {
 		case .notVisible:
 			self.label.stringValue = NSLocalizedString("posture.note.not-visible", comment: "")
-			self.setIcon("eye.trianglebadge.exclamationmark", color: .secondaryLabelColor)
+			self.setIcon("person.fill.viewfinder", color: .systemOrange)
 		case .evaluated(let issues) where issues.isEmpty:
 			// Good posture needs no note: the message disappearing is the
 			// reward. It returns when an issue is voiced again.
@@ -204,10 +212,13 @@ final class SRPostureNoteController {
 	}
 
 	fileprivate func setIcon(_ symbolName: String, color: NSColor) {
-		self.iconView.contentTintColor = nil
 		self.iconView.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
 		self.iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 24.0, weight: .medium)
-			.applying(.init(hierarchicalColor: color))
+		// Monochrome, not hierarchical. Hierarchical draws a symbol's secondary
+		// layers at reduced opacity, which suited the multi-layer eye-and-badge
+		// this replaced but renders a plain caution triangle as a pale tint of
+		// itself beside 13pt semibold text (observed 2026-08-27).
+		self.iconView.contentTintColor = color
 	}
 
 	/// The app's own mark for the posture states, tinted like the symbols it

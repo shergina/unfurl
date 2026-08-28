@@ -453,10 +453,20 @@ Notifications page (see UI/Settings/spec.md).
   hold. A detection dropout shorter than 3 consecutive windows coasts:
   the last evaluated status stays published (nil during the camera's
   warm-up, so startup never flashes the note), trackers freeze, and the
-  history samples stay honestly not-visible; only the 3rd consecutive
-  empty window publishes "can't see you" (added 2026-07-30). Five
-  consecutive not-visible windows, or a capture timeline restart, reset
-  every episode. The per-window warning lines in the log stay raw and
+  history samples stay honestly not-visible. Past that third window the
+  coasted verdict is dropped as stale (added 2026-07-30), but absence is
+  not voiced until `notVisibleNoteWindows` - 300 windows, five minutes
+  (2026-08-27). In between the status is nil: the note hides, the status
+  item's tint clears, and the sound controller treats the next issue as a
+  fresh event. Two thresholds because they do different jobs - a stale
+  "Sit up straight" has to come down within seconds of the user walking
+  off, while the absence note should stay quiet until being gone means
+  something. Raising the single old threshold instead would have parked
+  the last correction in the corner for five minutes with nobody there.
+  The five minutes is also spelled out in the note's copy
+  ("posture.note.not-visible"), so the constant and the string move
+  together. Five consecutive not-visible windows, or a capture timeline
+  restart, reset every episode. The per-window warning lines in the log stay raw and
   undebounced on purpose: they are tuning telemetry; the note is the
   coached surface. Status transitions are logged ("Posture status: ...").
 - Corner posture note (experimental prototype of the ghost-toast
@@ -478,8 +488,24 @@ Notifications page (see UI/Settings/spec.md).
   the same reason the menu bar dropped it. It is drawn at 24pt rather than
   the 29pt the symbols occupy: a solid silhouette beside stroke drawings
   reads heavier at equal height. The can't-see-you state stays an SF Symbol
-  (`eye.trianglebadge.exclamationmark`, secondaryLabelColor) - it reports a
+  (`person.fill.viewfinder`, systemOrange, monochrome) - it reports a
   camera problem, not a posture one, so it should not wear the app's mark.
+  A figure inside viewfinder brackets names the remedy (get back in frame)
+  rather than only flagging that something is wrong.
+
+  Reworked 2026-08-27 from `eye.trianglebadge.exclamationmark` in
+  secondaryLabelColor, which under-sold a state where the app cannot do its
+  job at all. Two constraints came out of that pass and outlive the
+  particular symbol. Rendering must be monochrome: `setIcon` used
+  `hierarchicalColor`, which draws a symbol's secondary layers at reduced
+  opacity, and that - not the eye - is what made the original look washed
+  out and fussy. And the glyph has to carry meaning the colour does not
+  already carry: a bare `exclamationmark.triangle` was tried and rejected
+  as the system's alert mark, overstating a three-second dropout while
+  saying nothing the orange had not said. The eye was then re-tried
+  monochrome and read acceptably, so it stays the fallback if the figure
+  ever reads as too close to the app's own silhouette next door - an eye
+  shares no shape language with the mark at all.
   The tint is applied in code via `contentTintColor`, never baked into the
   asset: systemOrange is dynamic across appearances, and the same view
   needs a second colour for the camera state. Good posture shows nothing -
@@ -510,7 +536,7 @@ Notifications page (see UI/Settings/spec.md).
   behind-window material; a layer mask leaves opaque corners), a
   leading 24 pt hierarchical SF Symbol in a fixed slot:
   figure.seated.side tinted orange for corrections,
-  eye.trianglebadge.exclamationmark in secondary gray for can't-see-you.
+  eye.trianglebadge.exclamationmark in orange for can't-see-you.
   Each issue is its own 13 pt semibold line in the primary label color:
   the corrections are peers, so no title-and-detail hierarchy (a
   banner-style bold-first-line variant was tried and dropped the same
@@ -522,7 +548,7 @@ Notifications page (see UI/Settings/spec.md).
   cooldown from the agreed design is still not built.
 - Note ghost mode (PostureNoteGhost, default on; a checkbox on the
   Settings window's Notifications page, enabled only while the note
-  channel is): while on, the visible note fades to almost nothing when
+  channel is): while on, the visible note fades out completely (alpha 0, unlike the camera panel's 0.05: the note has nothing to aim at, so a trace of it under the pointer only half-honours the gesture) when
   the pointer is inside its frame and back when it leaves - the same
   behavior the floating panel's ghost mode has. The note is
   click-through, so tracking areas never fire; hover is watched with

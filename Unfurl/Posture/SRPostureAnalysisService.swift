@@ -351,9 +351,19 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	// band). Brief dips at the threshold neither report nor reset.
 	nonisolated static let issueClearWindows = 2
 	// A brief detection dropout (a turned head, a stretch, one blurred
-	// window) coasts on the last evaluated status; only this many
-	// consecutive empty windows say "can't see you" out loud.
+	// window) coasts on the last evaluated status; after this many
+	// consecutive empty windows that verdict is dropped as stale.
 	fileprivate nonisolated static let notVisibleGraceWindows = 3
+	// And only after this many is the absence worth saying out loud. Windows
+	// are 1 s (see logInterval), so this is five minutes. That figure is
+	// spelled out in the note's copy ("posture.note.not-visible"), so the two
+	// have to move together.
+	//
+	// Two thresholds rather than one because they do different jobs: a stale
+	// "Sit up straight" has to come down within seconds of the user leaving,
+	// while the absence note should stay quiet until being gone actually means
+	// something. One constant cannot do both.
+	fileprivate nonisolated static let notVisibleNoteWindows = 300
 	// After this many consecutive can't-see-you windows every episode
 	// resets: whoever returns to the desk starts from a clean slate.
 	fileprivate nonisolated static let notVisibleResetWindows = 5
@@ -744,8 +754,16 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 				// stay frozen and the history sample above stays honest.
 				status = self.lastEvaluatedStatus
 			} else {
+				// Past the grace the last verdict is stale: the user may have
+				// walked off mid-slouch, and "Sit up straight" must not sit in
+				// the corner with nobody there to read it.
 				self.lastEvaluatedStatus = nil
-				status = .notVisible
+
+				// Between the two thresholds the note says nothing at all -
+				// briefly out of frame is not news. nil hides the note, clears
+				// the status item's tint, and lets the sound controller treat
+				// the next issue as a fresh event.
+				status = self.notVisibleWindows >= Self.notVisibleNoteWindows ? .notVisible : nil
 			}
 		}
 
