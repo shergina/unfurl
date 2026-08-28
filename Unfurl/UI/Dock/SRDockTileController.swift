@@ -66,7 +66,12 @@ class SRDockTileController: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 		}
 
 		set(value) {
-			NSApp.setActivationPolicy(value ? NSApplication.ActivationPolicy.regular : NSApplication.ActivationPolicy.prohibited)
+			// .accessory, not .prohibited: prohibited is documented as "may not
+			// be activated and may not create windows", and this app creates
+			// plenty - Settings, Statistics, About, the welcome flow. It is
+			// also what LSUIElement gives us at launch, so turning the tile off
+			// returns the app to exactly the state it started in.
+			NSApp.setActivationPolicy(value ? NSApplication.ActivationPolicy.regular : NSApplication.ActivationPolicy.accessory)
 		}
 	}
 

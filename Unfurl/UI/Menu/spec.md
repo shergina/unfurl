@@ -33,7 +33,7 @@
   - The Camera parent item stays enabled with no camera available, so the options remain discoverable; the items inside disable themselves individually.
   - Ghost mode is also reachable from the menu because a ghosted (click-through) panel cannot be operated from its own chip; the menu is the escape hatch.
   - A key equivalent shown here is display-only: the status/Dock menu is not the main menu, so it is matched only while the menu is open. The shortcut fires globally through `SRHotKeyController`; the glyph and the hot key are kept in sync by reading the same constants.
-  - Quit is visible only in the status-bar/toolbar variants.
+  - Quit is visible in every variant, the Dock one included. It was hidden there until 2026-08-28, on the reasoning that macOS appends its own Options/Hide/Quit block to a regular app's Dock menu. It does - but not for an `LSUIElement` app that only flips to `.regular` at runtime, which is what this app does when the Dock tile is enabled. Ours was removed expecting the system's, and neither appeared, leaving a Dock tile that could not quit the app.
   - The posture Snooze item is visible exactly when Track Posture's checked state is (preference on and a camera available). Its submenu items write the snooze deadline preference; while a deadline is pending the item title names it ("Snoozed Until ...") and a Resume Now item appears. The menu never runs snooze logic itself; the composition root owns the resume timer (see `Unfurl/Posture/spec.md`).
   - "Calibrate Posture for This Camera..." shares the Snooze visibility rule. Both nouns are deliberate (2026-08-12): without "Posture" the item reads as calibrating the hardware - colour, focus - and without "Camera" it reads as something done once for yourself, the misconception that makes a new-camera nudge look like a nag (see `Unfurl/Posture/spec.md`). It says "This Camera" rather than naming the device, which was tried first: the device name made this one item set the menu's width, and made that width change on every dock and undock. The device is named in the calibration window's title bar instead, which turns it into a confirmation rather than a guess. Its action clears the snooze deadline (a deliberate resume) and presents the calibration window. The menu controller owns that window (the About precedent) and never creates a second one; the composition root's no-baseline auto-open funnels through the same method. While the welcome flow's posture page is up, that page is the one calibration surface and the funnel re-fronts the welcome window instead (`Unfurl/UI/Welcome/spec.md`).
   - The menu controller also owns the single Settings window (`Unfurl/UI/Settings/spec.md`), kept across closes so the selected tab survives reopening; the Settings item presents or re-fronts it. The window's Calibrate button routes back through the same calibration funnel.
@@ -50,7 +50,7 @@
 ### Workflow 2: open
 
 1. A surface calls `menuForStatusBar` / `menuForToolbar` / `menuForDock`.
-2. Quit visibility is set for the variant; the Dock variant returns a filtered copy, the others return the shared menu.
+2. The Dock variant returns a filtered copy (hidden items and doubled separators removed); the others return the shared menu.
 
 ### Workflow 3: choose a camera
 
@@ -63,7 +63,7 @@
 
 - Toggling any item flips its preference, and the checkmark tracks the change live (a change made elsewhere updates the item too).
 - Camera-dependent items disable when no device is available.
-- The three menu variants share item definitions; only Quit visibility and Dock filtering differ.
+- The three menu variants share item definitions; only the Dock variant's filtering differs.
 
 ### Non-functional requirements
 

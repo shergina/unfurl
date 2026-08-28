@@ -17,7 +17,8 @@
 
 - **In scope**: `SRDockTileController` (activation policy, output lifecycle, frame pacing, pixel conversion), `SRDockTileCameraView` (icon drawing, badge, mirror).
 - **Constraints / assumptions**:
-  - Enabling the tile switches `NSApp` activation policy to `.regular` (Dock icon appears); disabling returns it to accessory.
+  - Enabling the tile switches `NSApp` activation policy to `.regular` (Dock icon appears); disabling returns it to `.accessory`. Not `.prohibited`, which the code used until 2026-08-28 while this line already said accessory: prohibited is documented as "may not be activated and may not create windows", and this app creates Settings, Statistics, About and the welcome flow. `.accessory` is also what `LSUIElement` gives at launch, so disabling returns the app to the state it started in.
+  - A consequence worth knowing rather than fixing: an app pinned to the Dock by the user shows no running indicator while the tile is off, because an accessory app is not in the Dock's running-app model at all. The dot therefore appears and disappears as the tile is toggled, which reads oddly but is what macOS does for every menu bar agent.
   - The tile draws raw frames (not a preview layer), so mirror mode must be applied here explicitly.
   - Geometry scales with the actual tile size (`NSDockTile.size`), not a fixed canvas.
 
@@ -38,7 +39,7 @@
 
 1. `showCameraOnDockTile` and `onCaptureDeviceAvailable`, combined and debounced by 100 ms, flip an `enable` flag. That figure is coupled to `SRCameraService`'s 250 ms session-start window and is not a free knob (lowered from 500 ms on 2026-08-27): at half a second the launch attach landed after the stream had started, so it reconfigured a running session and restarted it - one of the three restarts every surface blinked through at launch. The status item's content debounce carries 100 ms for the same reason. Raising either past the start window puts that surface back on the slow path.
 2. The first enable sets activation policy `.regular`, creates the video-data output (BGRA only), and attaches it to the shared session. Later enables resume the kept output in place (claim re-taken, connection re-enabled); if the session died while suspended, a fresh output attaches during the new session's warm-up.
-3. Disable sets activation policy `.prohibited` and suspends the output: connection off, session claim released, wiring kept (2026-08-05, see Tools/spec.md). Lifecycle operations are chained, so a quick flip cannot interleave.
+3. Disable sets activation policy `.accessory` and suspends the output: connection off, session claim released, wiring kept (2026-08-05, see Tools/spec.md). Lifecycle operations are chained, so a quick flip cannot interleave.
 
 ### Workflow 2: per frame
 

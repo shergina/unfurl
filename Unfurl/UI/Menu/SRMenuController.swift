@@ -541,7 +541,12 @@ class SRMenuController: NSObject {
 	}
 
 	func menuForDock() -> NSMenu {
-		self.showQuitMenuItem.send(false)
+		// Quit shows here too. It was hidden on the assumption that macOS
+		// appends its own Options/Hide/Quit block to a regular app's Dock menu,
+		// which it does - but not for an LSUIElement app that only flips to
+		// .regular at runtime, as this one does. The result was a Dock tile
+		// with no way to quit at all (2026-08-28).
+		self.showQuitMenuItem.send(true)
 
 		var menu = self.menu!
 
