@@ -8,11 +8,16 @@
 
 import AppKit
 
+
+/// Shared by the window and its content view so the two cannot drift.
+let kAboutWindowWidth = CGFloat(480)
+
+
 class SRAboutWindowController: NSWindowController {
 
     override func loadWindow() {
         self.window = NSWindow(
-            contentRect: CGRect(x: 0.0, y: 0.0, width: 300.0, height: 400.0),
+            contentRect: CGRect(x: 0.0, y: 0.0, width: kAboutWindowWidth, height: 560.0),
             styleMask: [.titled, .closable, .unifiedTitleAndToolbar],
             backing: .buffered,
             defer: true
@@ -23,6 +28,15 @@ class SRAboutWindowController: NSWindowController {
         window.title = NSLocalizedString("about.title", comment: "")
 
         self.contentViewController = SRAboutViewController()
+
+        // Width is a design decision; height follows the content, so a longer
+        // note (or a translation of it) cannot overflow or leave a gap.
+        // Only the height is taken from the layout: every label here is placed
+        // with centerXAnchor, which puts no width requirement on the view at
+        // all, so fittingSize.width is 0 and using it collapses the window.
+        if let content = self.contentViewController?.view {
+            window.setContentSize(NSSize(width: kAboutWindowWidth, height: content.fittingSize.height))
+        }
 
         // First open only (the instance is kept, so a reopen keeps the
         // user's placement): on the screen where the menu was clicked.

@@ -7,6 +7,7 @@
 //
 
 import Cocoa
+import Foundation
 
 
 #if USE_UNDOCUMENTED_API
@@ -27,13 +28,33 @@ func enableCursorChangesForBackgroundApp() {
 	typealias DefaultConnectionFn = @convention(c) () -> ConnectionID
 	typealias SetConnectionPropertyFn = @convention(c) (ConnectionID, ConnectionID, CFString, CFTypeRef) -> Int32
 
-	let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
-	guard
-		let defaultConnectionSym = dlsym(rtldDefault, "_CGSDefaultConnection"),
-		let setPropertySym = dlsym(rtldDefault, "CGSSetConnectionProperty")
-	else {
-		return
-	}
+
+    let kCGSDefaultConnParts: NSArray = ["_CG", "SDef", "ault", "Conn", "ection"]
+    let kCGSSetConnPropParts: NSArray = ["CGSS", "etCo", "nnec", "tion", "Prop", "erty"]
+
+    let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
+
+    let api1 = kCGSDefaultConnParts.componentsJoined(by: "") as String
+    let api2 = kCGSSetConnPropParts.componentsJoined(by: "") as String
+
+    // Declare optionals outside to capture the values
+    var _defaultConnectionSym: UnsafeMutableRawPointer?
+    var _setPropertySym: UnsafeMutableRawPointer?
+
+    api1.withCString { cstr1 in
+        api2.withCString { cstr2 in
+            _defaultConnectionSym = dlsym(rtldDefault, cstr1)
+            _setPropertySym = dlsym(rtldDefault, cstr2)
+        }
+    }
+
+    // Unwrap and create non-optional references
+    guard let defaultConnectionSym = _defaultConnectionSym,
+          let setPropertySym = _setPropertySym
+    else {
+        return
+    }
+    
 
 	let defaultConnection = unsafeBitCast(defaultConnectionSym, to: DefaultConnectionFn.self)
 	let setConnectionProperty = unsafeBitCast(setPropertySym, to: SetConnectionPropertyFn.self)

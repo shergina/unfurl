@@ -40,9 +40,29 @@ final class SRSettingsGeneralViewController: NSViewController {
 			row.yPlacement = .center
 		}
 
+		/// A control with an info button beside it. The tip lives in the
+		/// button's popover rather than on the page: inline, the same text
+		/// either widened the label column or split the switch list into two
+		/// groups, and an aside beside the rows left the page permanently
+		/// carrying advice most users need once.
+		func annotated(_ control: NSView, tip: SRSettingsTipButton) -> NSView {
+			let pair = NSStackView(views: [control, tip])
+			pair.orientation = .horizontal
+			pair.spacing = 6.0
+			pair.alignment = .centerY
+			return pair
+		}
+
 		addRow("settings.general.track-posture", SRPreferenceSwitch(preference: self.settings.postureTracking))
 		addRow("settings.general.show-camera-panel", SRPreferenceSwitch(preference: self.settings.cameraPanelPinned))
-		addRow("settings.general.show-camera-on-status-bar", SRPreferenceSwitch(preference: self.settings.showCameraOnStatusBar))
+		addRow("settings.general.show-camera-on-status-bar", annotated(
+			SRPreferenceSwitch(preference: self.settings.showCameraOnStatusBar),
+			tip: SRSettingsTipButton(
+				titleKey: "settings.general.status-bar-tip.title",
+				bodyKey: "settings.general.status-bar-tip.body",
+				accessibilityKey: "settings.general.status-bar-tip.accessibility"
+			)
+		))
 		addRow("settings.general.prefer-external-camera", SRPreferenceSwitch(preference: self.settings.preferExternalCamera))
 		addRow("settings.general.launch-at-login", SRPreferenceSwitch(preference: self.settings.launchAtLogin))
 

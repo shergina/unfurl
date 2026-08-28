@@ -23,6 +23,12 @@ available and never in the way.
 - A Settings window covers general behavior, posture strictness, and
   notification preferences.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/statistics-trends.png">
+  <img src="docs/screenshots/light/statistics-trends.png" width="700"
+       alt="The Statistics window on its Trends tab: two lines over ten weeks, slouching falling from about 42 percent of tracked time to about 15, uneven shoulders from about 13 to 7.">
+</picture>
+
 ## Privacy
 
 Everything runs on your Mac. Pose analysis is local (Apple Vision), and

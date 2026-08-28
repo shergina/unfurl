@@ -180,7 +180,7 @@ struct SRStatisticsTrendsView: View {
 		.chartXScale(domain: xDomain)
 		.chartYScale(domain: 0...yMax)
 		.chartXAxis {
-			AxisMarks(values: .stride(by: .weekOfYear, count: xTickStep)) { _ in
+			AxisMarks(values: xTickValues) { _ in
 				AxisGridLine()
 				AxisValueLabel(format: .dateTime.month(.abbreviated).day())
 			}
@@ -197,13 +197,40 @@ struct SRStatisticsTrendsView: View {
 		}
 	}
 
-	/// Half a week of air on each side, so edge points never sit on the
-	/// plot border.
+	/// Air on each side, so edge points never sit on the plot border and an
+	/// edge label keeps room to draw. A fraction of the span rather than a
+	/// fixed half week: the room a label needs is measured in points, and
+	/// over a year's range half a week is only a few of them, so the last
+	/// label runs into the axis. Floored at half a week so short histories
+	/// still get a little air.
 	fileprivate var xDomain: ClosedRange<Date> {
 		let weeks = model.shoulders.map { $0.weekStart }
 		let first = weeks.first ?? Date.now
 		let last = weeks.last ?? Date.now
-		return first.addingTimeInterval(-3.5 * 86400)...last.addingTimeInterval(3.5 * 86400)
+		let pad = max(3.5 * 86400, last.timeIntervalSince(first) * 0.045)
+		return first.addingTimeInterval(-pad)...last.addingTimeInterval(pad)
+	}
+
+	/// The weeks that carry a label, walked back from the most recent one.
+	/// Anchoring on the newest week means it always gets a label - it is
+	/// the week the user cares about - and every label lands on a week that
+	/// actually has a point. Striding by calendar instead counted from the
+	/// domain start, which put the first label out on the padding boundary:
+	/// an empty labelled gridline sitting to the left of where the lines
+	/// began (2026-08-17).
+	fileprivate var xTickValues: [Date] {
+		let weeks = model.shoulders.map { $0.weekStart }
+		guard !weeks.isEmpty else { return [] }
+		// The newest week deliberately carries no label: it sits hard against
+		// the plot's trailing edge with no room for one, which is what
+		// truncated "Aug 16" to "Au...". Nothing is lost - it is the
+		// in-progress week, drawn dimmed and named by the footnote, and the
+		// right edge of a trend chart already reads as now. Widening the
+		// padding until the label fit was the alternative, and it costs plot
+		// width on both sides forever to serve one label. Under three weeks
+		// there is room to spare, so nothing is dropped.
+		let labelled = weeks.count >= 3 ? Array(weeks.dropLast()) : weeks
+		return stride(from: 0, to: labelled.count, by: self.xTickStep).map { labelled[$0] }
 	}
 
 	fileprivate var yMax: Double {
@@ -211,6 +238,8 @@ struct SRStatisticsTrendsView: View {
 		return max(10, (top / 10).rounded(.up) * 10)
 	}
 
+	/// Weeks between axis labels. Roughly six or seven land on the axis,
+	/// which is what the fixed 640pt window fits at this label width.
 	fileprivate var xTickStep: Int {
 		return max(1, model.weekCount / 6)
 	}
