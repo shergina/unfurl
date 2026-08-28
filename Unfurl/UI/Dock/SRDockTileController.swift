@@ -48,7 +48,14 @@ class SRDockTileController: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 		cameraService.onCaptureDeviceAvailable
 			.combineLatest(self.preferences.showCameraOnDockTile.publisher)
 			.map { $0 && $1 }
-			.debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+			// Short on purpose, and paired with SRCameraService's 250 ms
+			// session-start window: at half a second this landed outside it, so
+			// the Dock tile's output attached to an already-running stream and
+			// restarted it - one of the blinks every other surface saw at
+			// launch. Still long enough to swallow a burst of publisher
+			// updates, which is all the debounce was ever for. The status item
+			// carries the same 100 ms for the same reason.
+			.debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
 			.sink { [unowned self] in self.enable = $0 }
 			.store(in: &self.cancellables)
 	}

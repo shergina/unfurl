@@ -36,7 +36,7 @@
 
 ### Workflow 1: enable and disable
 
-1. `showCameraOnDockTile` and `onCaptureDeviceAvailable`, combined and debounced, flip an `enable` flag.
+1. `showCameraOnDockTile` and `onCaptureDeviceAvailable`, combined and debounced by 100 ms, flip an `enable` flag. That figure is coupled to `SRCameraService`'s 250 ms session-start window and is not a free knob (lowered from 500 ms on 2026-08-27): at half a second the launch attach landed after the stream had started, so it reconfigured a running session and restarted it - one of the three restarts every surface blinked through at launch. The status item's content debounce carries 100 ms for the same reason. Raising either past the start window puts that surface back on the slow path.
 2. The first enable sets activation policy `.regular`, creates the video-data output (BGRA only), and attaches it to the shared session. Later enables resume the kept output in place (claim re-taken, connection re-enabled); if the session died while suspended, a fresh output attaches during the new session's warm-up.
 3. Disable sets activation policy `.prohibited` and suspends the output: connection off, session claim released, wiring kept (2026-08-05, see Tools/spec.md). Lifecycle operations are chained, so a quick flip cannot interleave.
 

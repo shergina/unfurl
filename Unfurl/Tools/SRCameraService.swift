@@ -443,14 +443,41 @@ final class SRCameraService: NSObject, CameraProviding, @unchecked Sendable {
 				// data output via attachOutput.
 
 				session.commitConfiguration()
-				session.startRunning()
 
 				self.session = session
 
-				self.updateStateIfIdle(.running)
+				// Deliberately not started here. Launch consumers arrive
+				// staggered - posture analysis, the Dock tile, and the status
+				// item preview behind its own debounce - and each attach to an
+				// already-running stream forces a full stop/start. Measured
+				// 2026-08-27: three restarts at ~1.3 s apiece, so the menu-bar
+				// preview (which attaches last, being the slowest to decide)
+				// did not settle until 2.7 s after the camera light came on.
+				// Holding the start briefly lets everything arriving in the
+				// same breath be added while the stream is still cold, which
+				// is free. Late arrivals still pay a restart, as before.
+				self.startSessionAfterCoalescingWindow(session)
 
 				continuation.resume()
 			}
+		}
+	}
+
+	/// How long the session waits, after being configured, for other consumers
+	/// to attach before the stream starts. Long enough to cover the surfaces
+	/// that register during launch, short enough not to be felt when the panel
+	/// alone summons a cold session.
+	fileprivate static let sessionStartCoalescingWindow: DispatchTimeInterval = .milliseconds(250)
+
+	/// Queue-confined like everything else here: called on `sessionQueue` and
+	/// starts on `sessionQueue`. The identity check means a session torn down
+	/// and rebuilt inside the window cannot have its successor started early.
+	fileprivate func startSessionAfterCoalescingWindow(_ session: AVCaptureSession) {
+		self.sessionQueue.asyncAfter(deadline: .now() + Self.sessionStartCoalescingWindow) { [weak self] in
+			guard let self, self.session === session, !session.isRunning else { return }
+
+			session.startRunning()
+			self.updateStateIfIdle(.running)
 		}
 	}
 

@@ -43,8 +43,10 @@
 ### Workflow 1: first attach starts the session
 
 1. A surface calls `attachPreviewLayer` / `attachOutput`; the object joins the weak attached-object set on the session queue.
-2. `createCaptureSessionIfNeeded` builds the session: add the device input, then pin `.hd1920x1080` if supported, commit, start. No outputs are added at creation.
-3. On success, `onState` becomes `.running`. A preview layer is then pointed at the live session; an output is added to it.
+2. `createCaptureSessionIfNeeded` builds the session: add the device input, then pin `.hd1920x1080` if supported, commit. No outputs are added at creation. The stream is deliberately NOT started here.
+3. The start is held for `sessionStartCoalescingWindow` (250 ms), then runs on the session queue; `onState` becomes `.running` at that point. Consumers attaching inside the window are added while the stream is still cold, which is free. Late arrivals still reconfigure a running session and pay a stop/start, as before.
+4. The window exists because launch consumers arrive staggered - posture analysis, the Dock tile, and the status item preview each register on their own schedule. Measured 2026-08-27 with the stream started on first attach: three stop/start cycles at roughly 1.3 s apiece, with the menu-bar preview (last to decide, and the only surface the user can see) not settling until 2.7 s after the camera light came on. Starting on the first attach also meant that consumer wired itself up after the stream was already live, so even the first attach mutated a running session.
+5. The window is a compromise, not a guarantee: it must cover the surfaces that register during launch without being felt when the panel alone summons a cold session. It pairs with the status item's own 100 ms content debounce - lengthen that and the preview falls outside the window again.
 
 ### Workflow 2: last detach stops the session
 
