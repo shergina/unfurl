@@ -36,14 +36,26 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 	#if USE_UNDOCUMENTED_API
 	fileprivate lazy var cursor = NSCursor.resizeLeftRight
 	#endif
+
 	fileprivate var cancellables = Set<AnyCancellable>()
 
-	override init(frame: NSRect) {
+	// Hover and menu-open both drive the overlay, so its visibility is derived
+	// in one place rather than two observers fighting over alphaValue.
+	fileprivate var hovered = false
+
+	// How far the feed dims while the menu is open. The system draws its own
+	// highlight behind us, so a low value stops the video covering that fill
+	// and the two composite into haze - it reads as blur, not as a press.
+	fileprivate static let lightedOpacity: Float = 0.85
+
+	/// `width` is the birth width and must arrive already clamped to the
+	/// current screen - the host resolves it (SRStatusItemView.birthWidth).
+	/// It is set once here and never re-set from the content path: resizing
+	/// after the preview layer attaches blanks the feed.
+	init(frame: NSRect, width: CGFloat) {
 		self.startViewWidth = 0
 		self.startMouseX = 0
-		// Session-only width: always start from the default, never the last run's
-		// value, so a previous session's resize has no effect on relaunch.
-		self.width = SRSettings.defaultStatusItemCameraWidth
+		self.width = width
 
 		super.init(frame: frame)
 
@@ -55,8 +67,8 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 		self.iconImageView = NSImageView(frame: CGRect(origin: CGPoint(x: 2, y: 0), size: iconImage.size))
 		self.iconImageView.wantsLayer = true
 		self.iconImageView.image = iconImage
-		// The overlay icon is only shown while hovering; start hidden so it
-		// doesn't obscure the live camera feed by default.
+		// The overlay icon is only shown while hovering with the menu closed;
+		// start hidden so it doesn't obscure the live camera feed by default.
 		self.iconImageView.alphaValue = 0.0
 		self.addSubview(self.iconImageView)
 
@@ -72,13 +84,20 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 
 		self.mouseHoverPublisher()
 			.sink { [unowned self] in
-				self.iconImageView.setVisible($0, animated: true)
+				self.hovered = $0
+				self.updateOverlayVisibility(animated: true)
 				#if USE_UNDOCUMENTED_API
 				// Hint that the camera item is drag-to-resize.
 				if $0 { self.cursor.push() } else { NSCursor.pop() }
 				#endif
 			}
 			.store(in: &self.cancellables)
+	}
+
+	/// Only for the generic content-view path; the host always uses the
+	/// width-carrying initializer above.
+	override convenience init(frame: NSRect) {
+		self.init(frame: frame, width: SRSettings.defaultStatusItemCameraWidth)
 	}
 
 	required init?(coder: NSCoder) {
@@ -107,7 +126,8 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 
 	override var lighted: Bool {
 		didSet {
-			self.cameraView.layer!.opacity = self.lighted ? 0.5 : 1.0
+			self.cameraView.layer!.opacity = self.lighted ? SRStatusItemCameraView.lightedOpacity : 1.0
+			self.updateOverlayVisibility(animated: true)
 		}
 	}
 
@@ -118,6 +138,13 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 			self.cameraView.layer!.borderColor = NSColor.systemOrange.cgColor
 			self.cameraView.layer!.borderWidth = self.postureAlert ? 2.0 : 0.0
 		}
+	}
+
+	/// The mark is a hover affordance, so it steps aside while the menu is open:
+	/// the menu already names the app, and `lighted` dims only the video, which
+	/// would otherwise leave the mark the brightest thing in the item.
+	fileprivate func updateOverlayVisibility(animated: Bool) {
+		self.iconImageView.setVisible(self.hovered && !self.lighted, animated: animated)
 	}
 
 	override var intrinsicContentSize: CGSize {
@@ -163,10 +190,10 @@ class SRStatusItemCameraView: SRStatusItemContentView, NSGestureRecognizerDelega
 				self.width = min(maxWidth, max(range.lowerBound, proposed))
 
 			case .ended, .cancelled, .failed:
-				// Session-only: the resized width is deliberately NOT persisted, so
-				// relaunching always starts fresh at the default. Dragging still
-				// resizes the item live during the current session.
-				(self.superview as? SRStatusItemView)?.logGeometry("drag-end")
+				// Remember where the user left it. Saved only at the end of a
+				// drag, not on every frame of it, so a drag is one write.
+				// Re-clamped to the screen on the next launch, not here.
+				SRSettings.sharedInstance.statusItemCameraWidth.value = self.width
 
 			@unknown default:
 				break

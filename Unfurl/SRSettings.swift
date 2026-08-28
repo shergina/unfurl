@@ -125,6 +125,10 @@ final class SRSettings {
 	let showCameraOnDockTile: Preference<Bool>
 	let showCameraPanelOnHover: Preference<Bool>
 	let cameraPanelSize: Preference<CGSize>
+	// The menu-bar camera's width, as last left by a drag. Re-clamped to the
+	// current screen when the item is born (see SRStatusItemView), so a width
+	// dragged on a wide display cannot come back oversized on a small one.
+	let statusItemCameraWidth: Preference<CGFloat>
 	// Where the panel sits: its origin as a fraction of a screen's usable
 	// area (0...1 per axis) plus the name of the screen it was last on.
 	// The fraction makes one dragged position carry to every display
@@ -318,9 +322,17 @@ final class SRSettings {
 	nonisolated static let lookingDownPitchHysteresisDegrees: CGFloat = 3
 
     static let allowedStatusItemCameraWidthRange: ClosedRange<CGFloat> = 30.0...256.0
-    // The camera's menu-bar width is session-only (never persisted): it always
-    // starts here and is only adjusted by dragging within the current session.
-    static let defaultStatusItemCameraWidth: CGFloat = 30.0
+    // What a first run gets, before the user has ever dragged the item.
+    // Afterwards the dragged width is remembered (statusItemCameraWidth).
+    static let defaultStatusItemCameraWidth: CGFloat = 35.0
+    // Floor for the camera layer's height, whatever the item's width. Two jobs:
+    // stay above the menu bar thickness so the layer always covers the item,
+    // and leave headroom (about 5pt over a 22pt bar) for the mouse pan to have
+    // range. Deliberately NOT derived from the default width - a default below
+    // ~39pt would drag this under the bar thickness and flatten the pan to
+    // nothing. Narrow items keep this height and crop the sides instead
+    // (see SRScrollCameraView.layout).
+    static let minimumStatusItemCameraHeight: CGFloat = 27.0
 
 	/// `defaults` is injectable so tests can use a scratch suite instead of
 	/// the real domain.
@@ -330,6 +342,7 @@ final class SRSettings {
 		self.showCameraOnDockTile = Preference("ShowCameraOnDockTile", default: false, defaults: defaults)
 		self.showCameraPanelOnHover = Preference("ShowCameraPanelOnHover", default: true, defaults: defaults)
 		self.cameraPanelSize = Preference("CameraPanelSize", default: CGSize(width: 300.0, height: 200.0), defaults: defaults)
+		self.statusItemCameraWidth = Preference("StatusItemCameraWidth", default: SRSettings.defaultStatusItemCameraWidth, defaults: defaults)
 		self.cameraPanelRelativePosition = Preference("CameraPanelRelativePosition", default: CGPoint.zero, defaults: defaults)
 		self.cameraPanelScreenName = Preference("CameraPanelScreenName", default: "", defaults: defaults)
 		self.cameraPanelPosition = Preference("CameraPanelPosition", default: CGPoint.zero, defaults: defaults)

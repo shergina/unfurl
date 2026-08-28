@@ -48,8 +48,6 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 	// displays, so the same formula covers both. Clamped to the absolute range.
 	private static let maxCameraWidthScreenDivisor: CGFloat = 20.0
 
-	private static let diagnosticLoggingEnabled = true
-
 	override init(frame: NSRect) {
 		self.lighted = false
 
@@ -73,7 +71,13 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 				self.preferences.showCameraOnStatusBar.publisher,
 				SRCameraService.sharedInstance.onState
 			)
-			.debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+			// Short on purpose. This is the app's one always-visible surface, and
+			// it was the last thing to attach at launch: half a second of
+			// settling here put the preview outside the session's start window,
+			// so it landed on a running stream and restarted it. Still long
+			// enough to swallow a burst of publisher updates, which is all the
+			// debounce was ever for.
+			.debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
 			.sink { [unowned self] (cameraAvailable, showCameraOnStatusBar, state) in
 				// A device that exists but cannot deliver frames is not a
 				// camera to show: denied access left the live view up as a
@@ -176,9 +180,6 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 	/// needlessly torn down and rebuilt. Width is not touched here - the camera
 	/// keeps its birth width (see the note in the body).
 	fileprivate func refreshContent(animated: Bool) {
-		self.logGeometry("refresh")
-		self.logFitStateIfNeeded()
-
 		// The camera view is created once at its (session-only) default width
 		// and never resized post-creation from here - re-setting the width
 		// after the preview layer attaches is what blanked it. Over-widening
@@ -211,7 +212,8 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 				camera.resumeCamera()
 				newContentView = camera
 			} else {
-				let camera = self.createContentViewWithClass(Class) as! SRStatusItemCameraView
+				let camera = SRStatusItemCameraView(frame: self.bounds, width: self.birthCameraWidth())
+				camera.autoresizingMask = [.width, .height]
 				self.cameraContentView = camera
 				newContentView = camera
 			}
@@ -228,6 +230,18 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		self.setContentView(newContentView, animated: animated)
 	}
 
+
+	/// The width the camera view is born at: the user's remembered width from
+	/// the last drag, clamped to what fits this screen. Clamping happens here,
+	/// before the view exists, because the birth width is the only chance to
+	/// choose it - resizing after the preview layer attaches blanks the feed.
+	/// A width dragged wide on a large display therefore comes back trimmed on
+	/// a small one instead of stretching the item under the notch.
+	func birthCameraWidth() -> CGFloat {
+		let range = SRSettings.allowedStatusItemCameraWidthRange
+		let saved = self.preferences.statusItemCameraWidth.value
+		return min(self.maximumCameraWidth(), max(range.lowerBound, saved))
+	}
 
 	/// The largest width the camera may be dragged to, scaled to the usable
 	/// display: `(screen width - notch width) / maxCameraWidthScreenDivisor`,
@@ -251,30 +265,6 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		let usableWidth = screen.frame.width - notchWidth
 		let maxWidth = usableWidth / SRStatusItemView.maxCameraWidthScreenDivisor
 		return min(range.upperBound, max(range.lowerBound, maxWidth))
-	}
-
-	/// Logs the geometry inputs behind `maximumCameraWidth` at decision points
-	/// (content refresh, drag end). TEMPORARY, alongside the hidden-state probe.
-	func logGeometry(_ context: String) {
-		guard SRStatusItemView.diagnosticLoggingEnabled else { return }
-		let notch = self.window?.screen?.auxiliaryTopRightArea?.minX
-		let rightEdge = self.window?.frame.maxX
-		NSLog("NARC-GEO[\(context)]: notchRightEdge=\(notch.map { String(Int($0)) } ?? "nil") ourRightEdge=\(rightEdge.map { String(Int($0)) } ?? "nil") maxWidth=\(Int(self.maximumCameraWidth())) default=\(Int(SRSettings.defaultStatusItemCameraWidth))")
-	}
-
-	/// TEMPORARY. Logs every candidate hidden-state signal so we can identify
-	/// which one macOS actually toggles when the item disappears. View with:
-	///   log stream --predicate 'eventMessage CONTAINS "NARC-FIT"'
-	/// or run the app from a terminal and watch stderr. Delete once resolved.
-	fileprivate func logFitStateIfNeeded() {
-		guard SRStatusItemView.diagnosticLoggingEnabled else { return }
-		let statusItem = self.statusItem
-		let button = statusItem?.button
-		let window = button?.window
-		let frame = window?.frame ?? .zero
-		let onScreen = NSScreen.screens.contains { $0.frame.intersects(frame) }
-		let cameraWidth = (self.contentView as? SRStatusItemCameraView)?.width ?? -1
-		NSLog("NARC-FIT: cameraState=\(String(describing: SRCameraService.sharedInstance.onState.value)) available=\(self.cameraAvailable) show=\(self.showCamera) statusItem.isVisible=\(statusItem?.isVisible ?? false) window=\(window != nil) window.isVisible=\(window?.isVisible ?? false) occlusionVisible=\(window?.occlusionState.contains(.visible) ?? false) frame=\(NSStringFromRect(frame)) onScreen=\(onScreen) content=\(self.contentView.map { String(describing: type(of: $0)) } ?? "nil") width=\(Int(cameraWidth))")
 	}
 
 }

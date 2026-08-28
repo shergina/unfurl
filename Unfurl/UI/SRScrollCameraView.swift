@@ -35,12 +35,20 @@ class SRScrollCameraView: SRCameraView, SRMouseWatcherListener {
 	override func layout() {
 		super.layout()
 
-		let width = self.layer!.bounds.size.width
-		let height = width / self.captureRatio
+		let viewSize = self.layer!.bounds.size
+
+		// Height leads, width follows. Fitting 16:9 to the item's width alone
+		// made the layer shorter than the item below ~39pt, which flipped the
+		// sign of the pan term and slid the whole strip up and down. The layer
+		// never gets shorter than the default height (nor than the item), so it
+		// overhangs horizontally instead and masksToBounds crops the sides.
+		let height = max(viewSize.width / self.captureRatio, viewSize.height, SRSettings.minimumStatusItemCameraHeight)
+		let width = height * self.captureRatio
 
 		CATransaction.begin()
 		CATransaction.setValue(kCFBooleanTrue, forKey: kCATransactionDisableActions)
-		self.cameraLayer.frame = CGRect(x: 0, y: 0, width: width, height: height)
+		// Centered, so the crop takes equal bites off both edges.
+		self.cameraLayer.frame = CGRect(x: (viewSize.width - width) / 2, y: 0, width: width, height: height)
 		CATransaction.commit()
 
 		self.updateCachedSizes()
@@ -63,8 +71,5 @@ class SRScrollCameraView: SRCameraView, SRMouseWatcherListener {
 		CATransaction.setValue(kCFBooleanTrue, forKey: kCATransactionDisableActions)
 		self.cameraLayer.frame = frame
 		CATransaction.commit()
-
-		// TEMPORARY scroll diagnostic.
-		NSLog("NARC-CAM[scroll]: pointY=\(point.y) layerH=\(self.layerSize?.height ?? -1) camH=\(self.cameraLayerSize?.height ?? -1) yOffset=\(yOffset) camFrame=\(NSStringFromRect(self.cameraLayer.frame))")
 	}
 }
