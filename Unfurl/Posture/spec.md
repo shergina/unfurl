@@ -514,9 +514,11 @@ Notifications page (see UI/Settings/spec.md).
   notifications design (decided 2026-07-22):
   click-through (ignoresMouseEvents), semi-transparent adaptive material,
   excluded from screen capture (sharingType none) so shared screens and
-  recordings never show it while the user still sees it (temporarily
-  relaxed to readOnly in code to stage launch screenshots; restoring it is
-  a ship blocker in LAUNCH.md, the intended behaviour is unchanged),
+  recordings never show it while the user still sees it - a posture nag has
+  no business turning up in someone's call or demo. It was briefly relaxed
+  to readOnly to stage store screenshots and restored 2026-08-28; the side
+  effect is that the note cannot be screenshotted at all, so capturing one
+  means flipping it for the capture and putting it back,
   present on all
   Spaces including fullscreen, and deliberately indifferent to Focus
   modes. The note is one of three independently

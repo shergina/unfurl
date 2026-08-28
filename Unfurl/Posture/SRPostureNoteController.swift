@@ -87,11 +87,13 @@ final class SRPostureNoteController {
 		// clicks or focus, never appears in screen captures or shares, and
 		// follows the user to every Space, fullscreen included.
 		panel.ignoresMouseEvents = true
-		// TEMPORARY - MUST BE .none BEFORE SHIPPING. Relaxed only to stage the
-		// App Store hero shot; .none is what keeps the note off shared screens
-		// and recordings (decided 2026-07-22, Posture/spec.md), and it also
-		// makes the note impossible to screenshot, which is why this exists.
-		panel.sharingType = .readOnly
+		// Keeps the note off shared screens and recordings: a posture nag has
+		// no business appearing in someone's call or demo (decided 2026-07-22,
+		// Posture/spec.md). Side effect, and the reason this was temporarily
+		// .readOnly during launch prep: it also makes the note impossible to
+		// screenshot, so capturing one for store art means flipping this back
+		// for the capture and restoring it before shipping.
+		panel.sharingType = .none
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 		panel.alphaValue = 0.0
 
