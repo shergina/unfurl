@@ -142,6 +142,59 @@ func opaqueCopy(of source: NSBitmapImageRep) -> NSBitmapImageRep {
 /// Draws `image` centered on an opaque canvas. Opaque on purpose: flattening
 /// is what turns the capture's transparent rounded corners into the canvas
 /// color rather than black, and what keeps the alpha channel out of the file.
+/// Re-pads a README capture so the *window* sits centred, not the window plus
+/// its shadow. macOS drops its window shadow downward, so a raw capture carries
+/// roughly twice as much padding below the window as above it (measured
+/// 2026-08-28: 61px above, 118px below on a 995px capture). Centring the whole
+/// capture - which is what you get by just resizing it - leaves the window
+/// visibly high in its own box, and on a README the gap under the image reads
+/// as a hole while the gap above looks normal.
+///
+/// Padding is set to whatever the visible shadow actually needs, measured at an
+/// alpha where it stops being perceptible, and then applied to both sides. That
+/// crops the shadow's invisible tail rather than its visible part: cutting
+/// closer leaves a faint hard edge where the gradient is still around 7%.
+func balancedRep(for rep: NSBitmapImageRep) -> NSBitmapImageRep {
+	let w = rep.pixelsWide, h = rep.pixelsHigh
+
+	func verticalBounds(minimumAlpha: CGFloat) -> (top: Int, bottom: Int) {
+		var top = -1, bottom = -1
+		for y in 0..<h {
+			var hit = false
+			// Every 4th column: the window spans most of the width, so this
+			// finds the same bounds for a quarter of the work.
+			for x in stride(from: 0, to: w, by: 4) {
+				if let c = rep.colorAt(x: x, y: y), c.alphaComponent > minimumAlpha { hit = true; break }
+			}
+			if hit { if top < 0 { top = y }; bottom = y }
+		}
+		return (top, bottom)
+	}
+
+	let window = verticalBounds(minimumAlpha: 0.90)
+	let visible = verticalBounds(minimumAlpha: 0.03)
+	guard window.top >= 0, visible.top >= 0 else { return rep }
+
+	let pad = max(window.top - visible.top, visible.bottom - window.bottom)
+	let newHeight = (window.bottom - window.top + 1) + 2 * pad
+	guard newHeight > 0, let out = NSBitmapImageRep(
+		bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: newHeight,
+		bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+		colorSpaceName: .deviceRGB, bytesPerRow: w * 4, bitsPerPixel: 32
+	), let context = NSGraphicsContext(bitmapImageRep: out) else { return rep }
+
+	NSGraphicsContext.saveGraphicsState()
+	NSGraphicsContext.current = context
+	NSColor.clear.setFill()
+	NSRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(newHeight)).fill()
+	// Bottom-up coords: place the window's top edge `pad` below the canvas top.
+	let y = CGFloat(newHeight - pad - h + window.top)
+	rep.draw(in: NSRect(x: 0, y: y, width: CGFloat(w), height: CGFloat(h)))
+	NSGraphicsContext.restoreGraphicsState()
+	return out
+}
+
+
 func canvasRep(for image: NSImage, size: CGSize, background: NSColor, margin: CGFloat, maxScale: CGFloat) -> NSBitmapImageRep {
 	guard let rep = NSBitmapImageRep(
 		bitmapDataPlanes: nil,
@@ -259,7 +312,7 @@ for theme in ["light", "dark"] {
 		}
 
 		let readme = "\(options.outDir)/readme/\(theme)/\(name).png"
-		write(resizedRep(for: image, toWidth: options.readmeWidth), to: readme)
+		write(balancedRep(for: resizedRep(for: image, toWidth: options.readmeWidth)), to: readme)
 		print("  readme   \(Int(options.readmeWidth))px  \(theme)/\(name).png  \(kilobytes(readme))KB")
 		readmeNames.insert(name)
 		produced += 1
