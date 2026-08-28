@@ -91,6 +91,10 @@ class SRUnfurlApplicationDelegate: NSObject, NSApplicationDelegate {
 		self.panelController = SRPanelController(services: self.services, statusItemController: statusItem)
 		self.dockTileController = SRDockTileController(services: self.services)
 
+		// Attach the panel's preview now, while the session is still cold, so
+		// the first hover does not restart the stream under the other surfaces.
+		self.panelController?.createPanelOnFirstCameraUse()
+
 		// The welcome tutorial's Locate Me points at the status item; the
 		// cross-surface wiring lives here, like the panel's.
 		self.services.menu.onLocateStatusItem = { [weak statusItem] in statusItem?.locate() }

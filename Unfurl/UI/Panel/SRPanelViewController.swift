@@ -23,4 +23,12 @@ class SRPanelViewController: NSViewController {
 		self.view = SRPanelContentView()
 	}
 
+	func suspendCamera() {
+		(self.view as? SRPanelContentView)?.suspendCamera()
+	}
+
+	func resumeCamera() {
+		(self.view as? SRPanelContentView)?.resumeCamera()
+	}
+
 }

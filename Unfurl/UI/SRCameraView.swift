@@ -58,13 +58,6 @@ class SRCameraView: NSView {
 		let attach = self.cameraService.attachPreviewLayer(self.previewLayer)
 		self.lifecycleTask = Task { try? await attach.value }
 
-		// TEMPORARY: check whether the session ever actually attaches (the layout
-		// log runs before the async attach completes).
-		DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-			guard let self else { NSLog("NARC-CAM[+3s]: view was deallocated"); return }
-			NSLog("NARC-CAM[+3s]: class=\(type(of: self)) session=\(self.previewLayer.session != nil) superlayer=\(self.previewLayer.superlayer != nil) previewFrame=\(NSStringFromRect(self.previewLayer.frame))")
-		}
-
 		// Replays the current value, so this also applies the initial flip.
 		self.preferences.flipCameraHorizontally.publisher
 			.sink { [unowned self] _ in self.applyCameraFlip() }
@@ -97,9 +90,6 @@ class SRCameraView: NSView {
 		CATransaction.commit()
 
 		self.updatePreviewLayerContentsScale()
-
-		// TEMPORARY render diagnostic.
-		NSLog("NARC-CAM[\(type(of: self))]: bounds=\(NSStringFromRect(self.bounds)) layerBounds=\(NSStringFromRect(self.layer?.bounds ?? .zero)) previewFrame=\(NSStringFromRect(self.previewLayer.frame)) session=\(self.previewLayer.session != nil) scale=\(self.previewLayer.contentsScale)")
 	}
 
 	override func viewDidChangeBackingProperties() {

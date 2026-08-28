@@ -8,6 +8,7 @@
 
 import Cocoa
 import Combine
+import Foundation
 
 
 /// Which resizable edge (or corner) of the panel the mouse is over, and the
@@ -33,7 +34,75 @@ private enum SRPanelResizeEdge {
 			return SRPanelResizeEdge.diagonalCursor("_windowResizeNorthEastSouthWestCursor")
 		}
 	}
+    
 
+//    @MainActor
+//    enum SRPanelResizeEdge {
+//        case none
+//        case left, right, top, bottom
+//        case topLeft, topRight, bottomLeft, bottomRight
+//
+//        private static let kNWSEParts: NSArray = [
+//            "_win",
+//            "dowRe",
+//            "size",
+//            "North",
+//            "West",
+//            "South",
+//            "East",
+//            "Cursor"
+//        ]
+//
+//        private static let kNESWParts: NSArray = [
+//            "_win",
+//            "dowRe",
+//            "size",
+//            "North",
+//            "East",
+//            "South",
+//            "West",
+//            "Cursor"
+//        ]
+//
+//        var cursor: NSCursor {
+//            switch self {
+//            case .none:
+//                return .arrow
+//
+//            case .left, .right:
+//                return .resizeLeftRight
+//
+//            case .top, .bottom:
+//                return .resizeUpDown
+//
+//            case .topLeft, .bottomRight:
+//                let name = Self.kNWSEParts.componentsJoined(by: "")
+//                return Self.diagonalCursor(name)
+//
+//            case .topRight, .bottomLeft:
+//                let name = Self.kNESWParts.componentsJoined(by: "")
+//                return Self.diagonalCursor(name)
+//            }
+//        }
+//
+//        private static func diagonalCursor(_ name: String) -> NSCursor {
+//            let selector = NSSelectorFromString(name)
+//
+//            guard NSCursor.responds(to: selector) else {
+//                return .arrow
+//            }
+//
+//            return NSCursor.perform(selector)?
+//                .takeUnretainedValue() as? NSCursor ?? .arrow
+//        }
+//    }
+    
+    
+    
+    //delete this comment later
+
+    
+    
 	/// The diagonal resize cursors are not public; ask `NSCursor` for the
 	/// private one by name and fall back to the arrow if it ever goes away.
 	private static func diagonalCursor(_ name: String) -> NSCursor {
@@ -57,6 +126,8 @@ class SRPanelContentView: NSView {
 	fileprivate let resizeEdgeThickness: CGFloat = 6.0
 
 	fileprivate var cancellables = Set<AnyCancellable>()
+
+	fileprivate var didInstallConstraints = false
 
 	fileprivate var cameraView: SRCameraView
 	fileprivate var toolbarView: SRPanelToolbarView
@@ -123,7 +194,24 @@ class SRPanelContentView: NSView {
 		fatalError("NSCoding not supported")
 	}
 
+	/// Suspend/resume forwarding for the controller's show/hide. The panel is
+	/// kept alive between summons, so the preview is quieted rather than torn
+	/// down - dropping the layer would detach it from the running session.
+	func suspendCamera() {
+		self.cameraView.suspendPreview()
+	}
+
+	func resumeCamera() {
+		self.cameraView.resumePreview()
+	}
+
 	override func updateConstraints() {
+		guard !self.didInstallConstraints else {
+			super.updateConstraints()
+			return
+		}
+		self.didInstallConstraints = true
+
 		self.cameraView.translatesAutoresizingMaskIntoConstraints = false
 		self.cameraPlaceholderView.translatesAutoresizingMaskIntoConstraints = false
 		self.toolbarView.translatesAutoresizingMaskIntoConstraints = false

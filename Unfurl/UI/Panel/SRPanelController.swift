@@ -22,6 +22,17 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 	let onMouseHoverPanel = CurrentValueSubject<Bool, Never>(false)
 	let onShouldShowPanel: AnyPublisher<Bool, Never>
 
+	// Hover timing, deliberately asymmetric: summoning the panel needs a real
+	// dwell, dismissing should feel prompt. The hide delay also bridges the gap
+	// while the mouse travels from the item down to the panel - neither is
+	// hovered in between.
+	fileprivate static let hoverShowDelay = DispatchQueue.SchedulerTimeType.Stride.milliseconds(800)
+	fileprivate static let hoverHideDelay = DispatchQueue.SchedulerTimeType.Stride.milliseconds(500)
+
+	/// How long a pre-warmed preview is left live before it is quieted, so it
+	/// has actually received frames rather than only being wired up.
+	fileprivate static let prewarmSettleDelay = DispatchQueue.SchedulerTimeType.Stride.milliseconds(300)
+
 	// Inits
 
 	init(services: AppServices, statusItemController: SRStatusItemController) {
@@ -38,12 +49,26 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 			.combineLatest(preferences.showCameraPanelOnHover.publisher)
 			.map { (onHover, showOnHover) in onHover && showOnHover }
 
-		let onMouseHover =
-			onMouseHoverStatusItemCombinedWithRelativePreference
+		// The hover signal before any dwell is applied - the moment the mouse
+		// arrives, not the moment we decide to show.
+		let rawHover = onMouseHoverStatusItemCombinedWithRelativePreference
 			.combineLatest(mouseHoverPanel)
 			.map { $0 || $1 }
 			.removeDuplicates()
-			.debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+			.eraseToAnyPublisher()
+
+		let onMouseHover =
+			rawHover
+			// switchToLatest cancels the pending edge when the signal flips, so
+			// a quick in-and-out never gets as far as showing the panel.
+			.map { show in
+				Just(show).delay(
+					for: show ? SRPanelController.hoverShowDelay : SRPanelController.hoverHideDelay,
+					scheduler: DispatchQueue.main
+				)
+			}
+			.switchToLatest()
+			.eraseToAnyPublisher()
 
 		// Show the panel when the camera is available OR when it has an error
 		// to explain (denied/unavailable/failed) - otherwise a denied camera
@@ -75,6 +100,38 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 			}
 			.store(in: &self.cancellables)
 
+		// Wake the preview when the mouse arrives, not when the panel appears.
+		// A suspended layer redisplays its last frame and only then catches up,
+		// so showing and resuming together opens the panel on a stale image
+		// that visibly jumps forward - the user sees themselves a second or two
+		// ago. Re-enabling costs no stream restart, so doing it at the start of
+		// the dwell is free, and by the time the panel is ordered front the
+		// frames are live.
+		//
+		// Only for a panel that already exists: building one here would attach
+		// on a hover that may never become a summon, and that attach can
+		// restart the stream under the status item. Nothing is lost - the show
+		// path builds it, and the launch pre-warm means it usually exists.
+		rawHover
+			.sink { [weak self] hovering in
+				guard let self, self.window != nil, !self.isShown() else { return }
+
+				// Only while the camera is already running. Resuming takes a
+				// claim, and a claim on an idle session starts the camera - so
+				// warming on a hover that never becomes a summon would flash
+				// the privacy light for a panel the user never opened. With the
+				// session idle there is nothing to warm anyway: the stale frame
+				// this avoids only exists because the layer was live before.
+				guard self.services.camera.onState.value.isRunning else { return }
+
+				if hovering {
+					self.viewController.resumeCamera()
+				} else {
+					self.viewController.suspendCamera()
+				}
+			}
+			.store(in: &self.cancellables)
+
 		preferences.cameraPanelGhostMode.publisher
 			.sink { [unowned self] _ in self.applyGhostMode() }
 			.store(in: &self.cancellables)
@@ -89,14 +146,33 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 		return self.window as! SRPanel
 	}
 
-	fileprivate func createPanel() {
+	/// Built once and kept for the process lifetime. Tearing the panel down on
+	/// every hide deallocated the camera view, and its deinit detaches the
+	/// preview layer from the running session - a graph mutation that stalls
+	/// frame delivery to every consumer for ~300 ms (the toggle blink; see
+	/// Tools/spec.md). That is the blink on the menu-bar item and the Dock tile
+	/// on each hover in and out. Hiding suspends the preview instead, the same
+	/// trade the status item already makes for its own camera view.
+	fileprivate func createPanelIfNeeded() {
+		guard self.window == nil else { return }
+
 		let panel = SRPanel()
+		// We order it out rather than close it, and we keep the reference, so
+		// AppKit must not release it out from under us.
+		panel.isReleasedWhenClosed = false
 		self.window = panel
+
+		// Content first, delegate second, and the order is load-bearing.
+		// Assigning a content view controller makes AppKit size the window to
+		// the content's fitting size - 90x60, the panel's minSize - which fires
+		// windowDidResize. As delegate we would record that as the user's
+		// remembered panel size, and every later summon would restore a 90x60
+		// panel. This used to be masked: the setFrame right after fired its own
+		// save that overwrote the garbage, until suppressing programmatic saves
+		// removed the overwrite and left the transient behind.
+		self.createViewController()
+
 		self.window!.delegate = self
-	}
-	
-	fileprivate func destroyPanel() {
-		self.window = nil
 	}
 	
 	// View Controller
@@ -112,14 +188,90 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 		self.panel.contentViewController = viewController
 	}
 
-	fileprivate func destroyViewController() {
-		self.panel.contentViewController = nil
-		self.onMouseHoverPanel.send(false)
+	// 
+	/// On screen, not merely constructed - the panel outlives its visibility now.
+	func isShown() -> Bool {
+		return self.window?.isVisible ?? false
 	}
 
-	// 
-	func isShown() -> Bool {
-		return self.window != nil
+	/// Build the panel and attach its preview early, then quiet it, so the
+	/// first summon resumes a suspended preview instead of attaching to a
+	/// running session and restarting the stream for every other surface.
+	///
+	/// Fires on whichever of two moments comes first, then never again.
+	func createPanelOnFirstCameraUse() {
+		// A visible camera surface is switched on. That is the moment to
+		// attach, not a moment later: the preference change lands us in the
+		// same cold start-coalescing window as the status item's own attach,
+		// so nothing restarts.
+		//
+		// This has to stay an event rather than a one-time check. Read once at
+		// launch it was wrong: the user can enable the menu-bar camera at any
+		// point afterwards, and the running-session branch below would then
+		// fire and attach to a live stream - blinking the very surface this
+		// branch exists to protect. The preference replays its current value,
+		// so an already-enabled surface still fires immediately at launch.
+		let visibleSurfaceEnabled = self.preferences.showCameraOnStatusBar.publisher
+			.combineLatest(self.preferences.showCameraOnDockTile.publisher)
+			.filter { $0 || $1 }
+			.map { _ in () }
+			.eraseToAnyPublisher()
+
+		// Nothing visible, but something else (posture tracking) is running the
+		// camera anyway. Attaching now does restart the stream, but with no
+		// preview on screen there is nothing for the restart to blink, and it
+		// buys the same free first summon. Deliberately not a preference check:
+		// posture's gate is tracking-on AND past any snooze, it lives in the
+		// composition root, and restating it here would drift. A running
+		// session is that gate's observable consequence.
+		//
+		// If the camera never runs and no surface is ever enabled, neither
+		// fires: nothing attaches, the privacy light stays off, and the first
+		// hover pays a cold start.
+		let sessionRunning = self.services.camera.onState
+			.filter { $0.isRunning }
+			.map { _ in () }
+			.eraseToAnyPublisher()
+
+		visibleSurfaceEnabled
+			.merge(with: sessionRunning)
+			.first()
+			.sink { [weak self] _ in self?.buildPanelAndReleaseWhenSettled() }
+			.store(in: &self.cancellables)
+	}
+
+	/// Builds the panel - which attaches its preview - and hands the session
+	/// claim back once the session has settled, leaving the preview wired but
+	/// quiet. Never attaches speculatively: the caller has already established
+	/// that something else is holding, or is about to hold, the camera.
+	fileprivate func buildPanelAndReleaseWhenSettled() {
+		self.createPanelIfNeeded()
+
+		// Any non-idle state will do. A denied or failed camera has nothing to
+		// keep warm either, and letting go then is what lets the session be
+		// torn down.
+		//
+		// The delay is the point, not politeness. Disabling the connection the
+		// instant the stream starts leaves a layer that has never been handed a
+		// frame, and it has nothing to draw when resumed - the panel opens grey
+		// and waits for the next frame. Measured 2026-08-27: attaching cold and
+		// releasing on the same millisecond as `.running` opened grey, while
+		// attaching to an already-running session and releasing 59 ms later
+		// opened instantly, because the layer had caught a frame and kept it.
+		// So hold the preview live long enough to receive some. The claim is
+		// held that much longer, which costs no camera runtime - something else
+		// is holding the session, or we would not have attached at all.
+		self.services.camera.onState
+			.filter { $0 != .idle }
+			.first()
+			.delay(for: Self.prewarmSettleDelay, scheduler: DispatchQueue.main)
+			.sink { [weak self] _ in
+				// The user may have summoned it in the meantime; suspending a
+				// panel that is on screen would blank the feed they asked for.
+				guard let self, !self.isShown() else { return }
+				self.viewController.suspendCamera()
+			}
+			.store(in: &self.cancellables)
 	}
 
 	// Show and Hide Panel
@@ -134,11 +286,13 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 		// fire a transient frame save that would clobber the stored values.
 		let panelFrame = self.restoredFrame(size: size) ?? self.anchoredFrame(under: view, size: size)
 
-		self.createPanel()
-		self.createViewController()
+		self.createPanelIfNeeded()
 
-		self.panel.setFrame(panelFrame, display: true, animate: false)
+		self.setFrameWithoutStoring(panelFrame)
 		self.panel.orderFront(self)
+		// After orderFront: the resume re-runs layout, which needs the real
+		// bounds and the real window backing scale to restore the preview.
+		self.viewController.resumeCamera()
 
 		self.applyGhostMode()
 	}
@@ -238,9 +392,27 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 	func hidePanel() {
 		self.removeGhostMouseMonitors()
 		self.ghostHovered = false
-		self.close()
-		self.destroyViewController()
-		self.destroyPanel()
+
+		guard self.window != nil else { return }
+
+		self.panel.orderOut(self)
+		self.viewController.suspendCamera()
+
+		// Destroying the view controller used to reset this. A hidden window's
+		// tracking area cannot report the mouse leaving, so without clearing it
+		// here the latch stays true, `onShouldShowPanel` stays true, and the
+		// panel never hides again.
+		self.onMouseHoverPanel.send(false)
+	}
+
+	/// Repositioning is ours, not the user's, so it must not be written back as
+	/// a remembered position. The window is kept now, so a programmatic
+	/// setFrame on a panel that already has a screen would otherwise look
+	/// exactly like a drag.
+	fileprivate func setFrameWithoutStoring(_ frame: CGRect) {
+		self.isPositioningProgrammatically = true
+		defer { self.isPositioningProgrammatically = false }
+		self.panel.setFrame(frame, display: true, animate: false)
 	}
 
 	//: Ghost mode
@@ -250,6 +422,8 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 	// stays visible and clickable. Because the window ignores mouse events,
 	// its tracking areas never fire — hover is detected with global/local
 	// mouse-moved monitors instead.
+
+	fileprivate var isPositioningProgrammatically = false
 
 	fileprivate var ghostMouseMonitors: [Any] = []
 	fileprivate var ghostHovered = false
@@ -330,6 +504,9 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 	}
 
 	func storeWindowPosition() {
+		// Our own repositioning on summon is not a user placement.
+		guard !self.isPositioningProgrammatically else { return }
+
 		// No screen (window mid-transition or off-screen): keep the last
 		// saved place rather than recording garbage.
 		guard let window = self.window, let screen = window.screen else {
