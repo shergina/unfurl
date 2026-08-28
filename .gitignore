@@ -18,3 +18,8 @@ DerivedData/
 # working tree, and keeping them out of git keeps the repo front page clean.
 /AGENTS.md
 /CLAUDE.md
+
+# The launch checklist is private working notes - ship blockers, account and
+# support details. On disk only, and scrubbed from history before the repo
+# went public.
+/LAUNCH.md
