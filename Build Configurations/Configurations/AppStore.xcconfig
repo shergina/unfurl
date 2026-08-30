@@ -7,8 +7,8 @@
 //
 
 
-// Code Signing
-CODE_SIGN_IDENTITY = 3rd Party Mac Developer Application: Maria Shergina (HC3925CA22)
+// Code Signing comes from Shared.xcconfig. The distribution identity is
+// selected in Organizer at export time, not pinned here.
 
 // Other
 ENABLE_NS_ASSERTIONS = NO

@@ -465,7 +465,7 @@
 				TargetAttributes = {
 					59E0B4FD1AEE9BA30053075E = {
 						CreatedOnToolsVersion = 6.3;
-						DevelopmentTeam = HC3925CA22;
+						DevelopmentTeam = 3LT8HAT8P5;
 						LastSwiftMigration = 0830;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
@@ -606,7 +606,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 59EDE47B1BD61F4600F082B1 /* Unfurl-Release.xcconfig */;
 			buildSettings = {
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				SWIFT_VERSION = 6.0;
 			};

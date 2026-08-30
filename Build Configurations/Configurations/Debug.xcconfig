@@ -7,12 +7,8 @@
 //
 
 
-// Code Signing. A real cert (a free personal team is enough) keeps the signature
-// stable across rebuilds, so macOS remembers the camera grant. Change the team if
-// Xcode > Settings > Accounts shows a different one.
-CODE_SIGN_IDENTITY = Apple Development
-CODE_SIGN_STYLE = Automatic
-DEVELOPMENT_TEAM = 3LT8HAT8P5
+// Code Signing. A real cert keeps the signature stable across rebuilds, so macOS
+// remembers the camera grant. Team, style and identity come from Shared.xcconfig.
 
 // Other
 ONLY_ACTIVE_ARCH = YES

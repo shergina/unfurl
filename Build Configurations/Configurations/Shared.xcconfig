@@ -7,6 +7,16 @@
 //
 
 
+// Code Signing. The team id lives here and nowhere else, so Debug, Release and
+// AppStore cannot drift apart. Identity names below are deliberately unsuffixed;
+// Xcode resolves them against this team.
+DEVELOPMENT_TEAM = 3LT8HAT8P5
+CODE_SIGN_STYLE = Automatic
+// Automatic signing picks the real identity itself: Apple Development to build,
+// and the distribution cert when Organizer exports. Naming a distribution
+// identity here instead is what broke the first archive (2026-08-29).
+CODE_SIGN_IDENTITY = Apple Development
+
 // Target level
 COMBINE_HIDPI_IMAGES = YES
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
