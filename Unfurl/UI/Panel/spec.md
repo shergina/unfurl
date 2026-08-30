@@ -24,7 +24,7 @@
 
 - **Responsibilities**:
   - `SRPanelController`: decide when to show/hide; place the panel; persist frame; own ghost mode (click-through translucency).
-  - `SRPanelContentView`: stack the camera view, placeholder, and chip; reveal the chip on hover over a live feed; hide the camera view when not running so the placeholder is interactive; hint that the panel is resizable by setting the matching resize cursor near each edge and corner.
+  - `SRPanelContentView`: stack the camera view, placeholder, and chip; reveal the chip on hover over a live feed; hide the camera view when not running so the placeholder is interactive; hint that the panel is resizable by setting the matching resize cursor near each edge and corner (inert as shipped: see the design decision, the cursor needs a private call the app no longer makes).
   - `SRPanelToolbarView`: the chip buttons (close, pin, photo, ghost, mirror, menu) as SF Symbols, with active toggles accent-tinted.
   - `SRCameraPlaceholerView`: the logo is a template image tinted to `labelColor` at 10 percent opacity (2026-08-24). The view's material is `underWindowBackground`, which is light in light mode and dark in dark, so the previous literal-black artwork disappeared against the dark appearance; tinting makes it adapt. Show the app logo plus a per-state message, and an "Open System Settings" action when access is denied. Logo, message, and button center as one block (2026-08-14, was logo-at-center with the text hanging below - bottom-heavy); with the message hidden the block collapses to the bare logo, which keeps the watermark-behind-video role at dead center.
 - **Owned invariants** (must always hold):
@@ -120,7 +120,8 @@
   - Chosen: add both areas once in `init` and do not override `updateTrackingAreas()`. A view must remove only tracking areas it owns.
 - **Decision**: hint resizability with a cursor the app sets itself.
   - Context: `.resizable` performs the resize, but a non-key background panel gets no automatic resize cursor, so the affordance was invisible. macOS ignores a background agent's cursor changes unless `SetsCursorInBackground` is enabled (the same private CoreGraphics call the status item uses, factored into `SRBackgroundCursor`, gated on `USE_UNDOCUMENTED_API`).
-  - Chosen: an `.activeAlways` tracking area sets the matching edge/corner resize cursor near the border (the content view fills the panel, so its outer points overlap the resize border); diagonal cursors come from the private `NSCursor` selectors with an arrow fallback. With the flag off, the resize still works, just without the cursor hint.
+  - Chosen: an `.activeAlways` tracking area sets the matching edge/corner resize cursor near the border (the content view fills the panel, so its outer points overlap the resize border); the diagonal corners need private `NSCursor` selectors, so they are gated on `USE_UNDOCUMENTED_API` too and fall back to the arrow.
+  - As shipped (2026-08-29): the flag is undefined, so the background-cursor call is never made and macOS ignores every cursor the panel sets - the edge cursors included, public though they are. The tracking areas and the cursor code remain, inert, behind one switch. Resizing works throughout; only the hint is missing.
 - **Decision**: hide the camera view when not running.
   - Context: an always-present transparent camera view sat above the placeholder and ate the "Open System Settings" click.
   - Chosen: gate `cameraView.isHidden` on `cameraState.isRunning`.

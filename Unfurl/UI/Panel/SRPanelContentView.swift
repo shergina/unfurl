@@ -29,80 +29,21 @@ private enum SRPanelResizeEdge {
 		case .top, .bottom:
 			return .resizeUpDown
 		case .topLeft, .bottomRight:
+			#if USE_UNDOCUMENTED_API
 			return SRPanelResizeEdge.diagonalCursor("_windowResizeNorthWestSouthEastCursor")
+			#else
+			return .arrow
+			#endif
 		case .topRight, .bottomLeft:
+			#if USE_UNDOCUMENTED_API
 			return SRPanelResizeEdge.diagonalCursor("_windowResizeNorthEastSouthWestCursor")
+			#else
+			return .arrow
+			#endif
 		}
 	}
-    
 
-//    @MainActor
-//    enum SRPanelResizeEdge {
-//        case none
-//        case left, right, top, bottom
-//        case topLeft, topRight, bottomLeft, bottomRight
-//
-//        private static let kNWSEParts: NSArray = [
-//            "_win",
-//            "dowRe",
-//            "size",
-//            "North",
-//            "West",
-//            "South",
-//            "East",
-//            "Cursor"
-//        ]
-//
-//        private static let kNESWParts: NSArray = [
-//            "_win",
-//            "dowRe",
-//            "size",
-//            "North",
-//            "East",
-//            "South",
-//            "West",
-//            "Cursor"
-//        ]
-//
-//        var cursor: NSCursor {
-//            switch self {
-//            case .none:
-//                return .arrow
-//
-//            case .left, .right:
-//                return .resizeLeftRight
-//
-//            case .top, .bottom:
-//                return .resizeUpDown
-//
-//            case .topLeft, .bottomRight:
-//                let name = Self.kNWSEParts.componentsJoined(by: "")
-//                return Self.diagonalCursor(name)
-//
-//            case .topRight, .bottomLeft:
-//                let name = Self.kNESWParts.componentsJoined(by: "")
-//                return Self.diagonalCursor(name)
-//            }
-//        }
-//
-//        private static func diagonalCursor(_ name: String) -> NSCursor {
-//            let selector = NSSelectorFromString(name)
-//
-//            guard NSCursor.responds(to: selector) else {
-//                return .arrow
-//            }
-//
-//            return NSCursor.perform(selector)?
-//                .takeUnretainedValue() as? NSCursor ?? .arrow
-//        }
-//    }
-    
-    
-    
-    //delete this comment later
-
-    
-    
+	#if USE_UNDOCUMENTED_API
 	/// The diagonal resize cursors are not public; ask `NSCursor` for the
 	/// private one by name and fall back to the arrow if it ever goes away.
 	private static func diagonalCursor(_ name: String) -> NSCursor {
@@ -113,6 +54,7 @@ private enum SRPanelResizeEdge {
 		}
 		return .arrow
 	}
+	#endif
 }
 
 

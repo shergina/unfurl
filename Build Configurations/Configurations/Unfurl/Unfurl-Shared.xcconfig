@@ -13,7 +13,10 @@ PRODUCT_BUNDLE_IDENTIFIER = com.shergina.unfurl
 PRODUCT_NAME = Unfurl
 CODE_SIGN_ENTITLEMENTS = Unfurl/Unfurl.entitlements
 
-// Single switch for every deliberate undocumented / private API use (see
-// SRStatusItemCameraView). Defined for all configurations, App Store
-// included. Remove it here to compile out all such usage in one move.
-SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) USE_UNDOCUMENTED_API
+// USE_UNDOCUMENTED_API is deliberately NOT defined (2026-08-29). It gates every
+// private API in the tree: the background-cursor CoreGraphics SPI behind the
+// menu bar camera's resize cursor, and the panel's private NSCursor selectors
+// for the diagonal resize corners. Dropped before App Store submission - both
+// were hover affordances, and the Settings tip now documents drag-to-resize.
+// Every #if USE_UNDOCUMENTED_API block compiles out.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited)

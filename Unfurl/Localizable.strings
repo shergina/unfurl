@@ -93,7 +93,7 @@
 // Names the info button for VoiceOver and its tooltip; the symbol alone
 // says nothing about which control it belongs to.
 "settings.general.status-bar-tip.accessibility" = "About the menu bar camera";
-"settings.general.status-bar-tip.body" = "On a crowded menu bar, ⌘-drag the camera to the right, toward the clock. macOS hides the leftmost items first.";
+"settings.general.status-bar-tip.body" = "Drag the camera to resize it.\n\nOn a crowded menu bar, ⌘-drag it toward the clock instead. macOS hides the leftmost items first.";
 "settings.general.prefer-external-camera" = "Prefer External Display Camera";
 "settings.general.launch-at-login" = "Open at Login";
 // One row per connected camera. Naming each camera is what teaches that a
