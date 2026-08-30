@@ -9,6 +9,12 @@ features: a live preview in the menu bar, a floating panel, and the Dock
 tile. It has no main window: it is a background agent whose UI is always
 available and never in the way.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/posture-note.png">
+  <img src="docs/screenshots/light/posture-note.png" width="700"
+       alt="A note in the top-right corner of the screen reading 'Sit up straight' and 'Lower your right shoulder', over a document window. In the menu bar above it, the live camera item is lit orange because a posture issue is being voiced.">
+</picture>
+
 ## Posture coach
 
 - A first-run Welcome window walks you through setup and calibration.
@@ -22,6 +28,18 @@ available and never in the way.
   days, and shows week-by-week trends.
 - A Settings window covers general behavior, posture strictness, and
   notification preferences.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/calibration.png">
+  <img src="docs/screenshots/light/calibration.png" width="500"
+       alt="The calibration window for the FaceTime HD camera, showing a live view of the user with the instruction 'Turn your head to look at the middle of your screen' and the hint 'Best posture, hands on your keyboard', above a Begin button.">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/statistics-day.png">
+  <img src="docs/screenshots/light/statistics-day.png" width="700"
+       alt="The Statistics window on its Day tab: a strip of dates with August 13 selected, 7 hours 1 minute tracked, and hourly bars from 7 AM to 5 PM in two series, slouching and uneven shoulders. A tooltip over the 10 to 11 AM bar reads 38 minutes 29 seconds tracked, slouching 7 minutes 40 seconds, left shoulder high 16 seconds, right shoulder high 51 seconds.">
+</picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/statistics-trends.png">
