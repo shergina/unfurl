@@ -13,6 +13,8 @@ import Combine
 private extension NSView {
 	func setVisible(_ visible: Bool, animated: Bool) {
 		let target: CGFloat = visible ? 1.0 : 0.0
+		// Reduce Motion: land on the end state rather than fading to it.
+		let animated = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 		if animated {
 			NSAnimationContext.runAnimationGroup({ ctx in
 				ctx.duration = 0.2

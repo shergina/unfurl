@@ -149,7 +149,9 @@ class SRStatusItemView: NSView, NSGestureRecognizerDelegate {
 		self.updateStatusItemLength(newContentView.intrinsicContentSize.width)
 
 		NSAnimationContext.runAnimationGroup({ (context: NSAnimationContext) in
-			context.duration = animated ? 0.25 : 0.0
+			// Reduce Motion collapses the cross-fade to an instant swap.
+			let fade = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+			context.duration = fade ? 0.25 : 0.0
 			oldContentView?.animator().alphaValue = 0.0
 			newContentView.animator().alphaValue = 1.0
 		}, completionHandler: {

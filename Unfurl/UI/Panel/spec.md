@@ -79,6 +79,7 @@
 - Clicking the panel never changes the active app; the panel follows across Spaces and does not appear in the window cycler.
 - Pin/ghost/mirror toggles reflect and drive their preferences; the chip's tint tracks them live.
 - The placeholder message matches the camera state (denied, unavailable, failed); only denied offers the settings action.
+- Every fade honors Reduce Motion (2026-08-29): with the system setting on, the ghost-alpha change and the toolbar's compact-mode fade apply their end alpha at once instead of animating. The animated paths already had a non-animated branch, so the setting simply forces it.
 
 ### Non-functional requirements
 

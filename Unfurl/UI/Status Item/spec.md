@@ -72,6 +72,7 @@
 - The item is present for the process lifetime and removed on termination.
 - Clicking opens the menu in every content mode, with either mouse button; the item lights while the menu is open.
 - The camera view scrolls with mouse position and can be resized by dragging.
+- Every fade honors Reduce Motion (2026-08-29): with the system setting on, the hover overlay appears and disappears at once and the content cross-fade collapses to an instant swap, rather than animating.
 
 ### Non-functional requirements
 

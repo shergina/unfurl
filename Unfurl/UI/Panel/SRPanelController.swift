@@ -443,7 +443,11 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 			self.removeGhostMouseMonitors()
 			self.ghostHovered = false
 			self.panel.ignoresMouseEvents = false
-			self.panel.animator().alphaValue = 1.0
+			if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+				self.panel.alphaValue = 1.0
+			} else {
+				self.panel.animator().alphaValue = 1.0
+			}
 		}
 	}
 
@@ -483,6 +487,8 @@ class SRPanelController: NSWindowController, NSWindowDelegate {
 
 	fileprivate func updateGhostAlpha(animated: Bool) {
 		let alpha = self.ghostHovered ? Self.ghostHoverAlpha : Self.ghostIdleAlpha
+		// Reduce Motion: apply the end alpha at once.
+		let animated = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 		if animated {
 			NSAnimationContext.runAnimationGroup { context in
 				context.duration = 0.2

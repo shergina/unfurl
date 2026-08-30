@@ -144,6 +144,8 @@ class SRPanelToolbarView: NSVisualEffectView {
 
 	func setCompactMode(_ compactMode: Bool, animated: Bool) {
 		let alpha: CGFloat = compactMode ? 0.0 : 1.0
+		// Reduce Motion: apply the end alpha at once.
+		let animated = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 		if animated {
 			NSAnimationContext.runAnimationGroup { context in
 				context.duration = 0.2
