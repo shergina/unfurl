@@ -341,7 +341,7 @@ final class SRSettings {
 		self.showCameraOnStatusBar = Preference("ShowCameraOnStatusBar", default: true, defaults: defaults)
 		self.showCameraOnDockTile = Preference("ShowCameraOnDockTile", default: false, defaults: defaults)
 		self.showCameraPanelOnHover = Preference("ShowCameraPanelOnHover", default: true, defaults: defaults)
-		self.cameraPanelSize = Preference("CameraPanelSize", default: CGSize(width: 300.0, height: 200.0), defaults: defaults)
+		self.cameraPanelSize = Preference("CameraPanelSize", default: CGSize(width: 600.0, height: 400.0), defaults: defaults)
 		self.statusItemCameraWidth = Preference("StatusItemCameraWidth", default: SRSettings.defaultStatusItemCameraWidth, defaults: defaults)
 		self.cameraPanelRelativePosition = Preference("CameraPanelRelativePosition", default: CGPoint.zero, defaults: defaults)
 		self.cameraPanelScreenName = Preference("CameraPanelScreenName", default: "", defaults: defaults)
