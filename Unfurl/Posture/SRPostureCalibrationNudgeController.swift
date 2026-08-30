@@ -28,7 +28,7 @@ final class SRPostureCalibrationNudgeController: NSObject, UNUserNotificationCen
 	fileprivate nonisolated static let identifierPrefix = "posture-calibration-nudge."
 	fileprivate nonisolated static let deviceIDKey = "deviceID"
 
-	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.unfurl", category: "Posture")
+	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergina.unfurl", category: "Posture")
 
 	/// What calibrating a blocked camera would buy, which is what the nudge
 	/// has to say. Decided by whether tracking is producing anything right

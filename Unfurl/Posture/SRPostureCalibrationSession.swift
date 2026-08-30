@@ -72,7 +72,7 @@ final class SRPostureCalibrationSession {
 	/// Calibration outcomes are tuning telemetry (the span floor and the
 	/// depth ladder are tuned from these lines), same category as the
 	/// probe's per-window log.
-	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.unfurl", category: "Posture")
+	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergina.unfurl", category: "Posture")
 
 	let onPhase = CurrentValueSubject<Phase, Never>(.positioning(guidance: .notVisible, failure: nil))
 

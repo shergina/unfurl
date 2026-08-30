@@ -48,7 +48,7 @@ final class SRPostureHistoryService {
 	/// Unsaved counts flush to disk at most this often (plus at quit).
 	fileprivate nonisolated static let flushInterval: TimeInterval = 60
 
-	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.unfurl", category: "PostureHistory")
+	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergina.unfurl", category: "PostureHistory")
 
 	/// Fires whenever the counts change: once per recorded sample, and
 	/// once when the loaded file merges in. Consumers throttle to their

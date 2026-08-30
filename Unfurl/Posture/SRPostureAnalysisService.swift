@@ -338,7 +338,7 @@ final class SRPostureAnalysisService: NSObject, AVCaptureVideoDataOutputSampleBu
 	/// is not reallocated every time the smoothed head box breathes.
 	fileprivate nonisolated static let canvasQuantum = 128
 
-	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergin.unfurl", category: "Posture")
+	fileprivate nonisolated static let logger = Logger(subsystem: "com.shergina.unfurl", category: "Posture")
 
 	/// Joints at or below this Vision confidence (0...1) are treated as not
 	/// seen; a "not visible" line is logged instead of a noise measurement.

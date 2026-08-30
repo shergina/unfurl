@@ -397,9 +397,9 @@ Notifications page (see UI/Settings/spec.md).
   degrees, at default ~8.5 - with the stored value cleared again. The
   ladder has now been loosened four times and never tightened, which is
   a standing hint that the tilt metric reads high on real shoulders.)
-- Output goes to the unified log: subsystem com.shergin.unfurl, category
+- Output goes to the unified log: subsystem com.shergina.unfurl, category
   Posture. Watch it with:
-      log stream --predicate 'subsystem == "com.shergin.unfurl"'
+      log stream --predicate 'subsystem == "com.shergina.unfurl"'
   or via the Xcode console when running from Xcode.
 - Failures are logged, never silent (the log is this feature's user-facing
   surface, so "never blank-frame a failure" applies to it). A pipeline with
