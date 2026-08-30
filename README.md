@@ -9,12 +9,6 @@ features: a live preview in the menu bar, a floating panel, and the Dock
 tile. It has no main window: it is a background agent whose UI is always
 available and never in the way.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/posture-note.png">
-  <img src="docs/screenshots/light/posture-note.png" width="700"
-       alt="A note in the top-right corner of the screen reading 'Sit up straight' and 'Lower your right shoulder', over a document window. In the menu bar above it, the live camera item is lit orange because a posture issue is being voiced.">
-</picture>
-
 ## Posture coach
 
 - A first-run Welcome window walks you through setup and calibration.
